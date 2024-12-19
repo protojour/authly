@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "crates/authly",
+    "crates/authly-pdp",
+    "crates/authly-pip",
+    "crates/authly-policy",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Protojour dev team <devs@protojour.com>"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://gitlab.com/protojour/memoriam/domain-engine"
+rust-version = "1.83"
