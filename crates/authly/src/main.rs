@@ -1,6 +1,4 @@
-use std::env;
-
-use authly::{run_authly, test_node_config};
+use authly::{run_authly, AuthlyConfig};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -11,8 +9,6 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from("info"))
         .init();
 
-    let data_dir = env::var("AUTHLY_DATA_DIR").unwrap_or_else(|_| "/var/lib/authly".to_string());
-    let node_config = test_node_config(&data_dir);
-
-    run_authly(node_config).await
+    let config = AuthlyConfig::load();
+    run_authly(config).await
 }

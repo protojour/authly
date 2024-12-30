@@ -16,14 +16,19 @@ argon2 = "0.5"
 axum = { version = "0.7", features = ["macros"] }
 axum-extra = { version = "0.9", features = ["cookie"] }
 bit-set = "0.8"
+figment = { version = "0.10", features = ["env"] }
 hex = "0.4"
 hiqlite = { version = "0.3", default-features = false, features = ["sqlite", "auto-heal"] }
 postcard = { version = "1", default-features = false, features = ["use-std"] }
 rand = "0.8"
 rust-embed = "8"
+rustls = "0.23"
+rustls-pemfile = "2"
 serde = "1"
 time = { version = "0.3", features = ["serde"] }
 tokio = { version = "1", features = ["macros", "rt"] }
+tokio-util = "0.7"
+tower-server = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
     "env-filter",

@@ -1,10 +1,16 @@
+use std::{fs::File, io::BufReader, sync::Arc};
+
+use anyhow::Context;
 use axum::{routing::post, Router};
-use hiqlite::Row;
+pub use config::AuthlyConfig;
+use hiqlite::{Row, ServerTlsConfig};
 use rand::Rng;
+use tower_server::{Scheme, TlsConfigFactory};
 use tracing::info;
 use user::{try_register_user, user_count};
 
 mod auth;
+mod config;
 mod user;
 
 #[derive(rust_embed::Embed)]
@@ -34,7 +40,8 @@ struct AuthlyCtx {
     db: hiqlite::Client,
 }
 
-pub async fn run_authly(node_config: hiqlite::NodeConfig) -> anyhow::Result<()> {
+pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
+    let node_config = hiqlite_node_config(&config);
     let db = hiqlite::start_node(node_config).await?;
 
     db.migrate::<Migrations>().await.map_err(|err| {
@@ -62,13 +69,42 @@ pub async fn run_authly(node_config: hiqlite::NodeConfig) -> anyhow::Result<()> 
         .route("/auth/authenticate", post(auth::authenticate))
         .with_state(ctx);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8888").await.unwrap();
-    axum::serve(listener, app).await?;
+    let server = tower_server::Server::bind(
+        tower_server::ServerConfig::new("0.0.0.0:8443".parse()?)
+            .with_scheme(Scheme::Https)
+            .with_tls_config(authly_rustls(&config)?),
+    )
+    .await?;
+
+    tokio::spawn(server.serve(app));
 
     Ok(())
 }
 
-pub fn test_node_config(data_dir: &str) -> hiqlite::NodeConfig {
+fn authly_rustls(config: &AuthlyConfig) -> anyhow::Result<TlsConfigFactory> {
+    let certs = rustls_pemfile::certs(&mut BufReader::new(
+        &mut File::open(&config.cert_file).context("TLS cert file not found")?,
+    ))
+    .collect::<Result<Vec<_>, _>>()
+    .context("invalid cert file")?;
+
+    let private_key = rustls_pemfile::private_key(&mut BufReader::new(
+        &mut File::open(&config.key_file).context("TLS private key not found")?,
+    ))
+    .context("invalid TLS private key")?
+    .unwrap();
+
+    let mut config = rustls::server::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, private_key)?;
+
+    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
+    let config = Arc::new(config);
+
+    Ok(Arc::new(move || config.clone()))
+}
+
+fn hiqlite_node_config(config: &AuthlyConfig) -> hiqlite::NodeConfig {
     hiqlite::NodeConfig {
         node_id: 1,
         nodes: vec![hiqlite::Node {
@@ -76,7 +112,7 @@ pub fn test_node_config(data_dir: &str) -> hiqlite::NodeConfig {
             addr_api: "127.0.0.1:8101".to_string(),
             addr_raft: "127.0.0.1:8102".to_string(),
         }],
-        data_dir: data_dir.to_string().into(),
+        data_dir: config.data_dir.to_str().unwrap().to_string().into(),
         filename_db: "authly.db".into(),
         log_statements: false,
         prepared_statement_cache_capacity: 1024,
@@ -103,17 +139,17 @@ pub fn test_node_config(data_dir: &str) -> hiqlite::NodeConfig {
                 ..Default::default()
             }
         },
-        tls_raft: None,
-        tls_api: None,
-        secret_raft: "superultramegasecret1".to_string(),
-        secret_api: "superultramegasecret2".to_string(),
+        tls_raft: Some(ServerTlsConfig {
+            key: config.key_file.to_str().unwrap().to_string().into(),
+            cert: config.cert_file.to_str().unwrap().to_string().into(),
+            danger_tls_no_verify: true,
+        }),
+        tls_api: Some(ServerTlsConfig {
+            key: config.key_file.to_str().unwrap().to_string().into(),
+            cert: config.cert_file.to_str().unwrap().to_string().into(),
+            danger_tls_no_verify: true,
+        }),
+        secret_raft: config.raft_secret.clone(),
+        secret_api: config.api_secret.clone(),
     }
-}
-
-#[tokio::test]
-async fn test_hiqlite() {
-    let node_config = test_node_config(".data");
-    let client = hiqlite::start_node(node_config).await.unwrap();
-
-    client.migrate::<Migrations>().await.unwrap();
 }
