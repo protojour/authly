@@ -6,7 +6,7 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AuthlyConfig {
     pub data_dir: PathBuf,
 

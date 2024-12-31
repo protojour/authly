@@ -5,8 +5,9 @@ use axum::{routing::post, Router};
 pub use config::AuthlyConfig;
 use hiqlite::{Row, ServerTlsConfig};
 use rand::Rng;
+use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
-use tracing::info;
+use tracing::{debug, info};
 use user::{try_register_user, user_count};
 
 mod auth;
@@ -41,6 +42,9 @@ struct AuthlyCtx {
 }
 
 pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
+    let cancel = termination_signal();
+    let rustls = authly_rustls(&config)?;
+
     let node_config = hiqlite_node_config(&config);
     let db = hiqlite::start_node(node_config).await?;
 
@@ -52,36 +56,44 @@ pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
     let ctx = AuthlyCtx { db };
 
     // test environment setup
-    {
-        let register_result =
-            try_register_user("testuser".to_string(), "secret".to_string(), ctx.clone()).await;
-
-        if let Err(err) = register_result {
-            info!(?err, "failed to register user");
-        }
-
-        let user_count = user_count(ctx.clone()).await?;
-
-        info!("There are {user_count} users");
-    }
+    test_init_data(&ctx).await?;
 
     let app = Router::new()
         .route("/auth/authenticate", post(auth::authenticate))
         .with_state(ctx);
 
     let server = tower_server::Server::bind(
-        tower_server::ServerConfig::new("0.0.0.0:8443".parse()?)
+        tower_server::ServerConfig::new("0.0.0.0:10443".parse()?)
             .with_scheme(Scheme::Https)
-            .with_tls_config(authly_rustls(&config)?),
+            .with_tls_config(rustls)
+            .with_cancellation_token(cancel.clone()),
     )
     .await?;
 
     tokio::spawn(server.serve(app));
 
+    cancel.cancelled().await;
+
+    Ok(())
+}
+
+async fn test_init_data(ctx: &AuthlyCtx) -> anyhow::Result<()> {
+    let register_result =
+        try_register_user("testuser".to_string(), "secret".to_string(), ctx.clone()).await;
+
+    if let Err(err) = register_result {
+        debug!(?err, "failed to register user");
+    }
+
+    let user_count = user_count(ctx.clone()).await?;
+
+    info!("There are {user_count} users");
     Ok(())
 }
 
 fn authly_rustls(config: &AuthlyConfig) -> anyhow::Result<TlsConfigFactory> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     let certs = rustls_pemfile::certs(&mut BufReader::new(
         &mut File::open(&config.cert_file).context("TLS cert file not found")?,
     ))
@@ -109,8 +121,8 @@ fn hiqlite_node_config(config: &AuthlyConfig) -> hiqlite::NodeConfig {
         node_id: 1,
         nodes: vec![hiqlite::Node {
             id: 1,
-            addr_api: "127.0.0.1:8101".to_string(),
-            addr_raft: "127.0.0.1:8102".to_string(),
+            addr_api: "127.0.0.1:10444".to_string(),
+            addr_raft: "127.0.0.1:10445".to_string(),
         }],
         data_dir: config.data_dir.to_str().unwrap().to_string().into(),
         filename_db: "authly.db".into(),
@@ -152,4 +164,29 @@ fn hiqlite_node_config(config: &AuthlyConfig) -> hiqlite::NodeConfig {
         secret_raft: config.raft_secret.clone(),
         secret_api: config.api_secret.clone(),
     }
+}
+
+fn termination_signal() -> CancellationToken {
+    let cancel = CancellationToken::new();
+    tokio::spawn({
+        let cancel = cancel.clone();
+        async move {
+            let terminate = async {
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("failed to install signal handler")
+                    .recv()
+                    .await;
+            };
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {
+                    cancel.cancel();
+                }
+                _ = terminate => {
+                    cancel.cancel();
+                }
+            }
+        }
+    });
+
+    cancel
 }
