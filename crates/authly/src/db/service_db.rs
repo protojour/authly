@@ -57,12 +57,12 @@ pub async fn store_service(ctx: &AuthlyCtx, svc_eid: EID, svc_def: SvcDef) -> an
     let _ = ctx
         .db
         .execute(
-            "INSERT INTO svc (eid, name) VALUES ($1, $2)",
+            "INSERT INTO svc (eid, name) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             params!(svc_eid.as_param(), svc_def.name),
         )
-        .await;
+        .await?;
 
-    let _ = entity_db::try_insert_entity_credentials(svc_eid, None, svc_def.secret, ctx).await;
+    entity_db::try_insert_entity_credentials(svc_eid, None, svc_def.secret, ctx).await?;
 
     // entity props
     for eprop in svc_def.entity_props {
@@ -78,12 +78,12 @@ pub async fn store_service(ctx: &AuthlyCtx, svc_eid: EID, svc_def: SvcDef) -> an
         info!("eprop `{}` id={:?}", eprop.name, eprop_id);
 
         for tag_name in eprop.tags {
-            let _ = ctx.db
+            ctx.db
                 .execute(
                     "INSERT INTO svc_etag (id, prop_id, name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
                     params!(EID::random().as_param(), eprop_id.as_param(), tag_name),
                 )
-                .await;
+                .await?;
         }
     }
 
@@ -101,12 +101,12 @@ pub async fn store_service(ctx: &AuthlyCtx, svc_eid: EID, svc_def: SvcDef) -> an
         info!("rprop `{}` id={:?}", rprop.name, rprop_id);
 
         for tag_name in rprop.tags {
-            let _ = ctx.db
+            ctx.db
                 .execute(
                     "INSERT INTO svc_rtag (id, prop_id, name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
                     params!(EID::random().as_param(), rprop_id.as_param(), tag_name),
                 )
-                .await;
+                .await?;
         }
     }
 

@@ -29,7 +29,7 @@ pub async fn try_insert_entity_credentials(
 
     ctx.db
         .execute(
-            "INSERT INTO entity_credential (eid, ident, secret_hash) VALUES ($1, $2, $3)",
+            "INSERT INTO entity_credential (eid, ident, secret_hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET ident = $2, secret_hash = $3",
             params!(eid.as_param(), ident, secret_hash),
         )
         .await?;
