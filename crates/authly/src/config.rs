@@ -20,7 +20,7 @@ pub struct AuthlyConfig {
 impl AuthlyConfig {
     pub fn load() -> Self {
         Figment::from(Serialized::defaults(Self::default()))
-            .merge(Env::prefixed("AUTHLY"))
+            .merge(Env::prefixed("AUTHLY_"))
             .extract()
             .unwrap()
     }
