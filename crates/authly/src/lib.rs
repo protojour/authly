@@ -7,11 +7,10 @@ use hiqlite::{Row, ServerTlsConfig};
 use rand::Rng;
 use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
-use tracing::{debug, info};
-use user::{try_register_user, user_count};
 
 mod auth;
 mod config;
+mod testdata;
 mod user;
 
 #[derive(rust_embed::Embed)]
@@ -56,7 +55,7 @@ pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
     let ctx = AuthlyCtx { db };
 
     // test environment setup
-    test_init_data(&ctx).await?;
+    testdata::try_init_testdata(&ctx).await?;
 
     let app = Router::new()
         .route("/auth/authenticate", post(auth::authenticate))
@@ -74,20 +73,6 @@ pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
 
     cancel.cancelled().await;
 
-    Ok(())
-}
-
-async fn test_init_data(ctx: &AuthlyCtx) -> anyhow::Result<()> {
-    let register_result =
-        try_register_user("testuser".to_string(), "secret".to_string(), ctx.clone()).await;
-
-    if let Err(err) = register_result {
-        debug!(?err, "failed to register user");
-    }
-
-    let user_count = user_count(ctx.clone()).await?;
-
-    info!("There are {user_count} users");
     Ok(())
 }
 

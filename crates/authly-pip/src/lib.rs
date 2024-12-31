@@ -199,7 +199,7 @@ struct Properties {
 
 impl Properties {
     pub fn svc_entity_tags(&mut self, name: impl Into<String>, entity: EID) -> (PropId, &mut Tags) {
-        self.new_attr(name, PropertyOwner::ServiceEntity(entity))
+        self.new_attr(name, PropertyScope::ServiceEntity(entity))
     }
 
     pub fn svc_resource_tags(
@@ -207,19 +207,19 @@ impl Properties {
         name: impl Into<String>,
         service: EID,
     ) -> (PropId, &mut Tags) {
-        self.new_attr(name, PropertyOwner::ServiceResource(service))
+        self.new_attr(name, PropertyScope::ServiceResource(service))
     }
 
     pub fn new_attr(
         &mut self,
         name: impl Into<String>,
-        owner: PropertyOwner,
+        scope: PropertyScope,
     ) -> (PropId, &mut Tags) {
         let id = PropId::random();
         self.properties.push(Property {
             id,
             name: name.into(),
-            owner,
+            scope,
             kind: PropertyKind::Tags(Default::default()),
         });
         let last = self.properties.last_mut().unwrap();
@@ -234,12 +234,12 @@ impl Properties {
 struct Property {
     pub id: PropId,
     pub name: String,
-    pub owner: PropertyOwner,
+    pub scope: PropertyScope,
     pub kind: PropertyKind,
 }
 
 #[derive(Debug)]
-enum PropertyOwner {
+enum PropertyScope {
     GlobalEntities,
     ServiceEntity(EID),
     ServiceResource(EID),
@@ -311,7 +311,7 @@ mod tests {
 
         let (_, bucket_action) = model
             .properties
-            .svc_resource_tags("buckets_action", svc_memoriam);
+            .svc_resource_tags("bucket_action", svc_memoriam);
         let bucket_read = bucket_action.add("read");
         let bucket_create = bucket_action.add("create");
         let bucket_delete = bucket_action.add("delete");
