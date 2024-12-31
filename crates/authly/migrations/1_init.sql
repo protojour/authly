@@ -4,10 +4,10 @@ CREATE TABLE session (
     expires_at DATETIME NOT NULL
 );
 
-CREATE TABLE user_auth (
+CREATE TABLE entity_credential (
     eid BLOB NOT NULL PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL
+    ident TEXT NULL UNIQUE,
+    secret_hash TEXT NOT NULL
 );
 
 CREATE TABLE entity_tag (

@@ -11,7 +11,13 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::{AuthlyCtx, EID};
+use crate::{
+    db::{
+        entity_db::{self, EntitySecretHash},
+        service_db,
+    },
+    AuthlyCtx, EID,
+};
 
 pub enum AuthError {
     AuthFailed,
@@ -33,14 +39,13 @@ impl IntoResponse for AuthError {
 #[derive(Deserialize)]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum AuthenticateRequest {
+    #[serde(rename_all = "camelCase")]
     Service {
         service_name: String,
         service_secret: String,
     },
-    User {
-        username: String,
-        password: String,
-    },
+    #[serde(rename_all = "camelCase")]
+    User { username: String, password: String },
 }
 
 #[derive(Serialize)]
@@ -66,15 +71,27 @@ pub async fn authenticate(
     let mfa_needed = false;
     // TODO: authority selection?
 
-    let eid: EID = match body {
+    let (ehash, secret) = match body {
         AuthenticateRequest::Service {
             service_name,
             service_secret,
-        } => todo!(),
+        } => {
+            let ehash = service_db::find_service_secret_hash_by_service_name(&service_name, &ctx)
+                .await
+                .map_err(|_| AuthError::AuthFailed)?;
+            (ehash, service_secret)
+        }
         AuthenticateRequest::User { username, password } => {
-            check_local_authority_user_credentials(username, password, &ctx).await?
+            let ehash = entity_db::find_local_authority_entity_secret_hash_by_credential_ident(
+                &username, &ctx,
+            )
+            .await
+            .map_err(|_| AuthError::AuthFailed)?;
+            (ehash, password)
         }
     };
+
+    let eid = verify_secret(ehash, secret).await?;
 
     let (token, expires_at) = init_session(eid, &ctx).await?;
 
@@ -123,43 +140,20 @@ fn make_session_cookie(token: &Token, expires_at: time::OffsetDateTime) -> Cooki
     cookie
 }
 
-async fn check_local_authority_user_credentials(
-    username: String,
-    password: String,
-    ctx: &AuthlyCtx,
-) -> Result<EID, AuthError> {
-    let (eid, password_hash): (EID, String) = {
-        let mut row = ctx
-            .db
-            .query_raw(
-                "SELECT eid, password_hash FROM user_auth WHERE username = $1",
-                params!(username),
-            )
-            .await
-            .map_err(|err| {
-                warn!(?err, "failed to lookup user");
-                AuthError::AuthFailed
-            })?
-            .into_iter()
-            .next()
-            .ok_or(AuthError::AuthFailed)?;
-
-        (EID::from_row(&mut row, "eid"), row.get("password_hash"))
-    };
-
+async fn verify_secret(ehash: EntitySecretHash, secret: String) -> Result<EID, AuthError> {
     // check Argon2 hash
     tokio::task::spawn_blocking(move || -> Result<(), AuthError> {
         use argon2::password_hash::PasswordHash;
-        let hash = PasswordHash::new(&password_hash).map_err(|err| {
-            warn!(?err, "invalid password hash");
+        let hash = PasswordHash::new(&ehash.secret_hash).map_err(|err| {
+            warn!(?err, "invalid secret hash");
             AuthError::AuthFailed
         })?;
 
-        hash.verify_password(&[&Argon2::default()], password)
+        hash.verify_password(&[&Argon2::default()], secret)
             .map_err(|err| match err {
                 argon2::password_hash::Error::Password => AuthError::AuthFailed,
                 _ => {
-                    warn!(?err, "failed to verify password hash");
+                    warn!(?err, "failed to verify secret hash");
                     AuthError::AuthFailed
                 }
             })
@@ -170,7 +164,7 @@ async fn check_local_authority_user_credentials(
         AuthError::AuthFailed
     })??;
 
-    Ok(eid)
+    Ok(ehash.eid)
 }
 
 struct Token(Vec<u8>);

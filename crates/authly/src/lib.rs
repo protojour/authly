@@ -11,9 +11,9 @@ use util::protocol_router::ProtocolRouter;
 
 mod auth;
 mod config;
+mod db;
 mod proto;
 mod testdata;
-mod user;
 mod util;
 
 #[derive(rust_embed::Embed)]
@@ -61,7 +61,7 @@ pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
     testdata::try_init_testdata(&ctx).await?;
 
     let http_api = Router::new()
-        .route("/auth/authenticate", post(auth::authenticate))
+        .route("/api/auth/authenticate", post(auth::authenticate))
         .with_state(ctx.clone());
 
     let server = tower_server::Server::bind(

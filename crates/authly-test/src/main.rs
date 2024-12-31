@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
         .build()?;
 
     let response: Value = client
-        .post("https://localhost:10443/auth/authenticate")
+        .post("https://localhost:10443/api/auth/authenticate")
         .json(&json!({
             "username": "testuser",
             "password": "secret",
@@ -33,7 +33,24 @@ async fn main() -> anyhow::Result<()> {
         .await
         .unwrap();
 
-    info!(?response, "authenticated");
+    info!(?response, "user authenticated");
+
+    let response: Value = client
+        .post("https://localhost:10443/api/auth/authenticate")
+        .json(&json!({
+            "serviceName": "testservice",
+            "serviceSecret": "secret",
+        }))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    info!(?response, "service authenticated");
 
     Ok(())
 }
