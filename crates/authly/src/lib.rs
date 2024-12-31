@@ -7,11 +7,14 @@ use hiqlite::{Row, ServerTlsConfig};
 use rand::Rng;
 use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
+use util::protocol_router::ProtocolRouter;
 
 mod auth;
 mod config;
+mod proto;
 mod testdata;
 mod user;
+mod util;
 
 #[derive(rust_embed::Embed)]
 #[folder = "migrations"]
@@ -57,9 +60,9 @@ pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
     // test environment setup
     testdata::try_init_testdata(&ctx).await?;
 
-    let app = Router::new()
+    let http_api = Router::new()
         .route("/auth/authenticate", post(auth::authenticate))
-        .with_state(ctx);
+        .with_state(ctx.clone());
 
     let server = tower_server::Server::bind(
         tower_server::ServerConfig::new("0.0.0.0:10443".parse()?)
@@ -69,7 +72,20 @@ pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
     )
     .await?;
 
-    tokio::spawn(server.serve(app));
+    tokio::spawn(
+        server.serve(
+            ProtocolRouter::default()
+                .with_grpc({
+                    let mut grpc_routes = tonic::service::RoutesBuilder::default();
+                    grpc_routes.add_service(
+                        proto::service_server::AuthlyServiceServerImpl::from(ctx).into_service(),
+                    );
+                    grpc_routes.routes().into_axum_router()
+                })
+                .or_default(http_api)
+                .into_service(),
+        ),
+    );
 
     cancel.cancelled().await;
 
