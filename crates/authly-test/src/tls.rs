@@ -11,9 +11,9 @@ use tokio_util::sync::CancellationToken;
 use tower_server::TlsConfigFactory;
 
 #[tokio::test]
-async fn test_tls_localhost_cert() {
+async fn test_tls_localhost_cert_ok() {
     let (ca, ca_key) = new_ca();
-    let (cert, key) = new_entity("localhost", &ca, &ca_key);
+    let (cert, key) = server_cert("localhost", &ca, &ca_key);
 
     let rustls_config_factory = rustls_server_config(&cert, &key).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -40,7 +40,7 @@ async fn test_tls_localhost_cert() {
 #[tokio::test]
 async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
     let (ca, ca_key) = new_ca();
-    let (cert, key) = new_entity("localhost", &ca, &ca_key);
+    let (cert, key) = server_cert("localhost", &ca, &ca_key);
 
     let rustls_config_factory = rustls_server_config(&cert, &key).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -64,9 +64,39 @@ async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
 }
 
 #[tokio::test]
+async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
+    let (srv_ca, ca_key) = new_ca();
+    let (srv_cert, srv_key) = server_cert("localhost", &srv_ca, &ca_key);
+
+    let rustls_config_factory = rustls_server_config(&srv_cert, &srv_key).unwrap();
+    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+
+    // client trusts an unrelated CA:
+    let (unrelated_ca, _ca_key) = new_ca();
+
+    let error = reqwest::ClientBuilder::new()
+        .add_root_certificate(reqwest::tls::Certificate::from_der(unrelated_ca.der()).unwrap())
+        .build()
+        .unwrap()
+        .get(format!("https://localhost:{server_port}/test"))
+        .send()
+        .await
+        .unwrap_err();
+
+    let error_source = error.source();
+
+    assert_eq!(
+        "Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(BadSignature) } }))",
+        format!("{error_source:?}"),
+    );
+
+    cancel.cancel();
+}
+
+#[tokio::test]
 async fn test_tls_invalid_host_cert() {
     let (ca, ca_key) = new_ca();
-    let (cert, key) = new_entity("goofy", &ca, &ca_key);
+    let (cert, key) = server_cert("goofy", &ca, &ca_key);
 
     let rustls_config_factory = rustls_server_config(&cert, &key).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -86,6 +116,42 @@ async fn test_tls_invalid_host_cert() {
         "Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(NotValidForName) } }))",
         format!("{error_source:?}"),
     );
+
+    cancel.cancel();
+}
+
+#[tokio::test]
+async fn test_mtls_ok_noop() {
+    let (srv_ca, srv_ca_key) = new_ca();
+    let (srv_cert, srv_key) = server_cert("localhost", &srv_ca, &srv_ca_key);
+
+    let (client_ca, client_ca_key) = new_ca();
+    let (client_cert, client_key) = client_cert(&client_ca, &client_ca_key);
+
+    let rustls_config_factory = rustls_server_config(&srv_cert, &srv_key).unwrap();
+    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+
+    let text_response = reqwest::ClientBuilder::new()
+        .add_root_certificate(reqwest::tls::Certificate::from_der(srv_ca.der()).unwrap())
+        .identity(
+            reqwest::Identity::from_pem(
+                format!("{}{}", client_cert.pem(), client_key.serialize_pem()).as_bytes(),
+            )
+            .unwrap(),
+        )
+        .build()
+        .unwrap()
+        .get(format!("https://localhost:{server_port}/test"))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert_eq!(text_response, "it works");
 
     cancel.cancel();
 }
@@ -154,7 +220,7 @@ fn new_ca() -> (Certificate, KeyPair) {
     (params.self_signed(&key_pair).unwrap(), key_pair)
 }
 
-fn new_entity(common_name: &str, ca: &Certificate, ca_key: &KeyPair) -> (Certificate, KeyPair) {
+fn server_cert(common_name: &str, ca: &Certificate, ca_key: &KeyPair) -> (Certificate, KeyPair) {
     let mut params =
         CertificateParams::new(vec![common_name.to_string()]).expect("we know the name is valid");
     let (yesterday, tomorrow) = validity_period();
@@ -166,6 +232,21 @@ fn new_entity(common_name: &str, ca: &Certificate, ca_key: &KeyPair) -> (Certifi
     params
         .extended_key_usages
         .push(ExtendedKeyUsagePurpose::ServerAuth);
+    params.not_before = yesterday;
+    params.not_after = tomorrow;
+
+    let key_pair = KeyPair::generate().unwrap();
+    (params.signed_by(&key_pair, ca, ca_key).unwrap(), key_pair)
+}
+
+fn client_cert(ca: &Certificate, ca_key: &KeyPair) -> (Certificate, KeyPair) {
+    let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
+    let (yesterday, tomorrow) = validity_period();
+    params.use_authority_key_identifier_extension = true;
+    params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+    params
+        .extended_key_usages
+        .push(ExtendedKeyUsagePurpose::ClientAuth);
     params.not_before = yesterday;
     params.not_after = tomorrow;
 
