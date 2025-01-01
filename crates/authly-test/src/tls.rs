@@ -38,6 +38,32 @@ async fn test_tls_localhost_cert() {
 }
 
 #[tokio::test]
+async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
+    let (ca, ca_key) = new_ca();
+    let (cert, key) = new_entity("localhost", &ca, &ca_key);
+
+    let rustls_config_factory = rustls_server_config(&cert, &key).unwrap();
+    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+
+    let error = reqwest::ClientBuilder::new()
+        .build()
+        .unwrap()
+        .get(format!("https://localhost:{server_port}/test"))
+        .send()
+        .await
+        .unwrap_err();
+
+    let error_source = error.source();
+
+    assert_eq!(
+        "Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(UnknownIssuer) } }))",
+        format!("{error_source:?}"),
+    );
+
+    cancel.cancel();
+}
+
+#[tokio::test]
 async fn test_tls_invalid_host_cert() {
     let (ca, ca_key) = new_ca();
     let (cert, key) = new_entity("goofy", &ca, &ca_key);
