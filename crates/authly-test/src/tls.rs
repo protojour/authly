@@ -150,6 +150,34 @@ async fn test_mtls_verified() {
     cancel.cancel();
 }
 
+// TODO: It should be possible to use optional client auth?
+#[tokio::test]
+async fn test_mtls_missing_client_identity() {
+    let ca = CertifiedKey::new_ca();
+    let server_cert = ca.sign(SigningRequest::server_cert("localhost"));
+
+    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.cert).unwrap();
+    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+
+    let error = reqwest::ClientBuilder::new()
+        .add_root_certificate((&ca).into())
+        .build()
+        .unwrap()
+        .get(format!("https://localhost:{server_port}/test"))
+        .send()
+        .await
+        .unwrap_err();
+
+    let error_source = error.source();
+
+    assert_eq!(
+        "Some(hyper_util::client::legacy::Error(SendRequest, hyper::Error(Io, Custom { kind: InvalidData, error: \"received fatal alert: CertificateRequired\" })))",
+        format!("{error_source:?}"),
+    );
+
+    cancel.cancel();
+}
+
 #[tokio::test]
 async fn test_mtls_invalid_issuer() {
     let ca = CertifiedKey::new_ca();
