@@ -40,14 +40,105 @@ Authly keeps a mapping between kubernetes service account name (which it manages
 The common name (CN) of the signed client certificate is the service entity ID.
 
 Flow:
-1. Client calls `https://k8s.authly.local/api/csr` using `Authorization: Bearer $K8S_SERVICE_ACCOUNT_TOKEN`
-2. Client obtains the client certificate that proves it is the indicated entity
-3. Further calls to Authly uses the client certificate for authentication
+1. Client (service) starts up and generates a key pair
+2. Client calls `https://k8s.authly.local/api/csr` using `Authorization: Bearer $K8S_SERVICE_ACCOUNT_TOKEN` to sign the public key
+3. Client obtains the client certificate that proves it is the indicated entity
+4. Further calls to Authly uses the client certificate for authentication
 
 Pros: This way the client private key never leaves the client service (compared to authly distributing the secrets).
 Cons: Requires crypto for generating a key pair in every authly client.
 
 note: `k8s.authly.local` must be a separate network service, that listens on a separate socket address, with TLS client auth turned off, because of the technical limitation that client auth/mTLS can't conditionally depend on a HTTP path (the full TLS handshake must finish before any HTTP path dispatch happens).
+
+### Authly definition manifests
+Authly needs a way for solution owners to easily inject definition manifests that get distributed and fulfilled by authly instances.
+
+The primary way of mutating Authly state is to manipulate and re-apply definition manifests.
+Some definition manifests are backed up externally to authly, in that case Authly is not the source of truth.
+Other types of definition manifests are managed by an Authly instance and does not use an external source of truth.
+
+Example idea:
+```yaml
+kind: User
+ref: testuser
+entityId: '111111111111111111111111111111111111111'
+---
+kind: Group
+entityId: '222222222222222222222222222222222222222'
+members:
+    - testuser
+    - '44444444444444444444444444444444444444'
+---
+kind: Service
+ref: myservice
+entityId: '333333333333333333333333333333333333333'
+name: myservice
+---
+kind: ServiceEntityProperty
+serviceRef: myservice
+name: role
+attributes:
+    - ui_admin
+    - ui_user
+---
+kind: ServiceResourceProperty
+serviceRef: myservice
+name: resourcekind
+attributes:
+    - document
+    - account
+---
+kind: ServiceResourceProperty
+serviceRef: myservice
+name: action
+attributes:
+    - read
+    - write
+---
+kind: ServiceResourceEntityProperty
+serviceRef: myservice
+name: owner
+---
+kind: Policy
+serviceRef: myservice
+name: allow_for_everyone
+policy: allow { true }
+---
+kind: Policy
+serviceRef: myservice
+name: allow_for_admin
+policy: allow { subject.role == role/ui_admin }
+---
+kind: Policy
+serviceRef: myservice
+name: allow_for_owner
+policy: allow { subject.entityId == resource.owner }
+---
+kind: ServiceTagPolicyBinding
+serviceRef: myservice
+bindings:
+    - matching:
+        - action/read
+        - resourcekind/document
+      policy: allow_for_everyone
+    - matching:
+        - action/write
+        - resourcekind/document
+      policy: allow_for_admin
+    - matching:
+        - action/read
+        - resourcekind/account
+      policy: allow_for_owner
+```
+
+For example, this manifest states that the members of the group `22222...` are mandated by the manifest and cannot be manipulated by other means, because the `members` field is explicitly stated and thereby under "external control".
+
+The `ref` is valid within one manifest.
+
+For example, an authly.id user registration may have an external source of truth in the form of a file in a public github repository, where public data about the user can be stored.
+Secrets cannot come from manifests.
+
+Manifests are seriously inspired by kubernetes resources for now, it is likely to change.
 
 ## Major design tasks
 Some things are seriously underspecified:
