@@ -40,12 +40,14 @@ Authly keeps a mapping between kubernetes service account name (which it manages
 The common name (CN) of the signed client certificate is the service entity ID.
 
 Flow:
-1. Client calls `https://authly.local/api/k8s/csr` using `Authorization: Bearer $K8S_SERVICE_ACCOUNT_TOKEN`
+1. Client calls `https://k8s.authly.local/api/csr` using `Authorization: Bearer $K8S_SERVICE_ACCOUNT_TOKEN`
 2. Client obtains the client certificate that proves it is the indicated entity
 3. Further calls to Authly uses the client certificate for authentication
 
 Pros: This way the client private key never leaves the client service (compared to authly distributing the secrets).
-Cons: Requires crypto for generating a key pair in every authly client
+Cons: Requires crypto for generating a key pair in every authly client.
+
+note: `k8s.authly.local` must be a separate network service, that listens on a separate socket address, with TLS client auth turned off, because of the technical limitation that client auth/mTLS can't conditionally depend on a HTTP path (the full TLS handshake must finish before any HTTP path dispatch happens).
 
 ## Major design tasks
 Some things are seriously underspecified:
