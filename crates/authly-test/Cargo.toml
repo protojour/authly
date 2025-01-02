@@ -14,19 +14,21 @@ doctest = false
 [dependencies]
 anyhow = "1"
 axum = "0.7"
+hyper = "1"
 reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
-rcgen = "0.13"
+rcgen = { version = "0.13", features = ["x509-parser"] }
 rustls = "0.23"
 serde_json = "1"
 time = "0.3"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-util = "0.7"
-tower-server = "0.1"
+tower-server = { git = "https://github.com/audunhalland/tower-server.git", branch = "v02" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
     "env-filter",
     "fmt",
     "ansi",
 ] }
+x509-parser = "0.16"
 
 [dev-dependencies]
