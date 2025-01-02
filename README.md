@@ -17,6 +17,7 @@ Service authentication requires a client certificate signed by Authly (mTLS).
 All traffic to Authly originates from some service, it is not possible to use Authly's API without being an authenticated service.
 This is true regardless of whether the API used is a "service API" or "user API".
 The APIs are always called through some proxy, e.g. a gateway application, Authly is never directly exposed on the internet.
+This way, all interaction with the Authly web API will ALWAYS happen using an implicit context of "which service made the call".
 
 #### Example: kubernetes mode
 Authly is the authority on service identities, therefore Authly also has to be a controller for k8s service accounts.
