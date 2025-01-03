@@ -3,7 +3,9 @@ use authly_proto::service::{
     authly_service_server::{AuthlyService, AuthlyServiceServer},
 };
 
-use crate::AuthlyCtx;
+use crate::{
+    db::service_db::find_service_name_by_eid, tls_middleware::PeerSubjectCommonName, AuthlyCtx, EID,
+};
 
 pub struct AuthlyServiceServerImpl {
     ctx: AuthlyCtx,
@@ -23,10 +25,29 @@ impl AuthlyServiceServerImpl {
 
 #[tonic::async_trait]
 impl AuthlyService for AuthlyServiceServerImpl {
-    async fn auth(
+    async fn metadata(
         &self,
-        _request: tonic::Request<proto::Empty>,
-    ) -> tonic::Result<tonic::Response<proto::Empty>> {
-        Err(tonic::Status::unimplemented("TODO"))
+        request: tonic::Request<proto::Empty>,
+    ) -> tonic::Result<tonic::Response<proto::ServiceMetadata>> {
+        let eid = auth(&request)?;
+        let name = find_service_name_by_eid(eid, &self.ctx)
+            .await
+            .map_err(|_err| tonic::Status::internal("db error"))?;
+
+        Ok(tonic::Response::new(proto::ServiceMetadata { name }))
     }
+}
+
+fn auth<T>(request: &tonic::Request<T>) -> tonic::Result<EID> {
+    let common_name = request
+        .extensions()
+        .get::<PeerSubjectCommonName>()
+        .ok_or_else(|| tonic::Status::unauthenticated("invalid identity"))?;
+
+    let eid = EID(common_name
+        .0
+        .parse()
+        .map_err(|_| tonic::Status::unauthenticated("invalid EID"))?);
+
+    Ok(eid)
 }

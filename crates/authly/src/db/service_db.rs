@@ -27,6 +27,25 @@ struct SvcResourceProp {
     tags: Vec<String>,
 }
 
+pub async fn find_service_name_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Result<String> {
+    let mut row = ctx
+        .db
+        .query_raw(
+            "SELECT svc.name FROM svc WHERE eid = $1",
+            params!(eid.as_param()),
+        )
+        .await
+        .map_err(|err| {
+            warn!(?err, "failed to lookup service credential");
+            err
+        })?
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow!("credential not found"))?;
+
+    Ok(row.get("name"))
+}
+
 pub async fn find_service_secret_hash_by_service_name(
     svc_name: &str,
     ctx: &AuthlyCtx,

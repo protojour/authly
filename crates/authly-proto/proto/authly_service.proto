@@ -2,7 +2,11 @@ syntax = "proto3";
 package authly_service;
 
 service AuthlyService {
-    rpc Auth (Empty) returns (Empty);
+    rpc Metadata (Empty) returns (ServiceMetadata);
+}
+
+message ServiceMetadata {
+    string name = 1;
 }
 
 message Empty {}
