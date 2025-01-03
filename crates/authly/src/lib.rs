@@ -84,6 +84,7 @@ pub async fn serve() -> anyhow::Result<()> {
     let server = tower_server::Builder::new("0.0.0.0:10443".parse()?)
         .with_scheme(Scheme::Https)
         .with_tls_config(rustls_config)
+        .with_tls_connection_middleware(tls_middleware::TlsMiddleware)
         .with_cancellation_token(cancel.clone())
         .bind()
         .await?;
@@ -156,6 +157,55 @@ async fn initialize() -> anyhow::Result<Init> {
     }
 
     Ok(Init { ctx, env_config })
+}
+
+pub mod tls_middleware {
+    use hyper::body::Incoming;
+    use x509_parser::prelude::{FromDer, X509Certificate};
+
+    #[derive(Clone)]
+    pub struct TlsMiddleware;
+
+    #[derive(Default)]
+    pub struct TlsConnectionData {
+        peer_subject_common_name: Option<String>,
+    }
+
+    #[derive(Clone)]
+    pub struct PeerSubjectCommonName(pub String);
+
+    impl tower_server::tls::TlsConnectionMiddleware for TlsMiddleware {
+        type Data = Option<TlsConnectionData>;
+
+        fn data(&self, connection: &rustls::ServerConnection) -> Self::Data {
+            let peer_der = connection.peer_certificates()?.first()?;
+            let (_, peer_cert) = X509Certificate::from_der(&peer_der).ok()?;
+
+            let mut data = TlsConnectionData::default();
+
+            for rdn in peer_cert.subject.iter() {
+                for attr in rdn.iter() {
+                    if attr.attr_type() == &x509_parser::oid_registry::OID_X509_COMMON_NAME {
+                        if let Ok(value) = attr.attr_value().as_str() {
+                            data.peer_subject_common_name = Some(value.to_string());
+                        }
+                    }
+                }
+            }
+
+            Some(data)
+        }
+
+        fn call(&self, req: &mut axum::http::Request<Incoming>, data: &Self::Data) {
+            let Some(data) = data else {
+                return;
+            };
+            if let Some(peer_subject_common_name) = &data.peer_subject_common_name {
+                req.extensions_mut()
+                    .insert(PeerSubjectCommonName(peer_subject_common_name.clone()));
+            }
+        }
+    }
 }
 
 fn main_service_rustls(
