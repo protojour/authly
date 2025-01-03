@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use authly::{initialize, issue_service_identity, serve};
+use authly::{issue_service_identity, serve};
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 

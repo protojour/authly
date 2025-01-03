@@ -3,22 +3,22 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use hiqlite::{params, Param};
+use hiqlite::{params, Client, Param};
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use tracing::{debug, info};
 
-use crate::{cert::Cert, AuthlyCtx};
+use crate::cert::Cert;
 
 pub struct DynamicConfig {
     /// A long-lived CA
     pub local_ca: Cert<KeyPair>,
 }
 
-pub async fn load_db_config(ctx: &AuthlyCtx) -> anyhow::Result<DynamicConfig> {
-    let is_leader = ctx.db.is_leader_db().await;
+pub async fn load_db_config(db: &Client) -> anyhow::Result<DynamicConfig> {
+    let is_leader = db.is_leader_db().await;
 
-    let local_ca = match load_tlskey("local_ca", ctx).await? {
+    let local_ca = match load_tlskey("local_ca", db).await? {
         Some(local_ca) => {
             debug!(
                 "reusing stored CA, expires at {}",
@@ -35,7 +35,7 @@ pub async fn load_db_config(ctx: &AuthlyCtx) -> anyhow::Result<DynamicConfig> {
                     local_ca.params.not_after
                 );
 
-                save_tlskey(&local_ca, "local_ca", ctx).await?;
+                save_tlskey(&local_ca, "local_ca", db).await?;
 
                 local_ca
             } else {
@@ -43,7 +43,7 @@ pub async fn load_db_config(ctx: &AuthlyCtx) -> anyhow::Result<DynamicConfig> {
                     info!("waiting for leader to generate local CA");
                     tokio::time::sleep(Duration::from_secs(1)).await;
 
-                    if let Some(local_ca) = load_tlskey("local_ca", ctx).await? {
+                    if let Some(local_ca) = load_tlskey("local_ca", db).await? {
                         break local_ca;
                     }
                 }
@@ -54,9 +54,8 @@ pub async fn load_db_config(ctx: &AuthlyCtx) -> anyhow::Result<DynamicConfig> {
     Ok(DynamicConfig { local_ca })
 }
 
-async fn load_tlskey(purpose: &str, ctx: &AuthlyCtx) -> anyhow::Result<Option<Cert<KeyPair>>> {
-    let rows = ctx
-        .db
+async fn load_tlskey(purpose: &str, db: &Client) -> anyhow::Result<Option<Cert<KeyPair>>> {
+    let rows = db
         .query_raw(
             "SELECT cert, private_key FROM tlskey WHERE purpose = $1",
             params!(purpose),
@@ -80,11 +79,11 @@ async fn load_tlskey(purpose: &str, ctx: &AuthlyCtx) -> anyhow::Result<Option<Ce
     Ok(Some(cert))
 }
 
-async fn save_tlskey(cert: &Cert<KeyPair>, purpose: &str, ctx: &AuthlyCtx) -> anyhow::Result<()> {
+async fn save_tlskey(cert: &Cert<KeyPair>, purpose: &str, db: &Client) -> anyhow::Result<()> {
     let cert_der = cert.der.to_vec();
     let private_key_der = cert.key.serialize_der();
 
-    ctx.db
+    db
         .execute(
             "INSERT INTO tlskey (purpose, expires_at, cert, private_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET expires_at = $2, cert = $3, private_key = $4",
             params!(

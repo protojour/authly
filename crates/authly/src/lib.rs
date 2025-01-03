@@ -51,30 +51,33 @@ impl EID {
 #[derive(Clone)]
 struct AuthlyCtx {
     db: hiqlite::Client,
+    dynamic_config: Arc<DynamicConfig>,
 }
 
 pub struct Init {
     ctx: AuthlyCtx,
     env_config: EnvConfig,
-    dynamic_config: DynamicConfig,
 }
 
 pub async fn serve() -> anyhow::Result<()> {
-    let Init {
-        ctx,
-        env_config,
-        dynamic_config,
-    } = initialize().await?;
+    let Init { ctx, env_config } = initialize().await?;
 
-    info!("local CA:\n{}", dynamic_config.local_ca.certificate_pem());
+    info!(
+        "local CA:\n{}",
+        ctx.dynamic_config.local_ca.certificate_pem()
+    );
 
     let cancel = termination_signal();
+
+    if env_config.kubernetes {
+        spawn_kubernetes_manager(ctx.clone()).await;
+    }
 
     let http_api = Router::new()
         .route("/api/auth/authenticate", post(auth::authenticate))
         .with_state(ctx.clone());
 
-    let rustls_config = main_service_rustls(&env_config, &dynamic_config)?;
+    let rustls_config = main_service_rustls(&env_config, &ctx.dynamic_config)?;
     let server = tower_server::Server::bind(
         tower_server::ServerConfig::new("0.0.0.0:10443".parse()?)
             .with_scheme(Scheme::Https)
@@ -104,10 +107,11 @@ pub async fn serve() -> anyhow::Result<()> {
 }
 
 pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow::Result<()> {
-    let Init { dynamic_config, .. } = initialize().await?;
+    let Init { ctx, .. } = initialize().await?;
     let eid = EID(eid.parse()?);
 
-    let pem = dynamic_config
+    let pem = ctx
+        .dynamic_config
         .local_ca
         .sign(KeyPair::generate()?.client_cert(&eid.0.to_string(), Duration::days(7)))
         .certificate_and_key_pem();
@@ -121,7 +125,7 @@ pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow
     Ok(())
 }
 
-pub async fn initialize() -> anyhow::Result<Init> {
+async fn initialize() -> anyhow::Result<Init> {
     let env_config = EnvConfig::load();
     let node_config = hiqlite_node_config(&env_config);
     let db = hiqlite::start_node(node_config).await?;
@@ -131,15 +135,17 @@ pub async fn initialize() -> anyhow::Result<Init> {
         err
     })?;
 
-    let ctx = AuthlyCtx { db };
-
-    let dynamic_config = config_db::load_db_config(&ctx).await?;
+    let dynamic_config = config_db::load_db_config(&db).await?;
+    let ctx = AuthlyCtx {
+        db,
+        dynamic_config: Arc::new(dynamic_config),
+    };
 
     if ctx.db.is_leader_db().await {
         if let Some(export_path) = &env_config.export_local_ca {
             std::fs::write(
                 export_path,
-                dynamic_config.local_ca.certificate_pem().as_bytes(),
+                ctx.dynamic_config.local_ca.certificate_pem().as_bytes(),
             )?;
         }
 
@@ -147,15 +153,7 @@ pub async fn initialize() -> anyhow::Result<Init> {
         testdata::try_init_testdata(&ctx).await?;
     }
 
-    if env_config.kubernetes {
-        spawn_kubernetes_manager(ctx.clone());
-    }
-
-    Ok(Init {
-        ctx,
-        env_config,
-        dynamic_config,
-    })
+    Ok(Init { ctx, env_config })
 }
 
 fn main_service_rustls(
