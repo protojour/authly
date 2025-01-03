@@ -253,6 +253,7 @@ dependencies = [
  "figment",
  "hex",
  "hiqlite",
+ "hostname",
  "http",
  "hyper",
  "k8s-openapi",

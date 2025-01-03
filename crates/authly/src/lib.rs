@@ -30,6 +30,9 @@ mod util;
 #[folder = "migrations"]
 struct Migrations;
 
+const HIQLITE_API_PORT: u16 = 10444;
+const HIQLITE_RAFT_PORT: u16 = 10445;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct EID(pub u128);
 
@@ -69,7 +72,7 @@ pub async fn serve() -> anyhow::Result<()> {
 
     let cancel = termination_signal();
 
-    if env_config.kubernetes {
+    if env_config.k8s {
         spawn_kubernetes_manager(ctx.clone()).await;
     }
 
@@ -204,13 +207,76 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
         danger_tls_no_verify: true,
     };
 
+    let node_id = if env_config.k8s {
+        let hostname = hostname::get()
+            .expect("hostname not found")
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        match hostname.rsplit_once('-') {
+            None => {
+                panic!(
+                    "Cannot split off the NODE_ID from the hostname {}",
+                    hostname
+                );
+            }
+            Some((_, id)) => {
+                let id_hostname = id.parse::<u64>().expect("Cannot parse HQL_NODE_ID to u64");
+                // the hostnames for k8s sts always start at 0, but we need to start at 1
+                id_hostname + 1
+            }
+        }
+    } else {
+        env_config.node_id.unwrap_or(1)
+    };
+
+    let hiqlite_nodes: Vec<hiqlite::Node> = if env_config.k8s {
+        let statefulset = env_config.k8s_statefulset.as_deref().unwrap_or("authly");
+        let headless_svc = env_config
+            .k8s_headless_svc
+            .as_deref()
+            .unwrap_or("authly-headless");
+        let replica_count = env_config.k8s_replicas.unwrap_or(1);
+
+        (0..replica_count)
+            .into_iter()
+            .map(|idx| hiqlite::Node {
+                id: idx + 1,
+                addr_api: format!("{statefulset}-{idx}.{headless_svc}:{HIQLITE_API_PORT}"),
+                addr_raft: format!("{statefulset}-{idx}.{headless_svc}:{HIQLITE_RAFT_PORT}"),
+            })
+            .collect()
+    } else {
+        match (
+            &env_config.cluster_api_nodes,
+            &env_config.cluster_raft_nodes,
+        ) {
+            (Some(api_nodes), Some(raft_nodes)) => api_nodes
+                .iter()
+                .zip(raft_nodes)
+                .enumerate()
+                .map(|(idx, (api_node, raft_node))| hiqlite::Node {
+                    id: idx as u64 + 1,
+                    addr_api: api_node.to_string(),
+                    addr_raft: raft_node.to_string(),
+                })
+                .collect(),
+            _ => {
+                vec![hiqlite::Node {
+                    id: 1,
+                    addr_api: format!("localhost:{HIQLITE_API_PORT}"),
+                    addr_raft: format!("localhost:{HIQLITE_RAFT_PORT}"),
+                }]
+            }
+        }
+    };
+
+    info!("hiqlite nodes: {hiqlite_nodes:?}");
+
     hiqlite::NodeConfig {
-        node_id: 1,
-        nodes: vec![hiqlite::Node {
-            id: 1,
-            addr_api: "127.0.0.1:10444".to_string(),
-            addr_raft: "127.0.0.1:10445".to_string(),
-        }],
+        node_id,
+        nodes: hiqlite_nodes,
         data_dir: env_config.data_dir.to_str().unwrap().to_string().into(),
         filename_db: "authly.db".into(),
         log_statements: false,
