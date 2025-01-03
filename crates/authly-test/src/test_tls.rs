@@ -214,15 +214,14 @@ async fn test_mtls_invalid_issuer() {
 
 async fn spawn_server(rustls_config_factory: TlsConfigFactory) -> (u16, CancellationToken) {
     let cancel = CancellationToken::new();
-    let server = tower_server::Server::bind(
-        tower_server::ServerConfig::new("0.0.0.0:0".parse().unwrap())
-            .with_tls_config(rustls_config_factory)
-            .with_scheme(tower_server::Scheme::Https)
-            .with_tls_connection_middleware(tls_middleware::TlsMiddleware)
-            .with_cancellation_token(cancel.clone()),
-    )
-    .await
-    .unwrap();
+    let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
+        .with_scheme(tower_server::Scheme::Https)
+        .with_tls_config(rustls_config_factory)
+        .with_tls_connection_middleware(tls_middleware::TlsMiddleware)
+        .with_cancellation_token(cancel.clone())
+        .bind()
+        .await
+        .unwrap();
 
     let server_port = server.local_addr().unwrap().port();
     let app = axum::Router::new().route("/test", axum::routing::get(test_handler));

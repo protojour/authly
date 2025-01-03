@@ -23,7 +23,7 @@ serde_json = "1"
 time = "0.3"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-util = "0.7"
-tower-server = { git = "https://github.com/audunhalland/tower-server.git", branch = "v02" }
+tower-server = "0.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
     "env-filter",

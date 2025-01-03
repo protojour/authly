@@ -81,13 +81,12 @@ pub async fn serve() -> anyhow::Result<()> {
         .with_state(ctx.clone());
 
     let rustls_config = main_service_rustls(&env_config, &ctx.dynamic_config)?;
-    let server = tower_server::Server::bind(
-        tower_server::ServerConfig::new("0.0.0.0:10443".parse()?)
-            .with_scheme(Scheme::Https)
-            .with_tls_config(rustls_config)
-            .with_cancellation_token(cancel.clone()),
-    )
-    .await?;
+    let server = tower_server::Builder::new("0.0.0.0:10443".parse()?)
+        .with_scheme(Scheme::Https)
+        .with_tls_config(rustls_config)
+        .with_cancellation_token(cancel.clone())
+        .bind()
+        .await?;
 
     tokio::spawn(
         server.serve(
