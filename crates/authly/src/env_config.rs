@@ -22,6 +22,7 @@ pub struct EnvConfig {
     pub k8s_statefulset: Option<String>,
     pub k8s_headless_svc: Option<String>,
     pub k8s_replicas: Option<u64>,
+    pub k8s_auth_server_port: Option<u16>,
 
     pub cluster_api_nodes: Option<Vec<SocketAddr>>,
     pub cluster_raft_nodes: Option<Vec<SocketAddr>>,
@@ -60,6 +61,7 @@ impl Default for EnvConfig {
             k8s_statefulset: None,
             k8s_headless_svc: None,
             k8s_replicas: None,
+            k8s_auth_server_port: None,
         }
     }
 }

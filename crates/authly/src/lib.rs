@@ -6,7 +6,6 @@ use cert::MakeSigningRequest;
 use db::config_db::{self, DynamicConfig};
 pub use env_config::EnvConfig;
 use hiqlite::{Row, ServerTlsConfig};
-use kubernetes::spawn_kubernetes_manager;
 use rand::Rng;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
@@ -21,7 +20,7 @@ pub mod cert;
 mod auth;
 mod db;
 mod env_config;
-mod kubernetes;
+mod k8s;
 mod proto;
 mod testdata;
 mod util;
@@ -55,6 +54,7 @@ impl EID {
 struct AuthlyCtx {
     db: hiqlite::Client,
     dynamic_config: Arc<DynamicConfig>,
+    cancel: CancellationToken,
 }
 
 pub struct Init {
@@ -73,7 +73,9 @@ pub async fn serve() -> anyhow::Result<()> {
     let cancel = termination_signal();
 
     if env_config.k8s {
-        spawn_kubernetes_manager(ctx.clone()).await;
+        k8s::k8s_manager::spawn_k8s_manager(ctx.clone()).await;
+
+        k8s::k8s_auth_server::spawn_k8s_auth_server(&env_config, &ctx).await?;
     }
 
     let http_api = Router::new()
@@ -132,6 +134,7 @@ async fn initialize() -> anyhow::Result<Init> {
     let env_config = EnvConfig::load();
     let node_config = hiqlite_node_config(&env_config);
     let db = hiqlite::start_node(node_config).await?;
+    let cancel = termination_signal();
 
     db.migrate::<Migrations>().await.map_err(|err| {
         tracing::error!(?err, "failed to migrate");
@@ -142,6 +145,7 @@ async fn initialize() -> anyhow::Result<Init> {
     let ctx = AuthlyCtx {
         db,
         dynamic_config: Arc::new(dynamic_config),
+        cancel,
     };
 
     if ctx.db.is_leader_db().await {

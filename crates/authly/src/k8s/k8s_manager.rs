@@ -10,7 +10,7 @@ use tracing::info;
 
 use crate::AuthlyCtx;
 
-pub async fn spawn_kubernetes_manager(ctx: AuthlyCtx) {
+pub async fn spawn_k8s_manager(ctx: AuthlyCtx) {
     let client = Client::try_default().await.unwrap();
 
     tokio::spawn(async move {
@@ -26,7 +26,7 @@ pub async fn spawn_kubernetes_manager(ctx: AuthlyCtx) {
                     client.default_namespace()
                 );
                 cancel = CancellationToken::default();
-                manager_task = Some(tokio::spawn(kubernetes_manager_task(
+                manager_task = Some(tokio::spawn(k8s_manager_task(
                     client.clone(),
                     cancel.clone(),
                     ctx.clone(),
@@ -42,7 +42,7 @@ pub async fn spawn_kubernetes_manager(ctx: AuthlyCtx) {
     });
 }
 
-async fn kubernetes_manager_task(client: Client, _cancel: CancellationToken, ctx: AuthlyCtx) {
+async fn k8s_manager_task(client: Client, _cancel: CancellationToken, ctx: AuthlyCtx) {
     if let Err(err) = write_client_configmap(client, &ctx).await {
         tracing::error!(?err, "could not create authly-client ConfigMap");
     }
