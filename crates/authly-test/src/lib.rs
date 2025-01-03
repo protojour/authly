@@ -1,4 +1,4 @@
 #![allow(unused)]
 
-mod auth;
-mod tls;
+mod test_auth;
+mod test_tls;

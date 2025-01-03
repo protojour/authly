@@ -24,7 +24,7 @@ pub async fn try_init_testdata(ctx: &AuthlyCtx) -> anyhow::Result<()> {
 
     let entity_count = entity_db::entity_count(ctx.clone()).await?;
 
-    info!("There are {entity_count} entities");
+    info!("there are {entity_count} entities");
 
     if let Err(e) = service_db::store_service(
         ctx,

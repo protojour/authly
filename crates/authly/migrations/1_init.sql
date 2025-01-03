@@ -1,3 +1,10 @@
+CREATE TABLE tlskey (
+    purpose TEXT NOT NULL PRIMARY KEY,
+    expires_at DATETIME NOT NULL,
+    cert BLOB NOT NULL,
+    private_key BLOB NOT NULL
+);
+
 CREATE TABLE session (
     token BLOB NOT NULL PRIMARY KEY,
     eid BLOB NOT NULL,

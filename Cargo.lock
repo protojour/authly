@@ -249,13 +249,17 @@ dependencies = [
  "axum",
  "axum-extra",
  "bit-set",
+ "clap",
  "figment",
  "hex",
  "hiqlite",
  "http",
  "hyper",
+ "pem",
  "postcard",
  "rand",
+ "rcgen",
+ "reqwest",
  "rust-embed",
  "rustls",
  "rustls-pemfile",
@@ -315,6 +319,7 @@ name = "authly-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "authly",
  "axum",
  "hyper",
  "rcgen",
@@ -2377,8 +2382,7 @@ dependencies = [
 [[package]]
 name = "rcgen"
 version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75e669e5202259b5314d1ea5397316ad400819437857b90861765f24c4cf80a2"
+source = "git+https://github.com/audunhalland/rcgen.git?branch=sign-using-params#a1eff576eb1f193bb874141095d195ae493c2d24"
 dependencies = [
  "pem",
  "ring",

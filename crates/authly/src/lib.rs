@@ -1,17 +1,27 @@
-use std::{fs::File, io::BufReader, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
-use anyhow::Context;
+use anyhow::anyhow;
 use axum::{routing::post, Router};
-pub use config::AuthlyConfig;
+use cert::MakeSigningRequest;
+use db::config_db::{self, DynamicConfig};
+pub use env_config::EnvConfig;
 use hiqlite::{Row, ServerTlsConfig};
+use kubernetes::spawn_kubernetes_manager;
 use rand::Rng;
+use rcgen::KeyPair;
+use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
+use time::Duration;
 use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
+use tracing::info;
 use util::protocol_router::ProtocolRouter;
 
+pub mod cert;
+
 mod auth;
-mod config;
 mod db;
+mod env_config;
+mod kubernetes;
 mod proto;
 mod testdata;
 mod util;
@@ -43,31 +53,32 @@ struct AuthlyCtx {
     db: hiqlite::Client,
 }
 
-pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
+pub struct Init {
+    ctx: AuthlyCtx,
+    env_config: EnvConfig,
+    dynamic_config: DynamicConfig,
+}
+
+pub async fn serve() -> anyhow::Result<()> {
+    let Init {
+        ctx,
+        env_config,
+        dynamic_config,
+    } = initialize().await?;
+
+    info!("local CA:\n{}", dynamic_config.local_ca.certificate_pem());
+
     let cancel = termination_signal();
-    let rustls = authly_rustls(&config)?;
-
-    let node_config = hiqlite_node_config(&config);
-    let db = hiqlite::start_node(node_config).await?;
-
-    db.migrate::<Migrations>().await.map_err(|err| {
-        tracing::error!(?err, "failed to migrate");
-        err
-    })?;
-
-    let ctx = AuthlyCtx { db };
-
-    // test environment setup
-    testdata::try_init_testdata(&ctx).await?;
 
     let http_api = Router::new()
         .route("/api/auth/authenticate", post(auth::authenticate))
         .with_state(ctx.clone());
 
+    let rustls_config = main_service_rustls(&env_config, &dynamic_config)?;
     let server = tower_server::Server::bind(
         tower_server::ServerConfig::new("0.0.0.0:10443".parse()?)
             .with_scheme(Scheme::Https)
-            .with_tls_config(rustls)
+            .with_tls_config(rustls_config)
             .with_cancellation_token(cancel.clone()),
     )
     .await?;
@@ -92,24 +103,85 @@ pub async fn run_authly(config: AuthlyConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn authly_rustls(config: &AuthlyConfig) -> anyhow::Result<TlsConfigFactory> {
+pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow::Result<()> {
+    let Init { dynamic_config, .. } = initialize().await?;
+    let eid = EID(eid.parse()?);
+
+    let pem = dynamic_config
+        .local_ca
+        .sign(KeyPair::generate()?.client_cert(&eid.0.to_string(), Duration::days(7)))
+        .certificate_and_key_pem();
+
+    if let Some(out_path) = out {
+        std::fs::write(out_path, pem)?;
+    } else {
+        println!("{pem}");
+    }
+
+    Ok(())
+}
+
+pub async fn initialize() -> anyhow::Result<Init> {
+    let env_config = EnvConfig::load();
+    let node_config = hiqlite_node_config(&env_config);
+    let db = hiqlite::start_node(node_config).await?;
+
+    db.migrate::<Migrations>().await.map_err(|err| {
+        tracing::error!(?err, "failed to migrate");
+        err
+    })?;
+
+    let ctx = AuthlyCtx { db };
+
+    let dynamic_config = config_db::load_db_config(&ctx).await?;
+
+    if ctx.db.is_leader_db().await {
+        if let Some(export_path) = &env_config.export_local_ca {
+            std::fs::write(
+                export_path,
+                dynamic_config.local_ca.certificate_pem().as_bytes(),
+            )?;
+        }
+
+        // test environment setup
+        testdata::try_init_testdata(&ctx).await?;
+    }
+
+    if env_config.kubernetes {
+        spawn_kubernetes_manager(ctx.clone());
+    }
+
+    Ok(Init {
+        ctx,
+        env_config,
+        dynamic_config,
+    })
+}
+
+fn main_service_rustls(
+    env_config: &EnvConfig,
+    dynamic_config: &DynamicConfig,
+) -> anyhow::Result<TlsConfigFactory> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let certs = rustls_pemfile::certs(&mut BufReader::new(
-        &mut File::open(&config.cert_file).context("TLS cert file not found")?,
-    ))
-    .collect::<Result<Vec<_>, _>>()
-    .context("invalid cert file")?;
+    info!(
+        "generating server certificate for hostname={}",
+        env_config.hostname
+    );
 
-    let private_key = rustls_pemfile::private_key(&mut BufReader::new(
-        &mut File::open(&config.key_file).context("TLS private key not found")?,
-    ))
-    .context("invalid TLS private key")?
-    .unwrap();
+    let server_cert = dynamic_config
+        .local_ca
+        .sign(KeyPair::generate()?.server_cert(&env_config.hostname, time::Duration::days(365)));
+
+    let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
+        .map_err(|err| anyhow!("server private key: {err}"))?;
+
+    let mut root_cert_store = RootCertStore::empty();
+    root_cert_store.add(dynamic_config.local_ca.der.clone())?;
 
     let mut config = rustls::server::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(certs, private_key)?;
+        .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store.into()).build()?)
+        .with_single_cert(vec![server_cert.der.clone()], server_private_key_der)?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     let config = Arc::new(config);
@@ -117,7 +189,23 @@ fn authly_rustls(config: &AuthlyConfig) -> anyhow::Result<TlsConfigFactory> {
     Ok(Arc::new(move || config.clone()))
 }
 
-fn hiqlite_node_config(config: &AuthlyConfig) -> hiqlite::NodeConfig {
+fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
+    let cluster_tls_config = ServerTlsConfig {
+        key: env_config
+            .cluster_key_file
+            .to_str()
+            .unwrap()
+            .to_string()
+            .into(),
+        cert: env_config
+            .cluster_cert_file
+            .to_str()
+            .unwrap()
+            .to_string()
+            .into(),
+        danger_tls_no_verify: true,
+    };
+
     hiqlite::NodeConfig {
         node_id: 1,
         nodes: vec![hiqlite::Node {
@@ -125,7 +213,7 @@ fn hiqlite_node_config(config: &AuthlyConfig) -> hiqlite::NodeConfig {
             addr_api: "127.0.0.1:10444".to_string(),
             addr_raft: "127.0.0.1:10445".to_string(),
         }],
-        data_dir: config.data_dir.to_str().unwrap().to_string().into(),
+        data_dir: env_config.data_dir.to_str().unwrap().to_string().into(),
         filename_db: "authly.db".into(),
         log_statements: false,
         prepared_statement_cache_capacity: 1024,
@@ -152,18 +240,10 @@ fn hiqlite_node_config(config: &AuthlyConfig) -> hiqlite::NodeConfig {
                 ..Default::default()
             }
         },
-        tls_raft: Some(ServerTlsConfig {
-            key: config.key_file.to_str().unwrap().to_string().into(),
-            cert: config.cert_file.to_str().unwrap().to_string().into(),
-            danger_tls_no_verify: true,
-        }),
-        tls_api: Some(ServerTlsConfig {
-            key: config.key_file.to_str().unwrap().to_string().into(),
-            cert: config.cert_file.to_str().unwrap().to_string().into(),
-            danger_tls_no_verify: true,
-        }),
-        secret_raft: config.raft_secret.clone(),
-        secret_api: config.api_secret.clone(),
+        tls_raft: Some(cluster_tls_config.clone()),
+        tls_api: Some(cluster_tls_config),
+        secret_raft: env_config.raft_secret.clone(),
+        secret_api: env_config.api_secret.clone(),
     }
 }
 

@@ -18,13 +18,17 @@ argon2 = "0.5"
 axum = { version = "0.7", features = ["macros"] }
 axum-extra = { version = "0.9", features = ["cookie"] }
 bit-set = "0.8"
+clap = { version = "4", features = ["derive"] }
 figment = { version = "0.10", features = ["env"] }
 hex = "0.4"
 http = "1"
 hiqlite = { version = "0.3", default-features = false, features = ["sqlite", "auto-heal"] }
 hyper = { version = "1", default-features = false }
+pem = "3"
 postcard = { version = "1", default-features = false, features = ["use-std"] }
 rand = "0.8"
+rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params", features = ["x509-parser"] }
+reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
 rust-embed = "8"
 rustls = "0.23"
 rustls-pemfile = "2"

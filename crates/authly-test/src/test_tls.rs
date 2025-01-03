@@ -1,20 +1,25 @@
 use std::{error::Error, sync::Arc};
 
+use authly::cert::{Cert, MakeSigningRequest};
 use axum::{response::IntoResponse, Extension};
 use hyper::body::Incoming;
 use rcgen::{
     BasicConstraints, Certificate, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose,
     IsCa, KeyPair, KeyUsagePurpose, PrintableString, PublicKeyData, SubjectPublicKeyInfo,
 };
-use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
+use rustls::{
+    pki_types::{CertificateDer, PrivateKeyDer},
+    server::WebPkiClientVerifier,
+    RootCertStore,
+};
 use time::{Duration, OffsetDateTime};
 use tokio_util::sync::CancellationToken;
 use tower_server::TlsConfigFactory;
 
 #[tokio::test]
 async fn test_tls_localhost_cert_ok() {
-    let ca = CertifiedKey::new_ca();
-    let server_cert = ca.sign(SigningRequest::server_cert("localhost"));
+    let ca = Cert::new_authly_ca();
+    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -40,8 +45,8 @@ async fn test_tls_localhost_cert_ok() {
 
 #[tokio::test]
 async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
-    let ca = CertifiedKey::new_ca();
-    let server_cert = ca.sign(SigningRequest::server_cert("localhost"));
+    let ca = Cert::new_authly_ca();
+    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -66,14 +71,14 @@ async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
 
 #[tokio::test]
 async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
-    let ca = CertifiedKey::new_ca();
-    let server_cert = ca.sign(SigningRequest::server_cert("localhost"));
+    let ca = Cert::new_authly_ca();
+    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
-        .add_root_certificate((&CertifiedKey::new_ca()).into())
+        .add_root_certificate((&Cert::new_authly_ca()).into())
         .build()
         .unwrap()
         .get(format!("https://localhost:{server_port}/test"))
@@ -93,8 +98,8 @@ async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
 
 #[tokio::test]
 async fn test_tls_invalid_host_cert() {
-    let ca = CertifiedKey::new_ca();
-    let server_cert = ca.sign(SigningRequest::server_cert("gooofy"));
+    let ca = Cert::new_authly_ca();
+    let server_cert = ca.sign(new_key_pair().server_cert("gooofy", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -120,11 +125,11 @@ async fn test_tls_invalid_host_cert() {
 
 #[tokio::test]
 async fn test_mtls_verified() {
-    let ca = CertifiedKey::new_ca();
-    let server_cert = ca.sign(SigningRequest::server_cert("localhost"));
-    let client_cert = ca.sign(SigningRequest::client_cert("testclientname"));
+    let ca = Cert::new_authly_ca();
+    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+    let client_cert = ca.sign(new_key_pair().client_cert("testclientname", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.cert).unwrap();
+    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
@@ -153,10 +158,10 @@ async fn test_mtls_verified() {
 // TODO: It should be possible to use optional client auth?
 #[tokio::test]
 async fn test_mtls_missing_client_identity() {
-    let ca = CertifiedKey::new_ca();
-    let server_cert = ca.sign(SigningRequest::server_cert("localhost"));
+    let ca = Cert::new_authly_ca();
+    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.cert).unwrap();
+    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
@@ -180,13 +185,13 @@ async fn test_mtls_missing_client_identity() {
 
 #[tokio::test]
 async fn test_mtls_invalid_issuer() {
-    let ca = CertifiedKey::new_ca();
-    let server_cert = ca.sign(SigningRequest::server_cert("localhost"));
+    let ca = Cert::new_authly_ca();
+    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
 
-    let bad_ca = CertifiedKey::new_ca();
-    let bad_client_cert = bad_ca.sign(SigningRequest::client_cert("someclient"));
+    let bad_ca = Cert::new_authly_ca();
+    let bad_client_cert = bad_ca.sign(new_key_pair().client_cert("someclient", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.cert).unwrap();
+    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
@@ -293,15 +298,15 @@ async fn test_handler(
 }
 
 fn rustls_server_config_no_client_auth(
-    server_cert: &CertifiedKey,
+    server_cert: &Cert<KeyPair>,
 ) -> anyhow::Result<TlsConfigFactory> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let private_key_der = PrivateKeyDer::try_from(server_cert.key_pair.serialize_der()).unwrap();
+    let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
 
     let mut config = rustls::server::ServerConfig::builder()
         .with_no_client_auth()
-        .with_single_cert(vec![server_cert.cert.der().clone()], private_key_der)?;
+        .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     let config = Arc::new(config);
@@ -310,19 +315,19 @@ fn rustls_server_config_no_client_auth(
 }
 
 fn rustls_server_config_mtls(
-    server_cert: &CertifiedKey,
-    root_ca: &Certificate,
+    server_cert: &Cert<KeyPair>,
+    root_ca: &CertificateDer,
 ) -> anyhow::Result<TlsConfigFactory> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let private_key_der = PrivateKeyDer::try_from(server_cert.key_pair.serialize_der()).unwrap();
+    let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
 
     let mut root_cert_store = RootCertStore::empty();
-    root_cert_store.add(root_ca.der().clone())?;
+    root_cert_store.add(root_ca.clone())?;
 
     let mut config = rustls::server::ServerConfig::builder()
         .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store.into()).build()?)
-        .with_single_cert(vec![server_cert.cert.der().clone()], private_key_der)?;
+        .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     let config = Arc::new(config);
@@ -330,123 +335,6 @@ fn rustls_server_config_mtls(
     Ok(Arc::new(move || config.clone()))
 }
 
-fn key_pair() -> KeyPair {
+fn new_key_pair() -> KeyPair {
     KeyPair::generate().unwrap()
-}
-
-struct CertifiedKey {
-    cert: Certificate,
-    key_pair: KeyPair,
-}
-
-impl CertifiedKey {
-    fn new_ca() -> Self {
-        let mut params = CertificateParams::default();
-        let (yesterday, tomorrow) = validity_period();
-        params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        params
-            .distinguished_name
-            .push(DnType::CommonName, "Authly ID");
-        params
-            .distinguished_name
-            .push(DnType::OrganizationName, "Protojour AS");
-        params.distinguished_name.push(
-            DnType::CountryName,
-            DnValue::PrintableString("NO".try_into().unwrap()),
-        );
-        params.key_usages.push(KeyUsagePurpose::DigitalSignature);
-        params.key_usages.push(KeyUsagePurpose::KeyCertSign);
-        params.key_usages.push(KeyUsagePurpose::CrlSign);
-
-        params.not_before = yesterday;
-        params.not_after = tomorrow;
-
-        let key_pair = KeyPair::generate().unwrap();
-        Self {
-            cert: params.self_signed(&key_pair).unwrap(),
-            key_pair,
-        }
-    }
-
-    fn sign(&self, request: SigningRequest) -> Self {
-        let public_key =
-            SubjectPublicKeyInfo::from_der(&request.key_pair.public_key_der()).unwrap();
-        Self {
-            cert: request
-                .params
-                .signed_by(&public_key, &self.cert, &self.key_pair)
-                .unwrap(),
-            key_pair: request.key_pair,
-        }
-    }
-}
-
-struct SigningRequest {
-    params: CertificateParams,
-    key_pair: KeyPair,
-}
-
-impl SigningRequest {
-    fn server_cert(common_name: &str) -> Self {
-        let mut params = CertificateParams::new(vec![common_name.to_string()])
-            .expect("we know the name is valid");
-        let (yesterday, tomorrow) = validity_period();
-        params
-            .distinguished_name
-            .push(DnType::CommonName, common_name);
-        params.use_authority_key_identifier_extension = true;
-        params.key_usages.push(KeyUsagePurpose::DigitalSignature);
-        params
-            .extended_key_usages
-            .push(ExtendedKeyUsagePurpose::ServerAuth);
-        params.not_before = yesterday;
-        params.not_after = tomorrow;
-
-        Self {
-            params,
-            key_pair: KeyPair::generate().unwrap(),
-        }
-    }
-
-    fn client_cert(common_name: &str) -> Self {
-        let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
-        let (yesterday, tomorrow) = validity_period();
-        params
-            .distinguished_name
-            .push(DnType::CommonName, common_name);
-        params.use_authority_key_identifier_extension = true;
-        params.key_usages.push(KeyUsagePurpose::DigitalSignature);
-        params
-            .extended_key_usages
-            .push(ExtendedKeyUsagePurpose::ClientAuth);
-        params.not_before = yesterday;
-        params.not_after = tomorrow;
-
-        Self {
-            params,
-            key_pair: KeyPair::generate().unwrap(),
-        }
-    }
-}
-
-impl Into<reqwest::Certificate> for &CertifiedKey {
-    fn into(self) -> reqwest::Certificate {
-        reqwest::tls::Certificate::from_der(self.cert.der()).unwrap()
-    }
-}
-
-impl Into<reqwest::Identity> for &CertifiedKey {
-    fn into(self) -> reqwest::Identity {
-        reqwest::Identity::from_pem(
-            format!("{}{}", self.cert.pem(), self.key_pair.serialize_pem()).as_bytes(),
-        )
-        .unwrap()
-    }
-}
-
-fn validity_period() -> (OffsetDateTime, OffsetDateTime) {
-    let day = Duration::new(86400, 0);
-    let yesterday = OffsetDateTime::now_utc().checked_sub(day).unwrap();
-    let tomorrow = OffsetDateTime::now_utc().checked_add(day).unwrap();
-    (yesterday, tomorrow)
 }
