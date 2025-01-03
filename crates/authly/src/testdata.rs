@@ -12,7 +12,7 @@ use crate::{
 pub async fn try_init_testdata(ctx: &AuthlyCtx) -> anyhow::Result<()> {
     let register_result = entity_db::try_insert_entity_credentials(
         EID::random(),
-        Some("testuser".to_string()),
+        "testuser".to_string(),
         "secret".to_string(),
         ctx,
     )
@@ -42,7 +42,6 @@ pub async fn try_init_testdata(ctx: &AuthlyCtx) -> anyhow::Result<()> {
 fn testservice_def() -> SvcDef {
     serde_json::from_value(json!({
         "name": "testservice",
-        "secret": "secret",
         "entity_props": [
             {
                 "name": "role",

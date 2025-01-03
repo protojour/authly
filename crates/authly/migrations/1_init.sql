@@ -13,7 +13,7 @@ CREATE TABLE session (
 
 CREATE TABLE entity_credential (
     eid BLOB NOT NULL PRIMARY KEY,
-    ident TEXT NULL UNIQUE,
+    ident TEXT NOT NULL UNIQUE,
     secret_hash TEXT NOT NULL
 );
 

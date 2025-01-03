@@ -12,7 +12,7 @@ pub struct EntitySecretHash {
 
 pub async fn try_insert_entity_credentials(
     eid: EID,
-    ident: Option<String>,
+    ident: String,
     secret: String,
     ctx: &AuthlyCtx,
 ) -> anyhow::Result<EID> {

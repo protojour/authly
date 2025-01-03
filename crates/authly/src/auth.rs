@@ -12,10 +12,7 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
-    db::{
-        entity_db::{self, EntitySecretHash},
-        service_db,
-    },
+    db::entity_db::{self, EntitySecretHash},
     AuthlyCtx, EID,
 };
 
@@ -39,11 +36,6 @@ impl IntoResponse for AuthError {
 #[derive(Deserialize)]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum AuthenticateRequest {
-    #[serde(rename_all = "camelCase")]
-    Service {
-        service_name: String,
-        service_secret: String,
-    },
     #[serde(rename_all = "camelCase")]
     User { username: String, password: String },
 }
@@ -72,15 +64,6 @@ pub async fn authenticate(
     // TODO: authority selection?
 
     let (ehash, secret) = match body {
-        AuthenticateRequest::Service {
-            service_name,
-            service_secret,
-        } => {
-            let ehash = service_db::find_service_secret_hash_by_service_name(&service_name, &ctx)
-                .await
-                .map_err(|_| AuthError::AuthFailed)?;
-            (ehash, service_secret)
-        }
         AuthenticateRequest::User { username, password } => {
             let ehash = entity_db::find_local_authority_entity_secret_hash_by_credential_ident(
                 &username, &ctx,
