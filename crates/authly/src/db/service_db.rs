@@ -10,6 +10,8 @@ pub struct SvcDef {
     name: String,
     entity_props: Vec<SvcEntityProp>,
     resource_props: Vec<SvcResourceProp>,
+    #[serde(default)]
+    k8s_ext: SvcK8SExtension,
 }
 
 #[derive(Deserialize)]
@@ -22,6 +24,18 @@ struct SvcEntityProp {
 struct SvcResourceProp {
     name: String,
     tags: Vec<String>,
+}
+
+#[derive(Default, Deserialize)]
+struct SvcK8SExtension {
+    #[serde(default)]
+    service_accounts: Vec<SvcK8SServiceAccount>,
+}
+
+#[derive(Deserialize)]
+struct SvcK8SServiceAccount {
+    namespace: String,
+    account_name: String,
 }
 
 pub async fn find_service_name_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Result<String> {
@@ -38,9 +52,33 @@ pub async fn find_service_name_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Resu
         })?
         .into_iter()
         .next()
-        .ok_or_else(|| anyhow!("credential not found"))?;
+        .ok_or_else(|| anyhow!("service not found"))?;
 
     Ok(row.get("name"))
+}
+
+pub async fn find_service_eid_by_k8s_service_account_name(
+    namespace: &str,
+    account_name: &str,
+    ctx: &AuthlyCtx,
+) -> anyhow::Result<Option<EID>> {
+    let Some(mut row) = ctx
+        .db
+        .query_raw(
+            "SELECT eid FROM svc_ext_k8s_service_account WHERE namespace = $1 AND account_name = $2",
+            params!(namespace, account_name),
+        )
+        .await
+        .map_err(|err| {
+            warn!(?err, "failed to lookup entity");
+            err
+        })?
+        .into_iter()
+        .next() else {
+            return Ok(None);
+        };
+
+    Ok(Some(EID::from_row(&mut row, "eid")))
 }
 
 pub async fn store_service(ctx: &AuthlyCtx, svc_eid: EID, svc_def: SvcDef) -> anyhow::Result<()> {
@@ -96,6 +134,15 @@ pub async fn store_service(ctx: &AuthlyCtx, svc_eid: EID, svc_def: SvcDef) -> an
                 )
                 .await?;
         }
+    }
+
+    // k8s service account
+    for k8s_service_account in svc_def.k8s_ext.service_accounts {
+        ctx.db.execute(
+            "INSERT INTO svc_ext_k8s_service_account (svc_eid, namespace, account_name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+            params!(svc_eid.as_param(), k8s_service_account.namespace, k8s_service_account.account_name),
+        )
+        .await?;
     }
 
     Ok(())

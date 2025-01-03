@@ -1,19 +1,23 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use axum::{extract::State, response::IntoResponse, routing::post, Extension};
+use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post, Extension};
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use http::{header::AUTHORIZATION, StatusCode};
 use jsonwebtoken::{
     jwk::{AlgorithmParameters, JwkSet},
     DecodingKey, TokenData, Validation,
 };
-use rcgen::KeyPair;
+use rcgen::{KeyPair, SubjectPublicKeyInfo};
 use rustls::pki_types::PrivateKeyDer;
 use tower_server::TlsConfigFactory;
 use tracing::{error, info};
 
-use crate::{cert::MakeSigningRequest, db::config_db::DynamicConfig, AuthlyCtx, EnvConfig};
+use crate::{
+    cert::MakeSigningRequest,
+    db::{config_db::DynamicConfig, service_db},
+    AuthlyCtx, EnvConfig,
+};
 
 const K8S_SERVICE_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 const K8S_SERVICE_CERTFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
@@ -22,44 +26,39 @@ const K8S_SERVICE_CERTFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccoun
 const K8S_CLUSTER_URL: &str = "https://kubernetes.default.svc.cluster.local";
 const K8S_JWKS_URL: &str = "https://kubernetes.default.svc.cluster.local/openid/v1/jwks";
 
+/// How long signed client certificates should be valid
+const CERT_VALIDITY_PERIOD: time::Duration = time::Duration::days(365);
+
 #[derive(Clone)]
 struct K8SAuthServerState {
     ctx: AuthlyCtx,
 
     /// TODO: Should refetch this regularly (use ArcSwap)?
-    jwk_set: Arc<JwkSet>,
+    jwt_verifier: Arc<JwtVerifier>,
 }
 
 #[derive(Debug)]
-struct CsrError;
+enum CsrError {
+    Internal,
+    Unauthorized,
+    ServiceAccountNotFound,
+    InvalidPublicKey,
+}
 
 impl IntoResponse for CsrError {
     fn into_response(self) -> axum::response::Response {
-        StatusCode::FORBIDDEN.into_response()
-    }
-}
-
-mod claims {
-    use serde::Deserialize;
-
-    #[derive(Deserialize, Debug)]
-    pub struct KubernetesJwtClaims {
-        #[expect(unused)]
-        pub aud: Vec<String>,
-        #[serde(rename = "kubernetes.io")]
-        pub kubernetes_io: KubernetesIoJwtExt,
-    }
-
-    #[derive(Deserialize, Debug)]
-    pub struct KubernetesIoJwtExt {
-        #[expect(unused)]
-        pub namespace: String,
-        pub serviceaccount: K8sServiceAccount,
-    }
-
-    #[derive(Deserialize, Debug)]
-    pub struct K8sServiceAccount {
-        pub name: String,
+        match self {
+            CsrError::Internal => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            CsrError::Unauthorized => StatusCode::UNAUTHORIZED.into_response(),
+            CsrError::ServiceAccountNotFound => (
+                StatusCode::FORBIDDEN,
+                "kubernetes service account not known by authly",
+            )
+                .into_response(),
+            CsrError::InvalidPublicKey => {
+                (StatusCode::UNPROCESSABLE_ENTITY, "invalid public key").into_response()
+            }
+        }
     }
 }
 
@@ -68,7 +67,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
         return Ok(());
     };
 
-    let jwk_set = fetch_k8s_jwk_set().await?;
+    let jwt_verifier = fetch_k8s_jwk_jwt_verifier().await?;
     let rustls_config_factory = rustls_server_config(env_config, &ctx.dynamic_config)?;
 
     let server = tower_server::Builder::new(format!("0.0.0.0:{port}").parse()?)
@@ -84,7 +83,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
                 .route("/api/csr", post(csr_handler))
                 .with_state(K8SAuthServerState {
                     ctx: ctx.clone(),
-                    jwk_set: Arc::new(jwk_set),
+                    jwt_verifier: Arc::new(jwt_verifier),
                 }),
         ),
     );
@@ -95,43 +94,103 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
 async fn csr_handler(
     State(state): State<K8SAuthServerState>,
     bearer_authorization: Extension<Authorization<Bearer>>,
+    body: Bytes,
 ) -> Result<axum::response::Response, CsrError> {
-    let token_data = verify_jwt(bearer_authorization.token(), &state.jwk_set)?;
-    let service_account_name = token_data.claims.kubernetes_io.serviceaccount.name;
+    let token_data = state.jwt_verifier.verify(bearer_authorization.token())?;
 
-    Err(CsrError)
-}
-
-fn verify_jwt(
-    token: &str,
-    jwk_set: &JwkSet,
-) -> Result<TokenData<claims::KubernetesJwtClaims>, CsrError> {
-    let jwk = jwk_set.keys.first().ok_or_else(|| {
-        error!("JwkSet contains no keys");
-        CsrError
-    })?;
-
-    let mut validation = Validation::new(match &jwk.algorithm {
-        AlgorithmParameters::EllipticCurve(_) => jsonwebtoken::Algorithm::ES256,
-        AlgorithmParameters::RSA(_) => jsonwebtoken::Algorithm::RS256,
-        _ => return Err(CsrError),
-    });
-    validation.set_audience(&[K8S_CLUSTER_URL]);
-
-    let token_data = jsonwebtoken::decode::<claims::KubernetesJwtClaims>(
-        &token,
-        &DecodingKey::from_jwk(jwk).unwrap(),
-        &validation,
+    let kubernetes_io = token_data.claims.kubernetes_io;
+    let eid = service_db::find_service_eid_by_k8s_service_account_name(
+        &kubernetes_io.namespace,
+        &kubernetes_io.serviceaccount.name,
+        &state.ctx,
     )
+    .await
     .map_err(|err| {
-        info!(?err, "token not verified");
-        CsrError
+        error!(?err, "failed to look up k8s service account");
+        CsrError::Internal
     })?;
 
-    Ok(token_data)
+    let Some(eid) = eid else {
+        info!("service account is not registered");
+        return Err(CsrError::ServiceAccountNotFound);
+    };
+
+    let service_public_key = SubjectPublicKeyInfo::from_der(&body).map_err(|err| {
+        info!(?err, "invalid public key in body");
+        CsrError::InvalidPublicKey
+    })?;
+
+    let signed_client_cert = state
+        .ctx
+        .dynamic_config
+        .local_ca
+        .sign(service_public_key.client_cert(&eid.0.to_string(), CERT_VALIDITY_PERIOD));
+
+    Ok(Bytes::copy_from_slice(&signed_client_cert.der).into_response())
 }
 
-async fn fetch_k8s_jwk_set() -> anyhow::Result<JwkSet> {
+mod claims {
+    use serde::Deserialize;
+
+    #[derive(Deserialize, Debug)]
+    pub struct KubernetesJwtClaims {
+        #[expect(unused)]
+        pub aud: Vec<String>,
+        #[serde(rename = "kubernetes.io")]
+        pub kubernetes_io: KubernetesIoJwtExt,
+    }
+
+    #[derive(Deserialize, Debug)]
+    pub struct KubernetesIoJwtExt {
+        pub namespace: String,
+        pub serviceaccount: K8sServiceAccount,
+    }
+
+    #[derive(Deserialize, Debug)]
+    pub struct K8sServiceAccount {
+        pub name: String,
+    }
+}
+
+struct JwtVerifier {
+    decoding_key: DecodingKey,
+    validation: Validation,
+}
+
+impl JwtVerifier {
+    fn from_jwk_set(jwk_set: JwkSet) -> anyhow::Result<Self> {
+        let jwk = jwk_set
+            .keys
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow!("key set is empty"))?;
+
+        let decoding_key = DecodingKey::from_jwk(&jwk)?;
+        let mut validation = Validation::new(match &jwk.algorithm {
+            AlgorithmParameters::EllipticCurve(_) => jsonwebtoken::Algorithm::ES256,
+            AlgorithmParameters::RSA(_) => jsonwebtoken::Algorithm::RS256,
+            _ => return Err(anyhow!("unsupported algorithm parameters")),
+        });
+        validation.set_audience(&[K8S_CLUSTER_URL]);
+
+        Ok(Self {
+            decoding_key,
+            validation,
+        })
+    }
+
+    fn verify(&self, token: &str) -> Result<TokenData<claims::KubernetesJwtClaims>, CsrError> {
+        let token_data = jsonwebtoken::decode(&token, &self.decoding_key, &self.validation)
+            .map_err(|err| {
+                info!(?err, "token not verified");
+                CsrError::Unauthorized
+            })?;
+
+        Ok(token_data)
+    }
+}
+
+async fn fetch_k8s_jwk_jwt_verifier() -> anyhow::Result<JwtVerifier> {
     let service_account_token = std::fs::read_to_string(K8S_SERVICE_TOKENFILE)?;
     let k8s_ca = std::fs::read(K8S_SERVICE_CERTFILE)?;
 
@@ -146,7 +205,7 @@ async fn fetch_k8s_jwk_set() -> anyhow::Result<JwkSet> {
         .json::<JwkSet>()
         .await?;
 
-    Ok(jwk_set)
+    JwtVerifier::from_jwk_set(jwk_set)
 }
 
 fn rustls_server_config(
@@ -188,7 +247,8 @@ fn test_jwt_verification() {
     }]});
 
     let jwk_set = serde_json::from_value(k8s_jwks).unwrap();
-    let token_data = verify_jwt(test_token, &jwk_set).unwrap();
+    let jwt_verifier = JwtVerifier::from_jwk_set(jwk_set).unwrap();
+    let token_data = jwt_verifier.verify(test_token).unwrap();
 
     assert_eq!(
         token_data.claims.kubernetes_io.serviceaccount.name,

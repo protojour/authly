@@ -1,7 +1,7 @@
 use pem::{EncodeConfig, Pem};
 use rcgen::{
     BasicConstraints, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, KeyPair,
-    KeyUsagePurpose, PublicKeyData,
+    KeyUsagePurpose, PublicKeyData, SubjectPublicKeyInfo,
 };
 use rustls::pki_types::CertificateDer;
 use time::{Duration, OffsetDateTime};
@@ -112,6 +112,7 @@ pub trait MakeSigningRequest: Sized {
 }
 
 impl MakeSigningRequest for KeyPair {}
+impl MakeSigningRequest for SubjectPublicKeyInfo {}
 
 impl<K> Into<reqwest::Certificate> for &Cert<K> {
     fn into(self) -> reqwest::Certificate {

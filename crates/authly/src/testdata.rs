@@ -70,6 +70,12 @@ fn testservice_def() -> SvcDef {
                 "tags": ["read", "create", "delete"],
             }
         ],
+        "k8s_ext": {
+            "service_accounts": [{
+                "namespace": "authly-test",
+                "account_name": "testservice"
+            }]
+        }
     }))
     .unwrap()
 }

@@ -68,3 +68,11 @@ CREATE TABLE svc_rtag (
 
     UNIQUE (prop_id, name)
 );
+
+CREATE TABLE svc_ext_k8s_service_account (
+    svc_eid BLOB NOT NULL REFERENCES svc(eid),
+    namespace TEXT NOT NULL,
+    account_name TEXT NOT NULL,
+
+    UNIQUE (namespace, account_name)
+);
