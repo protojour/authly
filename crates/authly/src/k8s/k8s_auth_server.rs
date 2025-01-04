@@ -214,9 +214,14 @@ fn rustls_server_config(
 ) -> anyhow::Result<TlsConfigFactory> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    let hostname = env_config
+        .k8s_auth_hostname
+        .as_deref()
+        .unwrap_or(&env_config.hostname);
+
     let server_cert = dynamic_config
         .local_ca
-        .sign(KeyPair::generate()?.server_cert(&env_config.hostname, time::Duration::days(365)));
+        .sign(KeyPair::generate()?.server_cert(hostname, time::Duration::days(365)));
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("k8s auth server private key: {err}"))?;

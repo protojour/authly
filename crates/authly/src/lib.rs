@@ -326,6 +326,7 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
     };
 
     info!("hiqlite nodes: {hiqlite_nodes:?}");
+    info!("data dir={:?}", env_config.data_dir);
 
     hiqlite::NodeConfig {
         node_id,
@@ -359,8 +360,8 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
         },
         tls_raft: Some(cluster_tls_config.clone()),
         tls_api: Some(cluster_tls_config),
-        secret_raft: env_config.raft_secret.clone(),
-        secret_api: env_config.api_secret.clone(),
+        secret_raft: env_config.cluster_raft_secret.clone(),
+        secret_api: env_config.cluster_api_secret.clone(),
     }
 }
 

@@ -72,8 +72,8 @@ impl Cert<KeyPair> {
 }
 
 pub struct SigningRequest<K> {
-    params: CertificateParams,
-    key: K,
+    pub params: CertificateParams,
+    pub key: K,
 }
 
 pub trait MakeSigningRequest: Sized {

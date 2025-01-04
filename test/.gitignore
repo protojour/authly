@@ -1,2 +1,4 @@
+cluster.crt
+cluster.key
 exported-local-ca.pem
 testservice-identity.pem

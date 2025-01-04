@@ -1,0 +1,149 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: authly
+  labels:
+    app: authly
+  namespace: authly-test
+automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authly-config
+  namespace: authly-test
+data:
+  AUTHLY_HOSTNAME: authly
+  AUTHLY_K8S: 'true'
+  AUTHLY_K8S_STATEFULSET: authly
+  AUTHLY_K8S_HEADLESS_SVC: authly-cluster
+  AUTHLY_K8S_REPLICAS: '1'
+  AUTHLY_K8S_AUTH_HOSTNAME: authly-k8s
+  AUTHLY_K8S_AUTH_SERVER_PORT: '10446'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: authly-secrets
+  namespace: authly-test
+stringData:
+  AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
+  AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authly
+  namespace: authly-test
+spec:
+  selector:
+    app: authly
+  ports:
+  - name: api
+    protocol: TCP
+    port: 443
+    targetPort: 10443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authly-k8s
+  namespace: authly-test
+spec:
+  selector:
+    app: authly
+  ports:
+  - name: k8s-auth-api
+    protocol: TCP
+    port: 443
+    targetPort: 10446
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authly-cluster
+  namespace: authly-test
+spec:
+  clusterIP: None
+  selector:
+    app: authly
+  ports:
+    - name: cluster-api
+      protocol: TCP
+      port: 10444
+      targetPort: 10444
+    - name: cluster-raft
+      protocol: TCP
+      port: 10445
+      targetPort: 10445
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: authly
+  namespace: authly-test
+  labels:
+    app: authly
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authly
+  serviceName: authly-cluster
+  template:
+    metadata:
+      labels:
+        app: authly
+    spec:
+      serviceAccountName: authly
+      containers:
+        - name: authly-dev
+          image: situ/authly:dev
+          command: ["/authly", "serve"]
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - containerPort: 10443
+            - containerPort: 10444
+            - containerPort: 10445
+            - containerPort: 10446
+          # livenessProbe:
+          #   httpGet:
+          #     scheme: HTTP
+          #     port: 8200
+          #     path: /health
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 30
+          envFrom:
+            - configMapRef:
+                name: authly-config
+            - secretRef:
+                name: authly-secrets
+          volumeMounts:
+            - mountPath: /var/lib/authly
+              name: authly-data
+            - mountPath: /etc/authly/cluster
+              readOnly: true
+              name: authly-cluster-key
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 100m
+      volumes:
+        - name: authly-cluster-key
+          secret:
+            secretName: authly-cluster-key
+  volumeClaimTemplates:
+    - metadata:
+        name: authly-data
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: 256Mi
+        # In case you want to specify the storage class.
+        # You should always(!) prefer local over some replicated abstraction layer.
+        # Authly cares about replication itself already.
+        #storageClassName: local-path

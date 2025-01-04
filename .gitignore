@@ -1,4 +1,5 @@
 /target
+/target-musl
 .vscode
 *.sublime-*
 .data

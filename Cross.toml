@@ -1,0 +1,18 @@
+# In case you have enabled the `mold` linker in your dev environemnt (~/.cargo/config.toml),
+# the following config snippet fixes a problem with `cross` that when it mounts in docker,
+# cargo will verify that this linker exists _even though it's not used for the cross target_.
+# Explicitly passing CARGO_TARGET_.. here for the _host_ linker fixes the issue by re-overriding it to default.
+#
+# See also https://github.com/cross-rs/cross/issues/621#issuecomment-1371577085
+[build.env]
+passthrough = [
+    "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc",
+    "RUSTFLAGS",
+]
+
+[build]
+pre-build = [
+    # download a recent `protoc` from github
+    "apt update && apt install -y unzip",
+    "curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip && unzip protoc-26.1-linux-x86_64.zip -d /usr/ && chmod 755 protoc-26.1-linux-x86_64.zip"
+]
