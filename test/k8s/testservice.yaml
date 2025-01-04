@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: testservice
+  labels:
+    app: authly
+  namespace: authly-test
+automountServiceAccountToken: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testservice
+  namespace: authly-test
+  labels:
+    app: testservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testservice
+  template:
+    metadata:
+      labels:
+        app: testservice
+    spec:
+      serviceAccountName: testservice
+      enableServiceLinks: false
+      containers:
+      - name: testservice
+        image: situ/authly-testservice:dev
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        volumeMounts:
+          - name: authly-ca
+            mountPath: /etc/authly
+      volumes:
+        - name: authly-ca
+          configMap:
+            name: authly-local-ca.crt

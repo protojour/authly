@@ -65,7 +65,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
     let Some(mut row) = ctx
         .db
         .query_raw(
-            "SELECT eid FROM svc_ext_k8s_service_account WHERE namespace = $1 AND account_name = $2",
+            "SELECT svc_eid FROM svc_ext_k8s_service_account WHERE namespace = $1 AND account_name = $2",
             params!(namespace, account_name),
         )
         .await
@@ -78,7 +78,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
             return Ok(None);
         };
 
-    Ok(Some(EID::from_row(&mut row, "eid")))
+    Ok(Some(EID::from_row(&mut row, "svc_eid")))
 }
 
 pub async fn store_service(ctx: &AuthlyCtx, svc_eid: EID, svc_def: SvcDef) -> anyhow::Result<()> {

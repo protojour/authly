@@ -1,11 +1,13 @@
 [workspace]
 members = [
     "crates/authly",
+    "crates/authly-client",
     "crates/authly-pdp",
     "crates/authly-pip",
     "crates/authly-policy",
     "crates/authly-proto",
     "crates/authly-test",
+    "crates/authly-testservice",
 ]
 resolver = "2"
 

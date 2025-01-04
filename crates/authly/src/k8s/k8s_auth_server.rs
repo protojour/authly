@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post, Extension};
-use axum_extra::headers::{authorization::Bearer, Authorization};
+use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use http::{header::AUTHORIZATION, StatusCode};
 use jsonwebtoken::{
     jwk::{AlgorithmParameters, JwkSet},
@@ -19,8 +22,8 @@ use crate::{
     AuthlyCtx, EnvConfig,
 };
 
-const K8S_SERVICE_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
-const K8S_SERVICE_CERTFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
+const K8S_SA_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
+const K8S_SA_CERTFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
 
 /// TODO: Are these the same for all kubernetes clusters?
 const K8S_CLUSTER_URL: &str = "https://kubernetes.default.svc.cluster.local";
@@ -93,7 +96,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
 
 async fn csr_handler(
     State(state): State<K8SAuthServerState>,
-    bearer_authorization: Extension<Authorization<Bearer>>,
+    bearer_authorization: TypedHeader<Authorization<Bearer>>,
     body: Bytes,
 ) -> Result<axum::response::Response, CsrError> {
     let token_data = state.jwt_verifier.verify(bearer_authorization.token())?;
@@ -191,8 +194,8 @@ impl JwtVerifier {
 }
 
 async fn fetch_k8s_jwk_jwt_verifier() -> anyhow::Result<JwtVerifier> {
-    let service_account_token = std::fs::read_to_string(K8S_SERVICE_TOKENFILE)?;
-    let k8s_ca = std::fs::read(K8S_SERVICE_CERTFILE)?;
+    let service_account_token = std::fs::read_to_string(K8S_SA_TOKENFILE)?;
+    let k8s_ca = std::fs::read(K8S_SA_CERTFILE)?;
 
     let jwk_set = reqwest::ClientBuilder::new()
         .add_root_certificate(reqwest::Certificate::from_pem(&k8s_ca)?)
@@ -204,6 +207,8 @@ async fn fetch_k8s_jwk_jwt_verifier() -> anyhow::Result<JwtVerifier> {
         .error_for_status()?
         .json::<JwkSet>()
         .await?;
+
+    info!("k8s jwk set: {jwk_set:?}");
 
     JwtVerifier::from_jwk_set(jwk_set)
 }

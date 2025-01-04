@@ -40,9 +40,15 @@ musl *flags:
 dev-image: musl
     docker build . -t situ/authly:dev --platform linux/amd64 --build-arg RUST_PROFILE=debug
 
-kubernetes-test-deploy: generate-testdata dev-image
+testservice:
+    cross build -p authly-testservice --target x86_64-unknown-linux-musl --target-dir target-musl
+    docker build . -f testservice.Dockerfile -t situ/authly-testservice:dev
+
+kubernetes-test-deploy: generate-testdata dev-image testservice
     -kubectl create namespace authly-test
     -kubectl create secret tls authly-cluster-key -n authly-test --cert=test/cluster.crt --key=test/cluster.key
     kubectl apply -f test/k8s/authly.yaml
+    kubectl apply -f test/k8s/testservice.yaml
 
     kubectl delete pods --namespace=authly-test -l 'app=authly'
+    kubectl delete pods --namespace=authly-test -l 'app=testservice'

@@ -34,7 +34,10 @@ impl AuthlyService for AuthlyServiceServerImpl {
             .await
             .map_err(|_err| tonic::Status::internal("db error"))?;
 
-        Ok(tonic::Response::new(proto::ServiceMetadata { name }))
+        Ok(tonic::Response::new(proto::ServiceMetadata {
+            eid: eid.0.to_string(),
+            name,
+        }))
     }
 }
 

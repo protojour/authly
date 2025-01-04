@@ -18,6 +18,7 @@ use crate::{
 
 pub enum AuthError {
     AuthFailed,
+    #[expect(unused)]
     Internal,
 }
 
@@ -60,7 +61,7 @@ pub async fn authenticate(
     Json(body): Json<AuthenticateRequest>,
 ) -> Result<axum::response::Response, AuthError> {
     // BUG: figure this out:
-    let mfa_needed = false;
+    let _mfa_needed = false;
     // TODO: authority selection?
 
     let (ehash, secret) = match body {

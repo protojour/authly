@@ -283,6 +283,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "authly-client"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "authly-proto",
+ "http",
+ "pem",
+ "rcgen",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.9",
+ "time",
+ "tokio",
+ "tonic",
+ "tracing",
+]
+
+[[package]]
 name = "authly-pdp"
 version = "0.1.0"
 dependencies = [
@@ -342,6 +361,16 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "x509-parser",
+]
+
+[[package]]
+name = "authly-testservice"
+version = "0.1.0"
+dependencies = [
+ "authly-client",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

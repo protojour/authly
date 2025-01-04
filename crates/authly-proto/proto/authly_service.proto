@@ -6,7 +6,8 @@ service AuthlyService {
 }
 
 message ServiceMetadata {
-    string name = 1;
+    string eid = 1;
+    string name = 2;
 }
 
 message Empty {}

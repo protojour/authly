@@ -1,0 +1,21 @@
+[package]
+name = "authly-testservice"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+authly-client.path = "../authly-client"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "env-filter",
+    "fmt",
+    "ansi",
+] }
+
+[dev-dependencies]
