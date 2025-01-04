@@ -13,7 +13,13 @@ async fn main() {
 
     info!("HELLO");
 
-    let client = authly_client::Client::infer().await.unwrap();
+    let client = authly_client::Client::builder()
+        .from_environment()
+        .await
+        .unwrap()
+        .connect()
+        .await
+        .unwrap();
 
     let eid = client.eid().await.unwrap();
     let name = client.name().await.unwrap();
