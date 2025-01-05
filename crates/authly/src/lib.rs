@@ -1,12 +1,12 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
+use authly_domain::EID;
 use axum::{routing::post, Router};
 use cert::MakeSigningRequest;
 use db::config_db::{self, DynamicConfig};
 pub use env_config::EnvConfig;
-use hiqlite::{Row, ServerTlsConfig};
-use rand::Rng;
+use hiqlite::ServerTlsConfig;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
 use time::Duration;
@@ -31,24 +31,6 @@ struct Migrations;
 
 const HIQLITE_API_PORT: u16 = 10444;
 const HIQLITE_RAFT_PORT: u16 = 10445;
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct EID(pub u128);
-
-impl EID {
-    fn random() -> Self {
-        Self(rand::thread_rng().gen())
-    }
-
-    fn from_row(row: &mut Row, idx: &str) -> Self {
-        let postcard: Vec<u8> = row.get(idx);
-        Self(postcard::from_bytes(&postcard).unwrap())
-    }
-
-    fn as_param(&self) -> hiqlite::Param {
-        hiqlite::Param::Blob(postcard::to_allocvec(&self.0).unwrap())
-    }
-}
 
 #[derive(Clone)]
 struct AuthlyCtx {

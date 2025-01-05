@@ -12,6 +12,7 @@ publish = false
 doctest = false
 
 [dependencies]
+authly-domain.path = "../authly-domain"
 authly-proto.path = "../authly-proto"
 
 anyhow = "1"

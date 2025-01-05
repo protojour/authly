@@ -1,3 +1,4 @@
+use authly_domain::EID;
 use serde_json::json;
 use tracing::{debug, info, warn};
 
@@ -6,7 +7,7 @@ use crate::{
         entity_db,
         service_db::{self, SvcDef},
     },
-    AuthlyCtx, EID,
+    AuthlyCtx,
 };
 
 pub async fn try_init_testdata(ctx: &AuthlyCtx) -> anyhow::Result<()> {

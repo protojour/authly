@@ -15,10 +15,6 @@ http = "1"
 pem = "3"
 reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
 rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params" }
-serde = "1"
-serde_json = "1"
 thiserror = "2"
-time = { version = "0.3", features = ["serde"] }
-tokio = { version = "1", features = ["macros"] }
 tonic = { version = "0.12", default-features = false, features = ["tls"] }
 tracing = "0.1"

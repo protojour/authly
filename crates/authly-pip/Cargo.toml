@@ -11,6 +11,7 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
+authly-domain.path = "../authly-domain"
 authly-policy.path = "../authly-policy"
 bit-set = "0.8"
 rand = "0.8"

@@ -5,6 +5,8 @@ use tracing::{info, warn};
 
 use crate::{AuthlyCtx, EID};
 
+use super::Convert;
+
 #[derive(Deserialize)]
 pub struct SvcDef {
     name: String,

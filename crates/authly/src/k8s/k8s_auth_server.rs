@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use authly_domain::EID;
 use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -8,7 +9,7 @@ use axum_extra::{
 };
 use http::{header::AUTHORIZATION, StatusCode};
 use jsonwebtoken::{
-    jwk::{AlgorithmParameters, JwkSet},
+    jwk::{AlgorithmParameters, EllipticCurve, JwkSet},
     DecodingKey, TokenData, Validation,
 };
 use rcgen::{KeyPair, SubjectPublicKeyInfo};
@@ -17,7 +18,7 @@ use tower_server::TlsConfigFactory;
 use tracing::{error, info};
 
 use crate::{
-    cert::MakeSigningRequest,
+    cert::{Cert, MakeSigningRequest},
     db::{config_db::DynamicConfig, service_db},
     AuthlyCtx, EnvConfig,
 };
@@ -38,31 +39,6 @@ struct K8SAuthServerState {
 
     /// TODO: Should refetch this regularly (use ArcSwap)?
     jwt_verifier: Arc<JwtVerifier>,
-}
-
-#[derive(Debug)]
-enum CsrError {
-    Internal,
-    Unauthorized,
-    ServiceAccountNotFound,
-    InvalidPublicKey,
-}
-
-impl IntoResponse for CsrError {
-    fn into_response(self) -> axum::response::Response {
-        match self {
-            CsrError::Internal => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-            CsrError::Unauthorized => StatusCode::UNAUTHORIZED.into_response(),
-            CsrError::ServiceAccountNotFound => (
-                StatusCode::FORBIDDEN,
-                "kubernetes service account not known by authly",
-            )
-                .into_response(),
-            CsrError::InvalidPublicKey => {
-                (StatusCode::UNPROCESSABLE_ENTITY, "invalid public key").into_response()
-            }
-        }
-    }
 }
 
 pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> anyhow::Result<()> {
@@ -94,6 +70,33 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
     Ok(())
 }
 
+#[derive(Debug)]
+enum CsrError {
+    Internal,
+    Unauthorized,
+    ServiceAccountNotFound,
+    InvalidPublicKey(EID),
+}
+
+impl IntoResponse for CsrError {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            CsrError::Internal => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            CsrError::Unauthorized => StatusCode::UNAUTHORIZED.into_response(),
+            CsrError::ServiceAccountNotFound => (
+                StatusCode::FORBIDDEN,
+                "kubernetes service account not known by authly",
+            )
+                .into_response(),
+            CsrError::InvalidPublicKey(eid) => {
+                info!(?eid, "invalid public key");
+                (StatusCode::UNPROCESSABLE_ENTITY, "invalid public key").into_response()
+            }
+        }
+    }
+}
+
+#[tracing::instrument(skip_all)]
 async fn csr_handler(
     State(state): State<K8SAuthServerState>,
     bearer_authorization: TypedHeader<Authorization<Bearer>>,
@@ -118,16 +121,23 @@ async fn csr_handler(
         return Err(CsrError::ServiceAccountNotFound);
     };
 
-    let service_public_key = SubjectPublicKeyInfo::from_der(&body).map_err(|err| {
-        info!(?err, "invalid public key in body");
-        CsrError::InvalidPublicKey
-    })?;
+    let signed_client_cert = tokio::task::spawn_blocking(move || -> Result<Cert<_>, CsrError> {
+        let service_public_key = SubjectPublicKeyInfo::from_der(&body)
+            .map_err(|_err| CsrError::InvalidPublicKey(eid))?;
 
-    let signed_client_cert = state
-        .ctx
-        .dynamic_config
-        .local_ca
-        .sign(service_public_key.client_cert(&eid.0.to_string(), CERT_VALIDITY_PERIOD));
+        Ok(state
+            .ctx
+            .dynamic_config
+            .local_ca
+            .sign(service_public_key.client_cert(&eid.0.to_string(), CERT_VALIDITY_PERIOD)))
+    })
+    .await
+    .map_err(|err| {
+        error!(?err, "signer join error");
+        CsrError::Internal
+    })??;
+
+    info!(?eid, "authenticated");
 
     Ok(Bytes::copy_from_slice(&signed_client_cert.der).into_response())
 }
@@ -140,17 +150,17 @@ mod claims {
         #[expect(unused)]
         pub aud: Vec<String>,
         #[serde(rename = "kubernetes.io")]
-        pub kubernetes_io: KubernetesIoJwtExt,
+        pub kubernetes_io: KubernetesIo,
     }
 
     #[derive(Deserialize, Debug)]
-    pub struct KubernetesIoJwtExt {
+    pub struct KubernetesIo {
         pub namespace: String,
-        pub serviceaccount: K8sServiceAccount,
+        pub serviceaccount: ServiceAccount,
     }
 
     #[derive(Deserialize, Debug)]
-    pub struct K8sServiceAccount {
+    pub struct ServiceAccount {
         pub name: String,
     }
 }
@@ -166,11 +176,16 @@ impl JwtVerifier {
             .keys
             .into_iter()
             .next()
-            .ok_or_else(|| anyhow!("key set is empty"))?;
+            .ok_or_else(|| anyhow!("jwk set is empty"))?;
 
         let decoding_key = DecodingKey::from_jwk(&jwk)?;
         let mut validation = Validation::new(match &jwk.algorithm {
-            AlgorithmParameters::EllipticCurve(_) => jsonwebtoken::Algorithm::ES256,
+            AlgorithmParameters::EllipticCurve(params) => match params.curve {
+                EllipticCurve::P256 => jsonwebtoken::Algorithm::ES256,
+                EllipticCurve::P384 => jsonwebtoken::Algorithm::ES384,
+                EllipticCurve::P521 => return Err(anyhow!("unsupported: EC P521")),
+                EllipticCurve::Ed25519 => jsonwebtoken::Algorithm::EdDSA,
+            },
             AlgorithmParameters::RSA(_) => jsonwebtoken::Algorithm::RS256,
             _ => return Err(anyhow!("unsupported algorithm parameters")),
         });

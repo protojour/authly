@@ -12,7 +12,10 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
-    db::entity_db::{self, EntitySecretHash},
+    db::{
+        entity_db::{self, EntitySecretHash},
+        Convert,
+    },
     AuthlyCtx, EID,
 };
 

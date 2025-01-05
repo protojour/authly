@@ -2,25 +2,17 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+use authly_domain::EID;
 use authly_policy::OpCode;
 use rand::Rng;
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct EID(pub u128);
 
 fn random_id() -> u128 {
     loop {
         let id = rand::thread_rng().gen();
         // low IDs are reserved for builtin/fixed
-        if id > 32768 {
+        if id > 32767 {
             return id;
         }
-    }
-}
-
-impl EID {
-    pub fn random() -> Self {
-        Self(random_id())
     }
 }
 
@@ -400,6 +392,6 @@ mod tests {
         let admins = model.add_group("admins");
         model.set_membership(admins, user_testadmin);
 
-        panic!("model: {model:#?}");
+        println!("model: {model:#?}");
     }
 }

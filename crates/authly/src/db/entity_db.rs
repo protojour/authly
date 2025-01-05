@@ -1,9 +1,12 @@
 use anyhow::anyhow;
 use argon2::{password_hash::SaltString, Argon2};
+use authly_domain::EID;
 use hiqlite::{params, Param};
 use tracing::warn;
 
-use crate::{AuthlyCtx, EID};
+use crate::AuthlyCtx;
+
+use super::Convert;
 
 pub struct EntitySecretHash {
     pub eid: EID,
