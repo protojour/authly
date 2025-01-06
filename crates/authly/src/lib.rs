@@ -13,7 +13,6 @@ pub use env_config::EnvConfig;
 use hiqlite::ServerTlsConfig;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
-use testdata::try_init_users;
 use time::Duration;
 use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
@@ -28,7 +27,6 @@ mod db;
 mod env_config;
 mod k8s;
 mod proto;
-mod testdata;
 mod util;
 
 #[derive(rust_embed::Embed)]
@@ -144,22 +142,29 @@ async fn initialize() -> anyhow::Result<Init> {
             )?;
         }
 
-        try_init_users(&ctx).await?;
-
-        let testservice = Document::from_toml(include_str!("../../../examples/testservice.toml"))?;
-        let compiled_doc = match compile_doc(testservice, &ctx).await {
-            Ok(doc) => doc,
-            Err(errors) => {
-                for error in errors {
-                    tracing::error!("doc error: {error:?}");
+        for (_filename, toml) in [
+            (
+                "testusers.toml",
+                include_str!("../../../examples/testusers.toml"),
+            ),
+            (
+                "testservice.tomls",
+                include_str!("../../../examples/testservice.toml"),
+            ),
+        ] {
+            let document = Document::from_toml(toml)?;
+            let compiled_doc = match compile_doc(document, &ctx).await {
+                Ok(doc) => doc,
+                Err(errors) => {
+                    for error in errors {
+                        tracing::error!("doc error: {error:?}");
+                    }
+                    return Err(anyhow!("document error"));
                 }
-                return Err(anyhow!("document error"));
-            }
-        };
+            };
 
-        // info!("compiled_doc: {compiled_doc:#?}");
-
-        document_db::store_document(compiled_doc, &ctx).await?;
+            document_db::store_document(compiled_doc, &ctx).await?;
+        }
     }
 
     Ok(Init { ctx, env_config })

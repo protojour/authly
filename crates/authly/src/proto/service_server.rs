@@ -4,7 +4,8 @@ use authly_proto::service::{
 };
 
 use crate::{
-    db::service_db::find_service_name_by_eid, tls_middleware::PeerSubjectCommonName, AuthlyCtx, EID,
+    db::service_db::find_service_label_by_eid, tls_middleware::PeerSubjectCommonName, AuthlyCtx,
+    EID,
 };
 
 pub struct AuthlyServiceServerImpl {
@@ -30,13 +31,16 @@ impl AuthlyService for AuthlyServiceServerImpl {
         request: tonic::Request<proto::Empty>,
     ) -> tonic::Result<tonic::Response<proto::ServiceMetadata>> {
         let eid = auth(&request)?;
-        let name = find_service_name_by_eid(eid, &self.ctx)
+        let label = find_service_label_by_eid(eid, &self.ctx)
             .await
-            .map_err(|_err| tonic::Status::internal("db error"))?;
+            .map_err(|err| {
+                tracing::error!(?err, "error");
+                tonic::Status::internal("db error")
+            })?;
 
         Ok(tonic::Response::new(proto::ServiceMetadata {
             eid: eid.0.to_string(),
-            name,
+            label,
         }))
     }
 }

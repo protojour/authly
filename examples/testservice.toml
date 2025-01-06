@@ -2,74 +2,68 @@
 id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 
 [[service]]
-eid = "444444"
-name = "testservice"
+eid = "272878235402143010663560859986869906352"
 label = "testservice"
 kubernetes = { service-account = [
     { namespace = "authly-test", name = "testservice" },
 ] }
 
 [[entity-property]]
-scope = "testservice"
-name = "role"
+service = "testservice"
+label = "role"
 attributes = ["ui:user", "ui:admin"]
 
 [[resource-property]]
-scope = "testservice"
-name = "name"
+service = "testservice"
+label = "name"
 attributes = ["ontology", "storage"]
 
 [[resource-property]]
-scope = "testservice"
-name = "ontology.action"
-attributes = [""]
-
-[[resource-property]]
-scope = "testservice"
-name = "name"
+service = "testservice"
+label = "name"
 attributes = ["ontology", "storage"]
 
 [[resource-property]]
-scope = "testservice"
-name = "ontology:action"
+service = "testservice"
+label = "ontology:action"
 attributes = ["read", "deploy", "stop"]
 
 [[resource-property]]
-scope = "testservice"
-name = "buckets:action"
+service = "testservice"
+label = "buckets:action"
 attributes = ["read"]
 
 [[resource-property]]
-scope = "testservice"
-name = "bucket:action"
+service = "testservice"
+label = "bucket:action"
 attributes = ["read", "create", "delete"]
 
 [[resource-property]]
-scope = "testservice"
-name = "object:action"
+service = "testservice"
+label = "object:action"
 attributes = ["read", "create", "delete"]
 
 [[policy]]
-scope = "testservice"
-name = "allow for main service"
+service = "testservice"
+label = "allow for main service"
 allow = "subject.entity == label:testservice"
 
 [[policy]]
-scope = "testservice"
-name = "allow for UI user"
+service = "testservice"
+label = "allow for UI user"
 allow = "subject.role contains role/ui:user"
 
 [[policy]]
-scope = "testservice"
-name = "allow for UI admin"
+service = "testservice"
+label = "allow for UI admin"
 allow = "subject.role contains role/ui:admin"
 
 [[policy-binding]]
-scope = "testservice"
+service = "testservice"
 attributes = ["ontology:action/read"]
 policies = ["allow for main service", "allow for UI user"]
 
 [[policy-binding]]
-scope = "testservice"
+service = "testservice"
 attributes = ["ontology:action/deploy"]
 policies = ["allow for main service", "allow for UI admin"]

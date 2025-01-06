@@ -6,8 +6,10 @@ use authly_domain::{
 };
 
 #[derive(Debug)]
+#[expect(unused)]
 pub enum CompileError {
     NameDefinedMultipleTimes(Range<usize>),
+    UnresolvedEntity,
     UnresolvedProfile,
     UnresolvedGroup,
     UnresolvedService,
@@ -16,7 +18,8 @@ pub enum CompileError {
 
 #[derive(Debug)]
 pub struct CompiledDocument {
-    pub authority_eid: EID,
+    /// authority ID
+    pub aid: EID,
     pub data: CompiledDocumentData,
 }
 
@@ -26,10 +29,26 @@ pub struct CompiledDocumentData {
     pub groups: Vec<Group>,
     pub services: Vec<Service>,
 
+    pub entity_ident: Vec<EntityIdent>,
+    pub entity_password: Vec<EntityPassword>,
+
     pub group_memberships: Vec<CompiledGroupMembership>,
 
-    pub service_entity_props: Vec<CompiledProperty>,
-    pub service_resource_props: Vec<CompiledProperty>,
+    pub svc_ent_props: Vec<CompiledProperty>,
+    pub svc_res_props: Vec<CompiledProperty>,
+}
+
+#[derive(Debug)]
+pub struct EntityIdent {
+    pub eid: EID,
+    pub kind: String,
+    pub ident: String,
+}
+
+#[derive(Debug)]
+pub struct EntityPassword {
+    pub eid: EID,
+    pub hash: String,
 }
 
 #[derive(Debug)]
@@ -43,7 +62,13 @@ pub struct CompiledProperty {
     /// TODO: Is it an entity?
     pub id: EID,
     pub svc_eid: EID,
-    pub name: String,
+    pub label: String,
 
-    pub attributes: Vec<(EID, String)>,
+    pub attributes: Vec<CompiledAttribute>,
+}
+
+#[derive(Debug)]
+pub struct CompiledAttribute {
+    pub id: EID,
+    pub label: String,
 }

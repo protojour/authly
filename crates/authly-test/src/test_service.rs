@@ -19,9 +19,9 @@ async fn test_metadata() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut client = client().await?;
 
-    let name = client.name().await?;
+    let label = client.label().await?;
 
-    assert_eq!(name, "testservice");
+    assert_eq!(label, "testservice");
 
     Ok(())
 }

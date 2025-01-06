@@ -13,7 +13,7 @@ use tracing::warn;
 
 use crate::{
     db::{
-        entity_db::{self, EntitySecretHash},
+        entity_db::{self, EntityPasswordHash},
         Convert,
     },
     AuthlyCtx, EID,
@@ -69,8 +69,8 @@ pub async fn authenticate(
 
     let (ehash, secret) = match body {
         AuthenticateRequest::User { username, password } => {
-            let ehash = entity_db::find_local_authority_entity_secret_hash_by_credential_ident(
-                &username, &ctx,
+            let ehash = entity_db::find_local_authority_entity_password_hash_by_credential_ident(
+                "username", &username, &ctx,
             )
             .await
             .map_err(|_| AuthError::AuthFailed)?;
@@ -118,7 +118,7 @@ async fn init_session(
 }
 
 fn make_session_cookie(token: &Token, expires_at: time::OffsetDateTime) -> Cookie<'static> {
-    let mut cookie = Cookie::new("session-cookie", hex::encode(&token.0));
+    let mut cookie = Cookie::new("session-cookie", format!("{}", hexhex::hex(&token.0)));
     cookie.set_path("/");
     cookie.set_secure(true);
     cookie.set_http_only(true);
@@ -127,7 +127,7 @@ fn make_session_cookie(token: &Token, expires_at: time::OffsetDateTime) -> Cooki
     cookie
 }
 
-async fn verify_secret(ehash: EntitySecretHash, secret: String) -> Result<EID, AuthError> {
+async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<EID, AuthError> {
     // check Argon2 hash
     tokio::task::spawn_blocking(move || -> Result<(), AuthError> {
         use argon2::password_hash::PasswordHash;

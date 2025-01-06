@@ -79,7 +79,7 @@ impl Client {
     }
 
     /// The name of this client
-    pub async fn name(&self) -> Result<String, Error> {
+    pub async fn label(&self) -> Result<String, Error> {
         let mut client = self.client.clone();
         let metadata = client
             .metadata(proto::Empty::default())
@@ -87,7 +87,7 @@ impl Client {
             .map_err(network)?
             .into_inner();
 
-        Ok(metadata.name)
+        Ok(metadata.label)
     }
 }
 

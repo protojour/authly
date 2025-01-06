@@ -6,7 +6,7 @@ CREATE TABLE tlskey (
 );
 
 CREATE TABLE authority (
-    eid BLOB NOT NULL PRIMARY KEY,
+    aid BLOB NOT NULL PRIMARY KEY,
     kind TEXT NOT NULL
 );
 
@@ -16,22 +16,15 @@ CREATE TABLE session (
     expires_at DATETIME NOT NULL
 );
 
-CREATE TABLE entity_credential (
-    authority_eid BLOB NOT NULL,
-    eid BLOB NOT NULL PRIMARY KEY,
-    ident TEXT NOT NULL UNIQUE,
-    secret_hash TEXT NOT NULL
-);
-
-CREATE TABLE entity_tag (
+CREATE TABLE ent_tag (
     eid BLOB NOT NULL,
     tag BLOB NOT NULL,
 
     PRIMARY KEY (eid, tag)
 );
 
-CREATE TABLE entity_rel (
-    authority_eid BLOB NOT NULL,
+CREATE TABLE ent_rel (
+    aid BLOB NOT NULL,
     subj_eid BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     obj_eid BLOB NOT NULL,
@@ -39,48 +32,65 @@ CREATE TABLE entity_rel (
     PRIMARY KEY (subj_eid, prop_id, obj_eid)
 );
 
-CREATE TABLE svc (
-    authority_eid BLOB NOT NULL,
-    eid BLOB NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE
+CREATE TABLE ent_ident (
+    aid BLOB NOT NULL,
+    eid BLOB NOT NULL,
+    kind TEXT NOT NULL,
+    ident TEXT NOT NULL,
+
+    UNIQUE (kind, ident)
 );
 
-CREATE TABLE svc_eprop (
-    authority_eid BLOB NOT NULL,
+CREATE TABLE ent_password (
+    aid BLOB NOT NULL,
+    eid BLOB NOT NULL PRIMARY KEY,
+    hash TEXT NOT NULL
+);
+
+CREATE TABLE svc (
+    aid BLOB NOT NULL,
+    eid BLOB NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL
+);
+
+CREATE TABLE svc_ent_prop (
+    aid BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     svc_eid BLOB NOT NULL,
-    name TEXT NOT NULL,
+    label TEXT NOT NULL,
 
-    UNIQUE (svc_eid, name)
+    UNIQUE (svc_eid, label)
 );
 
-CREATE TABLE svc_etag (
+CREATE TABLE svc_ent_attrlabel (
+    aid BLOB NOT NULL,
     id BLOB NOT NULL,
     prop_id BLOB NOT NULL,
-    name TEXT NOT NULL,
+    label TEXT NOT NULL,
 
-    UNIQUE (prop_id, name)
+    UNIQUE (prop_id, label)
 );
 
-CREATE TABLE svc_rprop (
-    authority_eid BLOB NOT NULL,
+CREATE TABLE svc_res_prop (
+    aid BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     svc_eid BLOB NOT NULL,
-    name TEXT NOT NULL,
+    label TEXT NOT NULL,
 
-    UNIQUE (svc_eid, name)
+    UNIQUE (svc_eid, label)
 );
 
-CREATE TABLE svc_rtag (
+CREATE TABLE svc_res_attrlabel (
+    aid BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     prop_id BLOB NOT NULL,
-    name TEXT NOT NULL,
+    label TEXT NOT NULL,
 
-    UNIQUE (prop_id, name)
+    UNIQUE (prop_id, label)
 );
 
 CREATE TABLE svc_ext_k8s_service_account (
-    authority_eid BLOB NOT NULL,
+    aid BLOB NOT NULL,
     svc_eid BLOB NOT NULL,
     namespace TEXT NOT NULL,
     account_name TEXT NOT NULL,

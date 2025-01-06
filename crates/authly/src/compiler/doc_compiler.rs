@@ -3,8 +3,9 @@ use std::{collections::HashMap, ops::Range};
 
 use authly_domain::{document::Document, EID};
 use serde_spanned::Spanned;
-use tracing::info;
+use tracing::debug;
 
+use crate::compiler::compiled_document::{EntityIdent, EntityPassword};
 use crate::db::service_db::ServicePropertyKind;
 use crate::{
     db::service_db::{self, ServiceProperty},
@@ -12,11 +13,13 @@ use crate::{
 };
 
 use super::compiled_document::{
-    CompileError, CompiledDocument, CompiledDocumentData, CompiledGroupMembership, CompiledProperty,
+    CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData,
+    CompiledGroupMembership, CompiledProperty,
 };
 
 struct CompileCtx<'a> {
-    authority_eid: EID,
+    /// Authority ID
+    aid: EID,
 
     namespace: HashMap<&'a str, Spanned<NamespaceEntry>>,
 
@@ -43,7 +46,7 @@ pub async fn compile_doc(
     ctx: &AuthlyCtx,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
-        authority_eid: EID(doc.authly_document.id.get_ref().as_u128()),
+        aid: EID(doc.authly_document.id.get_ref().as_u128()),
         namespace: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
@@ -55,9 +58,17 @@ pub async fn compile_doc(
     data.groups = doc.group;
     data.services = doc.service;
 
-    for user in &data.users {
-        if let Some(name) = &user.name {
-            comp.ns_add(name, NamespaceEntry::User(*user.eid.get_ref()));
+    for user in &mut data.users {
+        if let Some(label) = &user.label {
+            comp.ns_add(label, NamespaceEntry::User(*user.eid.get_ref()));
+        }
+
+        if let Some(username) = user.username.take() {
+            data.entity_ident.push(EntityIdent {
+                eid: *user.eid.as_ref(),
+                kind: "username".to_string(),
+                ident: username.into_inner(),
+            });
         }
     }
 
@@ -66,14 +77,38 @@ pub async fn compile_doc(
     }
 
     for service in &data.services {
-        if let Some(label) = &service.label {
-            comp.ns_add(&label, NamespaceEntry::Service(*service.eid.get_ref()));
-        }
+        comp.ns_add(
+            &service.label,
+            NamespaceEntry::Service(*service.eid.get_ref()),
+        );
     }
 
-    info!("namespace: {:#?}", comp.namespace);
+    debug!("namespace: {:#?}", comp.namespace);
 
-    for gm in &doc.group_membership {
+    for email in doc.email {
+        let Some(eid) = comp.ns_entity_lookup(&email.entity) else {
+            continue;
+        };
+
+        data.entity_ident.push(EntityIdent {
+            eid,
+            kind: "email".to_string(),
+            ident: email.value.into_inner(),
+        });
+    }
+
+    for hash in doc.password_hash {
+        let Some(eid) = comp.ns_entity_lookup(&hash.entity) else {
+            continue;
+        };
+
+        data.entity_password.push(EntityPassword {
+            eid,
+            hash: hash.hash,
+        });
+    }
+
+    for gm in doc.group_membership {
         let Some(group_eid) = comp.ns_group_lookup(&gm.group) else {
             continue;
         };
@@ -92,43 +127,43 @@ pub async fn compile_doc(
         data.group_memberships.push(compiled_membership);
     }
 
-    for doc_eprop in &doc.entity_property {
-        if let Some(scope) = &doc_eprop.scope {
-            let Some(svc_eid) = comp.ns_service_lookup(scope) else {
+    for doc_eprop in doc.entity_property {
+        if let Some(svc_label) = &doc_eprop.service {
+            let Some(svc_eid) = comp.ns_service_lookup(svc_label) else {
                 continue;
             };
 
             if let Some(compiled_property) = compile_service_property(
                 svc_eid,
                 ServicePropertyKind::Entity,
-                doc_eprop.name.as_ref(),
-                &doc_eprop.attributes,
+                doc_eprop.label.as_ref(),
+                doc_eprop.attributes,
                 &mut comp,
                 ctx,
             )
             .await
             {
-                data.service_entity_props.push(compiled_property);
+                data.svc_ent_props.push(compiled_property);
             }
         }
     }
 
-    for doc_rprop in &doc.resource_property {
-        let Some(svc_eid) = comp.ns_service_lookup(&doc_rprop.scope) else {
+    for doc_rprop in doc.resource_property {
+        let Some(svc_eid) = comp.ns_service_lookup(&doc_rprop.service) else {
             continue;
         };
 
         if let Some(compiled_property) = compile_service_property(
             svc_eid,
             ServicePropertyKind::Resource,
-            doc_rprop.name.as_ref(),
-            &doc_rprop.attributes,
+            doc_rprop.label.as_ref(),
+            doc_rprop.attributes,
             &mut comp,
             ctx,
         )
         .await
         {
-            data.service_resource_props.push(compiled_property);
+            data.svc_res_props.push(compiled_property);
         }
     }
 
@@ -136,7 +171,7 @@ pub async fn compile_doc(
         Err(comp.errors.errors)
     } else {
         Ok(CompiledDocument {
-            authority_eid: comp.authority_eid,
+            aid: comp.aid,
             data,
         })
     }
@@ -145,8 +180,8 @@ pub async fn compile_doc(
 async fn compile_service_property<'a>(
     svc_eid: EID,
     property_kind: ServicePropertyKind,
-    doc_property_name: &str,
-    doc_attributes: &[Spanned<String>],
+    doc_property_label: &str,
+    doc_attributes: Vec<Spanned<String>>,
     comp: &mut CompileCtx<'a>,
     ctx: &AuthlyCtx,
 ) -> Option<CompiledProperty> {
@@ -159,7 +194,7 @@ async fn compile_service_property<'a>(
 
     let db_eprop = db_props_cached
         .iter()
-        .find(|db_prop| &db_prop.name == doc_property_name);
+        .find(|db_prop| &db_prop.label == doc_property_label);
 
     let mut compiled_property = CompiledProperty {
         id: db_eprop
@@ -167,7 +202,7 @@ async fn compile_service_property<'a>(
             .map(|db_prop| db_prop.id)
             .unwrap_or_else(EID::random),
         svc_eid,
-        name: doc_property_name.to_string(),
+        label: doc_property_label.to_string(),
         attributes: vec![],
     };
 
@@ -179,13 +214,13 @@ async fn compile_service_property<'a>(
                 .find(|attr| &attr.1 == doc_attribute.as_ref())
         });
 
-        compiled_property.attributes.push((
-            db_attr
+        compiled_property.attributes.push(CompiledAttribute {
+            id: db_attr
                 .as_ref()
                 .map(|attr| attr.0)
                 .unwrap_or_else(EID::random),
-            doc_attribute.get_ref().to_string(),
-        ));
+            label: doc_attribute.into_inner(),
+        });
     }
 
     Some(compiled_property)
@@ -208,7 +243,15 @@ impl<'a> CompileCtx<'a> {
         }
     }
 
-    fn ns_profile_lookup(&mut self, key: &'a Spanned<String>) -> Option<EID> {
+    fn ns_entity_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
+        match self.ns_lookup(key, CompileError::UnresolvedEntity)? {
+            NamespaceEntry::Group(eid) => Some(*eid),
+            NamespaceEntry::User(eid) => Some(*eid),
+            NamespaceEntry::Service(eid) => Some(*eid),
+        }
+    }
+
+    fn ns_profile_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
         match self.ns_lookup(key, CompileError::UnresolvedProfile)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             NamespaceEntry::User(eid) => Some(*eid),
@@ -220,7 +263,7 @@ impl<'a> CompileCtx<'a> {
         }
     }
 
-    fn ns_group_lookup(&mut self, key: &'a Spanned<String>) -> Option<EID> {
+    fn ns_group_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
         match self.ns_lookup(key, CompileError::UnresolvedGroup)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             _ => {
@@ -230,7 +273,7 @@ impl<'a> CompileCtx<'a> {
         }
     }
 
-    fn ns_service_lookup(&mut self, key: &'a Spanned<String>) -> Option<EID> {
+    fn ns_service_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
         match self.ns_lookup(key, CompileError::UnresolvedService)? {
             NamespaceEntry::Service(eid) => Some(*eid),
             _ => {
@@ -241,11 +284,7 @@ impl<'a> CompileCtx<'a> {
         }
     }
 
-    fn ns_lookup(
-        &mut self,
-        key: &'a Spanned<String>,
-        error: CompileError,
-    ) -> Option<&NamespaceEntry> {
+    fn ns_lookup(&mut self, key: &Spanned<String>, error: CompileError) -> Option<&NamespaceEntry> {
         match self.namespace.get(key.get_ref().as_str()) {
             Some(entry) => Some(entry.get_ref()),
             None => {
@@ -270,7 +309,7 @@ impl<'a> CompileCtx<'a> {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
                 let db_props = match service_db::list_service_properties(
-                    self.authority_eid,
+                    self.aid,
                     svc_eid,
                     property_kind,
                     ctx,

@@ -22,13 +22,14 @@ axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
 bit-set = "0.8"
 clap = { version = "4", features = ["derive"] }
 figment = { version = "0.10", features = ["env"] }
-hex = "0.4"
+hexhex = "1"
 http = "1"
 hiqlite = { version = "0.3", default-features = false, features = [
     "sqlite",
     "auto-heal",
 ] }
 indoc = "2"
+itertools = "0.14"
 hostname = "0.4"
 hyper = { version = "1", default-features = false }
 jsonwebtoken = "9"

@@ -17,6 +17,12 @@ pub struct Document {
     pub group: Vec<Group>,
 
     #[serde(default)]
+    pub email: Vec<Email>,
+
+    #[serde(default, rename = "password-hash")]
+    pub password_hash: Vec<PasswordHash>,
+
+    #[serde(default)]
     pub service: Vec<Service>,
 
     #[serde(default, rename = "group-membership")]
@@ -46,10 +52,31 @@ pub struct AuthlyDocument {
 #[serde(deny_unknown_fields)]
 pub struct User {
     pub eid: Spanned<EID>,
-    #[serde(default, rename = "ref")]
-    pub _ref: Option<Spanned<String>>,
     #[serde(default)]
-    pub name: Option<Spanned<String>>,
+    pub label: Option<Spanned<String>>,
+
+    #[serde(default)]
+    pub username: Option<Spanned<String>>,
+
+    #[serde(default)]
+    pub email: Vec<Spanned<String>>,
+
+    #[serde(default, rename = "password-hash")]
+    pub password_hash: Vec<String>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Email {
+    pub entity: Spanned<String>,
+    pub value: Spanned<String>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PasswordHash {
+    pub entity: Spanned<String>,
+    pub hash: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -71,9 +98,9 @@ pub struct GroupMembership {
 #[serde(deny_unknown_fields)]
 pub struct EntityProperty {
     #[serde(default)]
-    pub scope: Option<Spanned<String>>,
+    pub service: Option<Spanned<String>>,
 
-    pub name: Spanned<String>,
+    pub label: Spanned<String>,
 
     #[serde(default)]
     pub attributes: Vec<Spanned<String>>,
@@ -83,10 +110,7 @@ pub struct EntityProperty {
 #[serde(deny_unknown_fields)]
 pub struct Service {
     pub eid: Spanned<EID>,
-    pub name: Spanned<String>,
-
-    #[serde(default)]
-    pub label: Option<Spanned<String>>,
+    pub label: Spanned<String>,
 
     #[serde(default)]
     pub kubernetes: ServiceK8sExt,
@@ -109,9 +133,9 @@ pub struct ServiceK8sAccount {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResourceProperty {
-    pub scope: Spanned<String>,
+    pub service: Spanned<String>,
 
-    pub name: Spanned<String>,
+    pub label: Spanned<String>,
 
     #[serde(default)]
     pub attributes: Vec<Spanned<String>>,
@@ -120,8 +144,8 @@ pub struct ResourceProperty {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
-    pub scope: Spanned<String>,
-    pub name: Spanned<String>,
+    pub service: Spanned<String>,
+    pub label: Spanned<String>,
 
     #[serde(default)]
     pub allow: Option<Spanned<String>>,
@@ -132,15 +156,39 @@ pub struct Policy {
 
 #[derive(Deserialize)]
 pub struct PolicyBinding {
-    pub scope: Spanned<String>,
+    pub service: Spanned<String>,
     pub attributes: Vec<Spanned<String>>,
     pub policies: Vec<Spanned<String>>,
 }
 
 impl Document {
     pub fn from_toml(toml: &str) -> anyhow::Result<Self> {
-        Ok(toml::from_str(toml)?)
+        Ok(preprocess(toml::from_str(toml)?))
     }
+}
+
+fn preprocess(mut doc: Document) -> Document {
+    for user in &mut doc.user {
+        let label = user
+            .label
+            .get_or_insert_with(|| Spanned::new(0..0, Uuid::new_v4().to_string()));
+
+        for email in std::mem::take(&mut user.email) {
+            doc.email.push(Email {
+                entity: label.clone(),
+                value: email,
+            });
+        }
+
+        for pw_hash in std::mem::take(&mut user.password_hash) {
+            doc.password_hash.push(PasswordHash {
+                entity: label.clone(),
+                hash: pw_hash,
+            });
+        }
+    }
+
+    doc
 }
 
 #[cfg(test)]

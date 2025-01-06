@@ -8,13 +8,14 @@ use crate::AuthlyCtx;
 
 use super::Convert;
 
-pub struct EntitySecretHash {
+pub struct EntityPasswordHash {
     pub eid: EID,
     pub secret_hash: String,
 }
 
+#[expect(unused)]
 pub async fn try_insert_entity_credentials(
-    authority_eid: EID,
+    aid: EID,
     eid: EID,
     ident: String,
     secret: String,
@@ -33,24 +34,25 @@ pub async fn try_insert_entity_credentials(
 
     ctx.db
         .execute(
-            "INSERT INTO entity_credential (authority_eid, eid, ident, secret_hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET ident = $3, secret_hash = $4",
-            params!(authority_eid.as_param(), eid.as_param(), ident, secret_hash),
+            "INSERT INTO entity_password (aid, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3",
+            params!(aid.as_param(), eid.as_param(), secret_hash),
         )
         .await?;
 
     Ok(eid)
 }
 
-pub async fn find_local_authority_entity_secret_hash_by_credential_ident(
+pub async fn find_local_authority_entity_password_hash_by_credential_ident(
+    ident_kind: &str,
     ident: &str,
     ctx: &AuthlyCtx,
-) -> anyhow::Result<EntitySecretHash> {
-    let (eid, secret_hash): (EID, String) = {
+) -> anyhow::Result<EntityPasswordHash> {
+    let (eid, hash): (EID, String) = {
         let mut row = ctx
             .db
             .query_raw(
-                "SELECT eid, secret_hash FROM entity_credential WHERE ident = $1",
-                params!(ident),
+                "SELECT p.eid, p.hash FROM ent_ident i JOIN ent_password p ON i.eid = p.eid WHERE i.kind = $1 AND i.ident = $2",
+                params!(ident_kind, ident),
             )
             .await
             .map_err(|err| {
@@ -61,18 +63,11 @@ pub async fn find_local_authority_entity_secret_hash_by_credential_ident(
             .next()
             .ok_or_else(|| anyhow!("credential not found"))?;
 
-        (EID::from_row(&mut row, "eid"), row.get("secret_hash"))
+        (EID::from_row(&mut row, "eid"), row.get("hash"))
     };
 
-    Ok(EntitySecretHash { eid, secret_hash })
-}
-
-pub async fn entity_count(ctx: AuthlyCtx) -> anyhow::Result<usize> {
-    let mut row = ctx
-        .db
-        .query_raw_one("SELECT count(*) AS count FROM entity_credential", params!())
-        .await?;
-
-    let count: i64 = row.get("count");
-    Ok(count as usize)
+    Ok(EntityPasswordHash {
+        eid,
+        secret_hash: hash,
+    })
 }

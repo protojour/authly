@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use authly_domain::EID;
 use hiqlite::Row;
 
@@ -20,5 +22,55 @@ impl Convert for EID {
 
     fn as_param(&self) -> hiqlite::Param {
         hiqlite::Param::Blob(postcard::to_allocvec(&self.0).unwrap())
+    }
+}
+
+pub trait Literal {
+    type Lit: Display;
+
+    fn literal(&self) -> Self::Lit;
+}
+
+impl Literal for EID {
+    type Lit = EIDLiteral;
+
+    fn literal(&self) -> Self::Lit {
+        EIDLiteral(postcard::to_allocvec(&self.0).unwrap())
+    }
+}
+
+pub struct EIDLiteral(Vec<u8>);
+
+impl Display for EIDLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "x'{}'", hexhex::hex(&self.0))
+    }
+}
+
+impl<'a> Literal for &'a str {
+    type Lit = StrLiteral<'a>;
+
+    fn literal(&self) -> Self::Lit {
+        StrLiteral(self)
+    }
+}
+
+pub struct StrLiteral<'a>(&'a str);
+
+impl<'a> Display for StrLiteral<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "'")?;
+
+        for char in self.0.chars() {
+            if char == '\'' {
+                write!(f, "''")?;
+            } else {
+                write!(f, "{char}")?;
+            }
+        }
+
+        write!(f, "'")?;
+
+        Ok(())
     }
 }

@@ -9,23 +9,23 @@ use crate::{AuthlyCtx, EID};
 
 use super::Convert;
 
-pub async fn find_service_name_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Result<String> {
+pub async fn find_service_label_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Result<String> {
     let mut row = ctx
         .db
         .query_raw(
-            "SELECT svc.name FROM svc WHERE eid = $1",
+            "SELECT svc.label FROM svc WHERE eid = $1",
             params!(eid.as_param()),
         )
         .await
         .map_err(|err| {
-            warn!(?err, "failed to lookup service credential");
+            warn!(?err, "failed to lookup service label");
             err
         })?
         .into_iter()
         .next()
         .ok_or_else(|| anyhow!("service not found"))?;
 
-    Ok(row.get("name"))
+    Ok(row.get("label"))
 }
 
 pub async fn find_service_eid_by_k8s_service_account_name(
@@ -55,7 +55,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
 #[derive(Debug)]
 pub struct ServiceProperty {
     pub id: EID,
-    pub name: String,
+    pub label: String,
     pub attributes: Vec<(EID, String)>,
 }
 
@@ -65,7 +65,7 @@ pub enum ServicePropertyKind {
 }
 
 pub async fn list_service_properties(
-    authority_id: EID,
+    aid: EID,
     svc_eid: EID,
     property_kind: ServicePropertyKind,
     ctx: &AuthlyCtx,
@@ -76,13 +76,13 @@ pub async fn list_service_properties(
                 .query_raw(
                     indoc! {
                         "
-                        SELECT p.id pid, p.name pname, a.id aid, a.name aname
-                        FROM svc_eprop p
-                        JOIN svc_etag a ON a.prop_id = p.id
-                        WHERE p.authority_eid = $1 AND p.svc_eid = $2
+                        SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
+                        FROM svc_ent_prop p
+                        JOIN svc_ent_attrlabel a ON a.prop_id = p.id
+                        WHERE p.aid = $1 AND p.svc_eid = $2
                         ",
                     },
-                    params!(authority_id.as_param(), svc_eid.as_param()),
+                    params!(aid.as_param(), svc_eid.as_param()),
                 )
                 .await?
         }
@@ -91,13 +91,13 @@ pub async fn list_service_properties(
                 .query_raw(
                     indoc! {
                         "
-                        SELECT p.id pid, p.name pname, a.id aid, a.name aname
-                        FROM svc_rprop p
-                        JOIN svc_rtag a ON a.prop_id = p.id
-                        WHERE p.authority_eid = $1 AND p.svc_eid = $2
+                        SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
+                        FROM svc_res_prop p
+                        JOIN svc_res_attrlabel a ON a.prop_id = p.id
+                        WHERE p.aid = $1 AND p.svc_eid = $2
                         ",
                     },
-                    params!(authority_id.as_param(), svc_eid.as_param()),
+                    params!(aid.as_param(), svc_eid.as_param()),
                 )
                 .await?
         }
@@ -112,13 +112,13 @@ pub async fn list_service_properties(
             .entry(prop_id)
             .or_insert_with(|| ServiceProperty {
                 id: prop_id,
-                name: row.get("pname"),
+                label: row.get("plabel"),
                 attributes: vec![],
             });
 
         property
             .attributes
-            .push((EID::from_row(&mut row, "aid"), row.get("aname")));
+            .push((EID::from_row(&mut row, "attrid"), row.get("alabel")));
     }
 
     Ok(properties.into_values().collect())
