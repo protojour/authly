@@ -4,6 +4,7 @@ use uuid::Uuid;
 use crate::EID;
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Document {
     pub document: DocumentMeta,
 
@@ -15,14 +16,31 @@ pub struct Document {
 
     #[serde(default)]
     pub service: Vec<Service>,
+
+    #[serde(default, rename = "group-membership")]
+    pub group_membership: Vec<GroupMembership>,
+
+    #[serde(default, rename = "entity-property")]
+    pub entity_property: Vec<EntityProperty>,
+
+    #[serde(default, rename = "resource-property")]
+    pub resource_property: Vec<ResourceProperty>,
+
+    #[serde(default)]
+    pub policy: Vec<Policy>,
+
+    #[serde(default, rename = "policy-binding")]
+    pub policy_binding: Vec<PolicyBinding>,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DocumentMeta {
     pub id: Uuid,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct User {
     pub eid: EID,
     #[serde(default, rename = "ref")]
@@ -32,31 +50,71 @@ pub struct User {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Group {
     pub eid: EID,
     pub name: String,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GroupMembership {
+    pub group: String,
+
+    pub members: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EntityProperty {
+    #[serde(default)]
+    scope: Option<String>,
+
+    name: String,
+
+    #[serde(default)]
+    attributes: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Service {
     pub eid: EID,
     pub name: String,
 
-    /// FIXME: These should be independent objects,
-    /// hierarchies should be avoided as much as possible
     #[serde(default)]
-    pub entityprop: Vec<Property>,
-
-    #[serde(default)]
-    pub resourceprop: Vec<Property>,
+    label: Option<String>,
 }
 
 #[derive(Deserialize)]
-pub struct Property {
-    pub name: String,
+#[serde(deny_unknown_fields)]
+pub struct ResourceProperty {
+    scope: String,
+
+    name: String,
 
     #[serde(default)]
-    pub tags: Vec<String>,
+    attributes: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Policy {
+    scope: String,
+    name: String,
+
+    #[serde(default)]
+    allow: Option<String>,
+
+    #[serde(default)]
+    deny: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct PolicyBinding {
+    scope: String,
+    attributes: Vec<String>,
+    policies: Vec<String>,
 }
 
 #[cfg(test)]
@@ -86,34 +144,79 @@ mod tests {
             eid = "333333"
             name = "you"
 
+            [[group-membership]]
+            group = "us"
+            members = ["me", "you"]
+
             [[service]]
             eid = "444444"
-            ref = "testservice"
             name = "testservice"
+            label = "testservice"
 
-            [[service.entityprop]]
+            [[entity-property]]
+            scope = "testservice"
             name = "role"
-            tags = ["ui_user", "ui_admin"]
+            attributes = ["ui:user", "ui:admin"]
 
-            [[service.resourceprop]]
+            [[resource-property]]
+            scope = "testservice"
             name = "name"
-            tags = ["ontology", "storage"]
+            attributes = ["ontology", "storage"]
 
-            [[service.resourceprop]]
-            name = "ontology_action"
-            tags = ["read", "deploy", "stop"]
+            [[resource-property]]
+            scope = "testservice"
+            name = "ontology.action"
+            attributes = [""]
 
-            [[service.resourceprop]]
-            name = "buckets.action"
-            tags = ["read"]
+            [[resource-property]]
+            scope = "testservice"
+            name = "name"
+            attributes = ["ontology", "storage"]
 
-            [[service.resourceprop]]
-            name = "bucket.action"
-            tags = ["read", "create", "delete"]
+            [[resource-property]]
+            scope = "testservice"
+            name = "ontology:action"
+            attributes = ["read", "deploy", "stop"]
 
-            [[service.resourceprop]]
-            name = "object.action"
-            tags = ["read", "create", "delete"]
+            [[resource-property]]
+            scope = "testservice"
+            name = "buckets:action"
+            attributes = ["read"]
+
+            [[resource-property]]
+            scope = "testservice"
+            name = "bucket:action"
+            attributes = ["read", "create", "delete"]
+
+            [[resource-property]]
+            scope = "testservice"
+            name = "object:action"
+            attributes = ["read", "create", "delete"]
+
+            [[policy]]
+            scope = "testservice"
+            name = "allow for main service"
+            allow = "subject.entity == label:testservice"
+
+            [[policy]]
+            scope = "testservice"
+            name = "allow for UI user"
+            allow = "subject.role contains role/ui:user"
+
+            [[policy]]
+            scope = "testservice"
+            name = "allow for UI admin"
+            allow = "subject.role contains role/ui:admin"
+
+            [[policy-binding]]
+            scope = "testservice"
+            attributes = ["ontology:action/read"]
+            policies = ["allow for main service", "allow for UI user"]
+
+            [[policy-binding]]
+            scope = "testservice"
+            attributes = ["ontology:action/deploy"]
+            policies = ["allow for main service", "allow for UI admin"]
             "#
         };
 
