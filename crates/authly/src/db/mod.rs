@@ -2,6 +2,7 @@ use authly_domain::EID;
 use hiqlite::Row;
 
 pub mod config_db;
+pub mod document_db;
 pub mod entity_db;
 pub mod service_db;
 

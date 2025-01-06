@@ -1,0 +1,75 @@
+[authly-document]
+id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
+
+[[service]]
+eid = "444444"
+name = "testservice"
+label = "testservice"
+kubernetes = { service-account = [
+    { namespace = "authly-test", name = "testservice" },
+] }
+
+[[entity-property]]
+scope = "testservice"
+name = "role"
+attributes = ["ui:user", "ui:admin"]
+
+[[resource-property]]
+scope = "testservice"
+name = "name"
+attributes = ["ontology", "storage"]
+
+[[resource-property]]
+scope = "testservice"
+name = "ontology.action"
+attributes = [""]
+
+[[resource-property]]
+scope = "testservice"
+name = "name"
+attributes = ["ontology", "storage"]
+
+[[resource-property]]
+scope = "testservice"
+name = "ontology:action"
+attributes = ["read", "deploy", "stop"]
+
+[[resource-property]]
+scope = "testservice"
+name = "buckets:action"
+attributes = ["read"]
+
+[[resource-property]]
+scope = "testservice"
+name = "bucket:action"
+attributes = ["read", "create", "delete"]
+
+[[resource-property]]
+scope = "testservice"
+name = "object:action"
+attributes = ["read", "create", "delete"]
+
+[[policy]]
+scope = "testservice"
+name = "allow for main service"
+allow = "subject.entity == label:testservice"
+
+[[policy]]
+scope = "testservice"
+name = "allow for UI user"
+allow = "subject.role contains role/ui:user"
+
+[[policy]]
+scope = "testservice"
+name = "allow for UI admin"
+allow = "subject.role contains role/ui:admin"
+
+[[policy-binding]]
+scope = "testservice"
+attributes = ["ontology:action/read"]
+policies = ["allow for main service", "allow for UI user"]
+
+[[policy-binding]]
+scope = "testservice"
+attributes = ["ontology:action/deploy"]
+policies = ["allow for main service", "allow for UI admin"]

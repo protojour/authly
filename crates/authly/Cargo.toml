@@ -24,7 +24,10 @@ clap = { version = "4", features = ["derive"] }
 figment = { version = "0.10", features = ["env"] }
 hex = "0.4"
 http = "1"
-hiqlite = { version = "0.3", default-features = false, features = ["sqlite", "auto-heal"] }
+hiqlite = { version = "0.3", default-features = false, features = [
+    "sqlite",
+    "auto-heal",
+] }
 indoc = "2"
 hostname = "0.4"
 hyper = { version = "1", default-features = false }
@@ -34,13 +37,20 @@ kube = "0.98"
 pem = "3"
 postcard = { version = "1", default-features = false, features = ["use-std"] }
 rand = "0.8"
-rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params", features = ["x509-parser"] }
-reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
+rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params", features = [
+    "x509-parser",
+] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "http2",
+    "json",
+    "rustls-tls",
+] }
 rust-embed = { version = "8", features = ["debug-embed"] }
 rustls = "0.23"
 rustls-pemfile = "2"
 serde = "1"
 serde_json = "1"
+serde_spanned = "0.6"
 time = { version = "0.3", features = ["serde"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = "0.7"
@@ -54,4 +64,5 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
     "ansi",
 ] }
 unsigned-varint = "0.8"
+uuid = "1"
 x509-parser = "0.16"

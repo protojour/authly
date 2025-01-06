@@ -271,6 +271,7 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "serde_json",
+ "serde_spanned",
  "time",
  "tokio",
  "tokio-util",
@@ -280,6 +281,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unsigned-varint",
+ "uuid",
  "x509-parser",
 ]
 
@@ -307,6 +309,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "serde_spanned",
  "thiserror 2.0.9",
  "toml",
  "tracing",

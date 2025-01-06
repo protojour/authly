@@ -1,14 +1,19 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
-use authly_domain::EID;
+use authly_domain::{document::Document, EID};
 use axum::{routing::post, Router};
 use cert::MakeSigningRequest;
-use db::config_db::{self, DynamicConfig};
+use compiler::doc_compiler::compile_doc;
+use db::{
+    config_db::{self, DynamicConfig},
+    document_db,
+};
 pub use env_config::EnvConfig;
 use hiqlite::ServerTlsConfig;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
+use testdata::try_init_users;
 use time::Duration;
 use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
@@ -18,6 +23,7 @@ use util::protocol_router::ProtocolRouter;
 pub mod cert;
 
 mod auth;
+mod compiler;
 mod db;
 mod env_config;
 mod k8s;
@@ -138,8 +144,22 @@ async fn initialize() -> anyhow::Result<Init> {
             )?;
         }
 
-        // test environment setup
-        testdata::try_init_testdata(&ctx).await?;
+        try_init_users(&ctx).await?;
+
+        let testservice = Document::from_toml(include_str!("../../../examples/testservice.toml"))?;
+        let compiled_doc = match compile_doc(testservice, &ctx).await {
+            Ok(doc) => doc,
+            Err(errors) => {
+                for error in errors {
+                    tracing::error!("doc error: {error:?}");
+                }
+                return Err(anyhow!("document error"));
+            }
+        };
+
+        // info!("compiled_doc: {compiled_doc:#?}");
+
+        document_db::store_document(compiled_doc, &ctx).await?;
     }
 
     Ok(Init { ctx, env_config })

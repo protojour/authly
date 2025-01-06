@@ -14,6 +14,7 @@ pub struct EntitySecretHash {
 }
 
 pub async fn try_insert_entity_credentials(
+    authority_eid: EID,
     eid: EID,
     ident: String,
     secret: String,
@@ -32,8 +33,8 @@ pub async fn try_insert_entity_credentials(
 
     ctx.db
         .execute(
-            "INSERT INTO entity_credential (eid, ident, secret_hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET ident = $2, secret_hash = $3",
-            params!(eid.as_param(), ident, secret_hash),
+            "INSERT INTO entity_credential (authority_eid, eid, ident, secret_hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET ident = $3, secret_hash = $4",
+            params!(authority_eid.as_param(), eid.as_param(), ident, secret_hash),
         )
         .await?;
 

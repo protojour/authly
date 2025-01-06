@@ -1,44 +1,13 @@
-use anyhow::{anyhow, Context};
+use std::collections::HashMap;
+
+use anyhow::anyhow;
 use hiqlite::{params, Param};
-use serde::Deserialize;
-use tracing::{info, warn};
+use indoc::indoc;
+use tracing::warn;
 
 use crate::{AuthlyCtx, EID};
 
 use super::Convert;
-
-#[derive(Deserialize)]
-pub struct SvcDef {
-    name: String,
-    entity_props: Vec<SvcEntityProp>,
-    resource_props: Vec<SvcResourceProp>,
-    #[serde(default)]
-    k8s_ext: SvcK8SExtension,
-}
-
-#[derive(Deserialize)]
-struct SvcEntityProp {
-    name: String,
-    tags: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct SvcResourceProp {
-    name: String,
-    tags: Vec<String>,
-}
-
-#[derive(Default, Deserialize)]
-struct SvcK8SExtension {
-    #[serde(default)]
-    service_accounts: Vec<SvcK8SServiceAccount>,
-}
-
-#[derive(Deserialize)]
-struct SvcK8SServiceAccount {
-    namespace: String,
-    account_name: String,
-}
 
 pub async fn find_service_name_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Result<String> {
     let mut row = ctx
@@ -83,69 +52,74 @@ pub async fn find_service_eid_by_k8s_service_account_name(
     Ok(Some(EID::from_row(&mut row, "svc_eid")))
 }
 
-pub async fn store_service(ctx: &AuthlyCtx, svc_eid: EID, svc_def: SvcDef) -> anyhow::Result<()> {
-    let _ = ctx
-        .db
-        .execute(
-            "INSERT INTO svc (eid, name) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-            params!(svc_eid.as_param(), svc_def.name),
-        )
-        .await?;
+#[derive(Debug)]
+pub struct ServiceProperty {
+    pub id: EID,
+    pub name: String,
+    pub attributes: Vec<(EID, String)>,
+}
 
-    // entity props
-    for eprop in svc_def.entity_props {
-        let mut row = ctx.db
-            .execute_returning_one(
-                "INSERT INTO svc_eprop (id, svc_eid, name) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET name = $3 RETURNING id",
-                params!(EID::random().as_param(), svc_eid.as_param(), &eprop.name),
-            )
-            .await
-            .context("upsert eprop")?;
-        let eprop_id = EID::from_row(&mut row, "id");
+pub enum ServicePropertyKind {
+    Entity,
+    Resource,
+}
 
-        info!("eprop `{}` id={:?}", eprop.name, eprop_id);
-
-        for tag_name in eprop.tags {
+pub async fn list_service_properties(
+    authority_id: EID,
+    svc_eid: EID,
+    property_kind: ServicePropertyKind,
+    ctx: &AuthlyCtx,
+) -> anyhow::Result<Vec<ServiceProperty>> {
+    let rows = match property_kind {
+        ServicePropertyKind::Entity => {
             ctx.db
-                .execute(
-                    "INSERT INTO svc_etag (id, prop_id, name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-                    params!(EID::random().as_param(), eprop_id.as_param(), tag_name),
+                .query_raw(
+                    indoc! {
+                        "
+                        SELECT p.id pid, p.name pname, a.id aid, a.name aname
+                        FROM svc_eprop p
+                        JOIN svc_etag a ON a.prop_id = p.id
+                        WHERE p.authority_eid = $1 AND p.svc_eid = $2
+                        ",
+                    },
+                    params!(authority_id.as_param(), svc_eid.as_param()),
                 )
-                .await?;
+                .await?
         }
-    }
-
-    // resource props
-    for rprop in svc_def.resource_props {
-        let mut row = ctx.db
-            .execute_returning_one(
-                "INSERT INTO svc_rprop (id, svc_eid, name) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE set name = $3 RETURNING id",
-                params!(EID::random().as_param(), svc_eid.as_param(), &rprop.name),
-            )
-            .await
-            .context("upsert rprop")?;
-        let rprop_id = EID::from_row(&mut row, "id");
-
-        info!("rprop `{}` id={:?}", rprop.name, rprop_id);
-
-        for tag_name in rprop.tags {
+        ServicePropertyKind::Resource => {
             ctx.db
-                .execute(
-                    "INSERT INTO svc_rtag (id, prop_id, name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-                    params!(EID::random().as_param(), rprop_id.as_param(), tag_name),
+                .query_raw(
+                    indoc! {
+                        "
+                        SELECT p.id pid, p.name pname, a.id aid, a.name aname
+                        FROM svc_rprop p
+                        JOIN svc_rtag a ON a.prop_id = p.id
+                        WHERE p.authority_eid = $1 AND p.svc_eid = $2
+                        ",
+                    },
+                    params!(authority_id.as_param(), svc_eid.as_param()),
                 )
-                .await?;
+                .await?
         }
+    };
+
+    let mut properties: HashMap<EID, ServiceProperty> = Default::default();
+
+    for mut row in rows {
+        let prop_id = EID::from_row(&mut row, "pid");
+
+        let property = properties
+            .entry(prop_id)
+            .or_insert_with(|| ServiceProperty {
+                id: prop_id,
+                name: row.get("pname"),
+                attributes: vec![],
+            });
+
+        property
+            .attributes
+            .push((EID::from_row(&mut row, "aid"), row.get("aname")));
     }
 
-    // k8s service account
-    for k8s_service_account in svc_def.k8s_ext.service_accounts {
-        ctx.db.execute(
-            "INSERT INTO svc_ext_k8s_service_account (svc_eid, namespace, account_name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-            params!(svc_eid.as_param(), k8s_service_account.namespace, k8s_service_account.account_name),
-        )
-        .await?;
-    }
-
-    Ok(())
+    Ok(properties.into_values().collect())
 }

@@ -1,0 +1,22 @@
+[authly-document]
+id = "d783648f-e6ac-4492-87f7-43d5e5805d60"
+
+[[user]]
+eid = "111111"
+name = "me"
+
+# [[user.email]]
+# ident = "me@domain.com"
+# secret = "$argon2id$v=19$m=19456,t=2,p=1$/lj8Yj6ZTJLiqgpYb4Nn0g$z79FFMXstrkY8KmpC0vQWIDcne0lylBbctUAluIVqLk"
+
+[[group]]
+eid = "222222"
+name = "us"
+
+[[user]]
+eid = "333333"
+name = "you"
+
+[[group-membership]]
+group = "us"
+members = ["me", "you"]

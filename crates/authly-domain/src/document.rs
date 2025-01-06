@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use toml::Spanned;
 use uuid::Uuid;
 
 use crate::EID;
@@ -6,7 +7,8 @@ use crate::EID;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Document {
-    pub document: DocumentMeta,
+    #[serde(rename = "authly-document")]
+    pub authly_document: AuthlyDocument,
 
     #[serde(default)]
     pub user: Vec<User>,
@@ -35,194 +37,133 @@ pub struct Document {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DocumentMeta {
-    pub id: Uuid,
+pub struct AuthlyDocument {
+    /// The ID of this document as an Authly authority
+    pub id: Spanned<Uuid>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct User {
-    pub eid: EID,
+    pub eid: Spanned<EID>,
     #[serde(default, rename = "ref")]
-    pub _ref: Option<String>,
+    pub _ref: Option<Spanned<String>>,
     #[serde(default)]
-    pub name: Option<String>,
+    pub name: Option<Spanned<String>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Group {
-    pub eid: EID,
-    pub name: String,
+    pub eid: Spanned<EID>,
+    pub name: Spanned<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GroupMembership {
-    pub group: String,
+    pub group: Spanned<String>,
 
-    pub members: Vec<String>,
+    pub members: Vec<Spanned<String>>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EntityProperty {
     #[serde(default)]
-    scope: Option<String>,
+    pub scope: Option<Spanned<String>>,
 
-    name: String,
+    pub name: Spanned<String>,
 
     #[serde(default)]
-    attributes: Vec<String>,
+    pub attributes: Vec<Spanned<String>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Service {
-    pub eid: EID,
-    pub name: String,
+    pub eid: Spanned<EID>,
+    pub name: Spanned<String>,
 
     #[serde(default)]
-    label: Option<String>,
+    pub label: Option<Spanned<String>>,
+
+    #[serde(default)]
+    pub kubernetes: ServiceK8sExt,
+}
+
+#[derive(Default, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ServiceK8sExt {
+    #[serde(default, rename = "service-account")]
+    pub service_account: Vec<ServiceK8sAccount>,
+}
+
+#[derive(Default, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ServiceK8sAccount {
+    pub namespace: String,
+    pub name: String,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResourceProperty {
-    scope: String,
+    pub scope: Spanned<String>,
 
-    name: String,
+    pub name: Spanned<String>,
 
     #[serde(default)]
-    attributes: Vec<String>,
+    pub attributes: Vec<Spanned<String>>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
-    scope: String,
-    name: String,
+    pub scope: Spanned<String>,
+    pub name: Spanned<String>,
 
     #[serde(default)]
-    allow: Option<String>,
+    pub allow: Option<Spanned<String>>,
 
     #[serde(default)]
-    deny: Option<String>,
+    pub deny: Option<Spanned<String>>,
 }
 
 #[derive(Deserialize)]
 pub struct PolicyBinding {
-    scope: String,
-    attributes: Vec<String>,
-    policies: Vec<String>,
+    pub scope: Spanned<String>,
+    pub attributes: Vec<Spanned<String>>,
+    pub policies: Vec<Spanned<String>>,
+}
+
+impl Document {
+    pub fn from_toml(toml: &str) -> anyhow::Result<Self> {
+        Ok(toml::from_str(toml)?)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use indoc::indoc;
+    #[test]
+    fn testusers_example() {
+        let toml = include_str!("../../../examples/testusers.toml");
+        let document = super::Document::from_toml(toml).unwrap();
+
+        assert_eq!(document.authly_document.id.span(), 23..61);
+        // BUG: The span is off:
+        assert_eq!(&toml[26..61], "83648f-e6ac-4492-87f7-43d5e5805d60\"");
+
+        assert_eq!(document.user[0].eid.span(), 78..86);
+        assert_eq!(&toml[78..86], "\"111111\"");
+
+        assert_eq!(document.user.len(), 2);
+        assert_eq!(document.group.len(), 1);
+    }
 
     #[test]
-    fn test_toml() {
-        let toml = indoc! {
-            r#"
-            [document]
-            id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
-
-            [[user]]
-            eid = "111111"
-            ref = "me"
-
-            # [[user.email]]
-            # ident = "me@domain.com"
-            # secret = "$argon2id$v=19$m=19456,t=2,p=1$/lj8Yj6ZTJLiqgpYb4Nn0g$z79FFMXstrkY8KmpC0vQWIDcne0lylBbctUAluIVqLk"
-
-            [[group]]
-            eid = "222222"
-            name = "us"
-
-            [[user]]
-            eid = "333333"
-            name = "you"
-
-            [[group-membership]]
-            group = "us"
-            members = ["me", "you"]
-
-            [[service]]
-            eid = "444444"
-            name = "testservice"
-            label = "testservice"
-
-            [[entity-property]]
-            scope = "testservice"
-            name = "role"
-            attributes = ["ui:user", "ui:admin"]
-
-            [[resource-property]]
-            scope = "testservice"
-            name = "name"
-            attributes = ["ontology", "storage"]
-
-            [[resource-property]]
-            scope = "testservice"
-            name = "ontology.action"
-            attributes = [""]
-
-            [[resource-property]]
-            scope = "testservice"
-            name = "name"
-            attributes = ["ontology", "storage"]
-
-            [[resource-property]]
-            scope = "testservice"
-            name = "ontology:action"
-            attributes = ["read", "deploy", "stop"]
-
-            [[resource-property]]
-            scope = "testservice"
-            name = "buckets:action"
-            attributes = ["read"]
-
-            [[resource-property]]
-            scope = "testservice"
-            name = "bucket:action"
-            attributes = ["read", "create", "delete"]
-
-            [[resource-property]]
-            scope = "testservice"
-            name = "object:action"
-            attributes = ["read", "create", "delete"]
-
-            [[policy]]
-            scope = "testservice"
-            name = "allow for main service"
-            allow = "subject.entity == label:testservice"
-
-            [[policy]]
-            scope = "testservice"
-            name = "allow for UI user"
-            allow = "subject.role contains role/ui:user"
-
-            [[policy]]
-            scope = "testservice"
-            name = "allow for UI admin"
-            allow = "subject.role contains role/ui:admin"
-
-            [[policy-binding]]
-            scope = "testservice"
-            attributes = ["ontology:action/read"]
-            policies = ["allow for main service", "allow for UI user"]
-
-            [[policy-binding]]
-            scope = "testservice"
-            attributes = ["ontology:action/deploy"]
-            policies = ["allow for main service", "allow for UI admin"]
-            "#
-        };
-
-        let manifest = toml::from_str::<super::Document>(toml).unwrap();
-
-        assert_eq!(manifest.user.len(), 2);
-        assert_eq!(manifest.group.len(), 1);
+    fn testservice_example() {
+        let toml = include_str!("../../../examples/testservice.toml");
+        super::Document::from_toml(toml).unwrap();
     }
 }
