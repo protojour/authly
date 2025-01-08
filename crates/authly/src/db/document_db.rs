@@ -5,7 +5,7 @@ use hiqlite::{params, Param, Params};
 use itertools::Itertools;
 use tracing::debug;
 
-use crate::{compiler::compiled_document::CompiledDocument, AuthlyCtx};
+use crate::{document::compiled_document::CompiledDocument, AuthlyCtx};
 
 use super::{Convert, Literal};
 

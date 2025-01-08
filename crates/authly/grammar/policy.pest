@@ -1,0 +1,37 @@
+// Authly policy grammar
+
+// One policy is one expression
+policy = { SOI ~ expr ~ EOI }
+
+// expressions
+expr = { unary_prefix? ~ expr_atom ~ (infix ~ unary_prefix? ~ expr_atom)* }
+expr_atom = _{ expr_equals | expr_contains | "(" ~ expr ~ ")" }
+expr_equals = { term ~ "==" ~ term }
+expr_contains = { term ~ "contains" ~ term }
+
+// infix operators
+infix = _{ infix_and | infix_or }
+infix_and = { "and" }
+infix_or = { "or" }
+
+// unary prefix operators
+unary_prefix = _{ unary_not }
+unary_not = { "not" }
+
+// terms
+term = _{ term_field | term_attr | label }
+term_field = { global ~ "." ~ label }
+term_attr = { label ~ "/" ~ label }
+
+// Global symbols start with with uppercase
+global = @{ "Subject" | "Resource" }
+
+// The label rule starts with a lowercase alphanumeric character.
+// The rule is atomic (@), meaning it doesn't consider whitespace.
+label = @{ ASCII_ALPHA_LOWER ~ label_infix_char* }
+
+// Valid characters in a symbol
+label_infix_char = { ASCII_ALPHANUMERIC | "_" | ":" }
+
+// Special whitespace rule
+WHITESPACE = _{ " " }

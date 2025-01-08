@@ -4,11 +4,11 @@ use anyhow::anyhow;
 use authly_domain::{document::Document, EID};
 use axum::{routing::post, Router};
 use cert::MakeSigningRequest;
-use compiler::doc_compiler::compile_doc;
 use db::{
     config_db::{self, DynamicConfig},
     document_db,
 };
+use document::doc_compiler::compile_doc;
 pub use env_config::EnvConfig;
 use hiqlite::ServerTlsConfig;
 use rcgen::KeyPair;
@@ -22,10 +22,11 @@ use util::protocol_router::ProtocolRouter;
 pub mod cert;
 
 mod auth;
-mod compiler;
 mod db;
+mod document;
 mod env_config;
 mod k8s;
+mod policy;
 mod proto;
 mod util;
 

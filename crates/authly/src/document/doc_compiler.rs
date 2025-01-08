@@ -3,10 +3,11 @@ use std::{collections::HashMap, ops::Range};
 
 use authly_domain::{document::Document, EID};
 use serde_spanned::Spanned;
-use tracing::debug;
+use tracing::{debug, warn};
 
-use crate::compiler::compiled_document::{EntityIdent, EntityPassword};
 use crate::db::service_db::ServicePropertyKind;
+use crate::document::compiled_document::{EntityIdent, EntityPassword};
+use crate::policy::compiler::PolicyCompiler;
 use crate::{
     db::service_db::{self, ServiceProperty},
     AuthlyCtx,
@@ -17,11 +18,23 @@ use super::compiled_document::{
     CompiledGroupMembership, CompiledProperty,
 };
 
-struct CompileCtx<'a> {
+#[derive(Default)]
+pub struct Namespace {
+    table: HashMap<String, Spanned<NamespaceEntry>>,
+}
+
+impl Namespace {
+    pub fn get_entry(&self, key: &str) -> Option<&NamespaceEntry> {
+        let spanned = self.table.get(key)?;
+        Some(spanned.as_ref())
+    }
+}
+
+struct CompileCtx {
     /// Authority ID
     aid: EID,
 
-    namespace: HashMap<&'a str, Spanned<NamespaceEntry>>,
+    namespace: Namespace,
 
     eprop_cache: HashMap<EID, Vec<ServiceProperty>>,
     rprop_cache: HashMap<EID, Vec<ServiceProperty>>,
@@ -30,10 +43,11 @@ struct CompileCtx<'a> {
 }
 
 #[derive(Debug)]
-enum NamespaceEntry {
+pub enum NamespaceEntry {
     User(EID),
     Group(EID),
     Service(EID),
+    PropertyLabel(EID),
 }
 
 #[derive(Default)]
@@ -83,7 +97,7 @@ pub async fn compile_doc(
         );
     }
 
-    debug!("namespace: {:#?}", comp.namespace);
+    debug!("namespace: {:#?}", comp.namespace.table);
 
     for email in doc.email {
         let Some(eid) = comp.ns_entity_lookup(&email.entity) else {
@@ -136,7 +150,7 @@ pub async fn compile_doc(
             if let Some(compiled_property) = compile_service_property(
                 svc_eid,
                 ServicePropertyKind::Entity,
-                doc_eprop.label.as_ref(),
+                &doc_eprop.label,
                 doc_eprop.attributes,
                 &mut comp,
                 ctx,
@@ -156,7 +170,7 @@ pub async fn compile_doc(
         if let Some(compiled_property) = compile_service_property(
             svc_eid,
             ServicePropertyKind::Resource,
-            doc_rprop.label.as_ref(),
+            &doc_rprop.label,
             doc_rprop.attributes,
             &mut comp,
             ctx,
@@ -165,6 +179,30 @@ pub async fn compile_doc(
         {
             data.svc_res_props.push(compiled_property);
         }
+    }
+
+    for policy in doc.policy {
+        if let Some(allow) = policy.allow {
+            let policy_span = allow.span();
+
+            match PolicyCompiler::new(&comp.namespace, &data).compile(allow.as_ref()) {
+                Ok(_policy) => {}
+                Err(errors) => {
+                    for error in errors {
+                        let mut error_span = error.span;
+                        error_span.start += policy_span.start;
+                        error_span.end += policy_span.end;
+
+                        warn!("policy error: {:?} {:?}", error_span, error.kind);
+
+                        // comp.errors
+                        //     .push(error_span, CompileError::Policy(error.kind));
+                    }
+                }
+            }
+        }
+
+        // TODO: deny
     }
 
     if !comp.errors.errors.is_empty() {
@@ -177,12 +215,12 @@ pub async fn compile_doc(
     }
 }
 
-async fn compile_service_property<'a>(
+async fn compile_service_property(
     svc_eid: EID,
     property_kind: ServicePropertyKind,
-    doc_property_label: &str,
+    doc_property_label: &Spanned<String>,
     doc_attributes: Vec<Spanned<String>>,
-    comp: &mut CompileCtx<'a>,
+    comp: &mut CompileCtx,
     ctx: &AuthlyCtx,
 ) -> Option<CompiledProperty> {
     let Some(db_props_cached) = comp
@@ -194,7 +232,7 @@ async fn compile_service_property<'a>(
 
     let db_eprop = db_props_cached
         .iter()
-        .find(|db_prop| &db_prop.label == doc_property_label);
+        .find(|db_prop| &db_prop.label == doc_property_label.as_ref());
 
     let mut compiled_property = CompiledProperty {
         id: db_eprop
@@ -202,7 +240,7 @@ async fn compile_service_property<'a>(
             .map(|db_prop| db_prop.id)
             .unwrap_or_else(EID::random),
         svc_eid,
-        label: doc_property_label.to_string(),
+        label: doc_property_label.as_ref().to_string(),
         attributes: vec![],
     };
 
@@ -223,18 +261,24 @@ async fn compile_service_property<'a>(
         });
     }
 
+    comp.ns_add(
+        doc_property_label,
+        NamespaceEntry::PropertyLabel(compiled_property.id),
+    );
+
     Some(compiled_property)
 }
 
-impl<'a> CompileCtx<'a> {
-    fn ns_add(&mut self, name: &'a Spanned<String>, entry: NamespaceEntry) -> bool {
+impl CompileCtx {
+    fn ns_add(&mut self, name: &Spanned<String>, entry: NamespaceEntry) -> bool {
         if let Some(entry) = self
             .namespace
-            .insert(name.get_ref().as_str(), Spanned::new(name.span(), entry))
+            .table
+            .insert(name.get_ref().to_string(), Spanned::new(name.span(), entry))
         {
             self.errors.errors.push(Spanned::new(
                 name.span(),
-                CompileError::NameDefinedMultipleTimes(entry.span()),
+                CompileError::NameDefinedMultipleTimes(entry.span(), name.get_ref().to_string()),
             ));
 
             false
@@ -248,6 +292,7 @@ impl<'a> CompileCtx<'a> {
             NamespaceEntry::Group(eid) => Some(*eid),
             NamespaceEntry::User(eid) => Some(*eid),
             NamespaceEntry::Service(eid) => Some(*eid),
+            _ => None,
         }
     }
 
@@ -285,7 +330,7 @@ impl<'a> CompileCtx<'a> {
     }
 
     fn ns_lookup(&mut self, key: &Spanned<String>, error: CompileError) -> Option<&NamespaceEntry> {
-        match self.namespace.get(key.get_ref().as_str()) {
+        match self.namespace.table.get(key.get_ref().as_str()) {
             Some(entry) => Some(entry.get_ref()),
             None => {
                 self.errors.push(key.span(), error);
@@ -332,5 +377,24 @@ impl<'a> CompileCtx<'a> {
 impl Errors {
     fn push(&mut self, span: Range<usize>, error: CompileError) {
         self.errors.push(Spanned::new(span, error));
+    }
+}
+
+impl FromIterator<(String, Spanned<NamespaceEntry>)> for Namespace {
+    fn from_iter<T: IntoIterator<Item = (String, Spanned<NamespaceEntry>)>>(iter: T) -> Self {
+        Self {
+            table: FromIterator::from_iter(iter),
+        }
+    }
+}
+
+impl FromIterator<(String, NamespaceEntry)> for Namespace {
+    fn from_iter<T: IntoIterator<Item = (String, NamespaceEntry)>>(iter: T) -> Self {
+        Self {
+            table: FromIterator::from_iter(
+                iter.into_iter()
+                    .map(|(key, entry)| (key, Spanned::new(0..0, entry))),
+            ),
+        }
     }
 }

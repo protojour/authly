@@ -5,15 +5,18 @@ use authly_domain::{
     EID,
 };
 
+use crate::policy::error::PolicyCompileErrorKind;
+
 #[derive(Debug)]
 #[expect(unused)]
 pub enum CompileError {
-    NameDefinedMultipleTimes(Range<usize>),
+    NameDefinedMultipleTimes(Range<usize>, String),
     UnresolvedEntity,
     UnresolvedProfile,
     UnresolvedGroup,
     UnresolvedService,
     Db(String),
+    Policy(PolicyCompileErrorKind),
 }
 
 #[derive(Debug)]
@@ -53,6 +56,7 @@ pub struct EntityPassword {
 
 #[derive(Debug)]
 pub struct CompiledGroupMembership {
+    #[expect(unused)]
     pub group_eid: EID,
     pub members: BTreeSet<EID>,
 }
@@ -71,4 +75,13 @@ pub struct CompiledProperty {
 pub struct CompiledAttribute {
     pub id: EID,
     pub label: String,
+}
+
+impl CompiledDocumentData {
+    pub fn find_property(&self, prop_id: EID) -> Option<&CompiledProperty> {
+        self.svc_ent_props
+            .iter()
+            .chain(self.svc_res_props.iter())
+            .find(|prop| prop.id == prop_id)
+    }
 }

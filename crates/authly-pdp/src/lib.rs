@@ -3,17 +3,20 @@ use std::collections::HashMap;
 use authly_policy::{opcode, Outcome};
 use bit_set::BitSet;
 
+#[expect(unused)]
 pub struct PolicyEngine {
     triggers: Vec<PolicyTrigger>,
     policies: HashMap<u64, Policy>,
 }
 
+#[expect(unused)]
 struct PolicyTrigger {
     mask: BitSet,
     negative: bool,
     policy_id: u64,
 }
 
+#[expect(unused)]
 struct Policy {
     bytecode: Vec<u8>,
 }

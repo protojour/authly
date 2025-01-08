@@ -20,11 +20,6 @@ attributes = ["ontology", "storage"]
 
 [[resource-property]]
 service = "testservice"
-label = "name"
-attributes = ["ontology", "storage"]
-
-[[resource-property]]
-service = "testservice"
 label = "ontology:action"
 attributes = ["read", "deploy", "stop"]
 
@@ -46,17 +41,17 @@ attributes = ["read", "create", "delete"]
 [[policy]]
 service = "testservice"
 label = "allow for main service"
-allow = "subject.entity == label:testservice"
+allow = "Subject.entity == testservice"
 
 [[policy]]
 service = "testservice"
 label = "allow for UI user"
-allow = "subject.role contains role/ui:user"
+allow = "Subject.role contains role/ui:user"
 
 [[policy]]
 service = "testservice"
 label = "allow for UI admin"
-allow = "subject.role contains role/ui:admin"
+allow = "Subject.role contains role/ui:admin"
 
 [[policy-binding]]
 service = "testservice"
