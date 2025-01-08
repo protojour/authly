@@ -2,7 +2,7 @@ use serde::Deserialize;
 use toml::Spanned;
 use uuid::Uuid;
 
-use crate::EID;
+use crate::{QualifiedAttributeName, EID};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -54,6 +54,9 @@ pub struct User {
     pub eid: Spanned<EID>,
     #[serde(default)]
     pub label: Option<Spanned<String>>,
+
+    #[serde(default)]
+    pub attributes: Vec<Spanned<QualifiedAttributeName>>,
 
     #[serde(default)]
     pub username: Option<Spanned<String>>,
@@ -111,6 +114,9 @@ pub struct EntityProperty {
 pub struct Service {
     pub eid: Spanned<EID>,
     pub label: Spanned<String>,
+
+    #[serde(default)]
+    pub attributes: Vec<Spanned<QualifiedAttributeName>>,
 
     #[serde(default)]
     pub kubernetes: ServiceK8sExt,

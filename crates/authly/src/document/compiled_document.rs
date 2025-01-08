@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, ops::Range};
 
 use authly_domain::{
     document::{Group, Service, User},
-    EID,
+    BuiltinID, EID,
 };
 
 use crate::policy::error::PolicyCompileErrorKind;
@@ -15,6 +15,8 @@ pub enum CompileError {
     UnresolvedProfile,
     UnresolvedGroup,
     UnresolvedService,
+    UnresolvedProperty,
+    UnresolvedAttribute,
     PolicyBodyMissing,
     AmbiguousPolicyOutcome,
     Policy(PolicyCompileErrorKind),
@@ -33,6 +35,9 @@ pub struct CompiledDocumentData {
     pub users: Vec<User>,
     pub groups: Vec<Group>,
     pub services: Vec<Service>,
+
+    /// Attributes to set on entities
+    pub entity_attribute_assignments: Vec<CompiledEntityAttributeAssignment>,
 
     pub entity_ident: Vec<EntityIdent>,
     pub entity_password: Vec<EntityPassword>,
@@ -54,6 +59,12 @@ pub struct EntityIdent {
 pub struct EntityPassword {
     pub eid: EID,
     pub hash: String,
+}
+
+#[derive(Debug)]
+pub struct CompiledEntityAttributeAssignment {
+    pub eid: EID,
+    pub attrid: EID,
 }
 
 #[derive(Debug)]
@@ -79,11 +90,43 @@ pub struct CompiledAttribute {
     pub label: String,
 }
 
+pub enum AttrLookupError {
+    NoProperty,
+    NoAttribute,
+}
+
 impl CompiledDocumentData {
     pub fn find_property(&self, prop_id: EID) -> Option<&CompiledProperty> {
         self.svc_ent_props
             .iter()
             .chain(self.svc_res_props.iter())
             .find(|prop| prop.id == prop_id)
+    }
+
+    pub fn find_attribute_by_label(
+        &self,
+        prop_id: EID,
+        attr_label: &str,
+    ) -> Result<EID, AttrLookupError> {
+        match self.find_property(prop_id) {
+            Some(property) => property
+                .attributes
+                .iter()
+                .find(|attr| attr.label == attr_label)
+                .map(|attr| attr.id)
+                .ok_or(AttrLookupError::NoAttribute),
+            None => {
+                if prop_id == BuiltinID::PropAuthlyRole.to_eid() {
+                    match attr_label {
+                        "resolve_session_info" => {
+                            Ok(BuiltinID::AttrAuthlyRoleResolveSessionInfo.to_eid())
+                        }
+                        _ => Err(AttrLookupError::NoAttribute),
+                    }
+                } else {
+                    Err(AttrLookupError::NoProperty)
+                }
+            }
+        }
     }
 }

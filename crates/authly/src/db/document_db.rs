@@ -86,6 +86,22 @@ pub async fn store_document(document: CompiledDocument, ctx: &AuthlyCtx) -> anyh
         }
     }
 
+    // service attribute assignment
+    {
+        // not sure how to "GC" this?
+        stmts.push((
+            "DELETE FROM ent_attr WHERE aid = $1".into(),
+            params!(aid.as_param()),
+        ));
+
+        for assignment in data.entity_attribute_assignments {
+            stmts.push((
+                "INSERT INTO ent_attr (aid, eid, attrid) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING".into(),
+                params!(aid.as_param(), assignment.eid.as_param(), assignment.attrid.as_param()),
+            ));
+        }
+    }
+
     // service entity props
     {
         stmts.push(gc(

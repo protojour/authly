@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
 use rand::Rng;
 use serde::{
@@ -27,12 +27,20 @@ impl EID {
 pub enum BuiltinID {
     Authly = 0,
     PropEntity = 1,
+    PropAuthlyRole = 2,
+    AttrAuthlyRoleResolveSessionInfo = 3,
 }
 
 impl BuiltinID {
     pub fn to_eid(self) -> EID {
         EID(self as u128)
     }
+}
+
+#[derive(Debug)]
+pub struct QualifiedAttributeName {
+    pub property: String,
+    pub attribute: String,
 }
 
 impl FromStr for EID {
@@ -54,20 +62,60 @@ impl<'de> Deserialize<'de> for EID {
     where
         D: serde::Deserializer<'de>,
     {
-        struct EIDVisitor;
+        deserializer.deserialize_str(FromStrVisitor::new("entity id"))
+    }
+}
 
-        impl<'de> Visitor<'de> for EIDVisitor {
-            type Value = EID;
+impl FromStr for QualifiedAttributeName {
+    type Err = &'static str;
 
-            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(f, "entity id")
-            }
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut segments = s.split("/");
+        let property = segments.next().ok_or("missing property name")?;
+        let attribute = segments.next().ok_or("missing attribute name")?;
 
-            fn visit_str<E: Error>(self, str: &str) -> Result<Self::Value, E> {
-                EID::from_str(str).map_err(|msg| E::custom(msg))
-            }
+        Ok(Self {
+            property: property.to_string(),
+            attribute: attribute.to_string(),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for QualifiedAttributeName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new("attribute name"))
+    }
+}
+
+#[derive(Default)]
+struct FromStrVisitor<T> {
+    expecting: &'static str,
+    phantom: PhantomData<T>,
+}
+
+impl<T> FromStrVisitor<T> {
+    pub fn new(expecting: &'static str) -> Self {
+        Self {
+            expecting,
+            phantom: PhantomData::default(),
         }
+    }
+}
 
-        deserializer.deserialize_str(EIDVisitor)
+impl<'de, T: FromStr> Visitor<'de> for FromStrVisitor<T>
+where
+    T::Err: Display,
+{
+    type Value = T;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.expecting)
+    }
+
+    fn visit_str<E: Error>(self, str: &str) -> Result<Self::Value, E> {
+        T::from_str(str).map_err(|msg| E::custom(msg))
     }
 }

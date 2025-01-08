@@ -84,23 +84,13 @@ impl<'a> PolicyCompiler<'a> {
                 };
 
                 let attr_label_str = pairs.next().unwrap().as_str();
-                let Some(compiled_property) = self.doc_data.find_property(property_label.0) else {
-                    self.pest_error(
-                        pest_property_label.as_span(),
-                        PolicyCompileErrorKind::UnknownProperty(
-                            pest_property_label.as_str().to_string(),
-                        ),
-                    );
-                    return Term::Error;
-                };
 
-                let attr_label = match compiled_property
-                    .attributes
-                    .iter()
-                    .find(|attr| attr.label == attr_label_str)
+                let attr_label = match self
+                    .doc_data
+                    .find_attribute_by_label(property_label.0, attr_label_str)
                 {
-                    Some(compiled_attr) => Label(compiled_attr.id),
-                    None => {
+                    Ok(id) => Label(id),
+                    Err(_) => {
                         self.pest_error(
                             span,
                             PolicyCompileErrorKind::UnknownAttribute(
@@ -144,7 +134,7 @@ impl<'a> PolicyCompiler<'a> {
             _ => {
                 self.pest_error(
                     pair.as_span(),
-                    PolicyCompileErrorKind::UnknownLabel(label.to_string()),
+                    PolicyCompileErrorKind::UnknownProperty(label.to_string()),
                 );
                 None
             }

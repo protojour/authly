@@ -16,11 +16,12 @@ CREATE TABLE session (
     expires_at DATETIME NOT NULL
 );
 
-CREATE TABLE ent_tag (
+CREATE TABLE ent_attr (
+    aid BLOB NOT NULL,
     eid BLOB NOT NULL,
-    tag BLOB NOT NULL,
+    attrid BLOB NOT NULL,
 
-    PRIMARY KEY (eid, tag)
+    PRIMARY KEY (eid, attrid)
 );
 
 CREATE TABLE ent_rel (

@@ -2,13 +2,16 @@ use std::cmp;
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, ops::Range};
 
-use authly_domain::BuiltinID;
+use authly_domain::document::{EntityProperty, GroupMembership, Policy, ResourceProperty};
 use authly_domain::{document::Document, EID};
+use authly_domain::{BuiltinID, QualifiedAttributeName};
 use serde_spanned::Spanned;
 use tracing::debug;
 
 use crate::db::service_db::ServicePropertyKind;
-use crate::document::compiled_document::{EntityIdent, EntityPassword};
+use crate::document::compiled_document::{
+    CompiledEntityAttributeAssignment, EntityIdent, EntityPassword,
+};
 use crate::policy::compiler::PolicyCompiler;
 use crate::policy::PolicyOutcome;
 use crate::{
@@ -71,43 +74,11 @@ pub async fn compile_doc(
     };
     let mut data = CompiledDocumentData::default();
 
-    // setup namespace
-    comp.namespace.table.insert(
-        "entity".to_string(),
-        Spanned::new(
-            0..0,
-            NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_eid()),
-        ),
-    );
-
     data.users = doc.user;
     data.groups = doc.group;
     data.services = doc.service;
 
-    for user in &mut data.users {
-        if let Some(label) = &user.label {
-            comp.ns_add(label, NamespaceEntry::User(*user.eid.get_ref()));
-        }
-
-        if let Some(username) = user.username.take() {
-            data.entity_ident.push(EntityIdent {
-                eid: *user.eid.as_ref(),
-                kind: "username".to_string(),
-                ident: username.into_inner(),
-            });
-        }
-    }
-
-    for group in &data.groups {
-        comp.ns_add(&group.name, NamespaceEntry::Group(*group.eid.get_ref()));
-    }
-
-    for service in &data.services {
-        comp.ns_add(
-            &service.label,
-            NamespaceEntry::Service(*service.eid.get_ref()),
-        );
-    }
+    seed_namespace(&mut data, &mut comp);
 
     debug!("namespace: {:#?}", comp.namespace.table);
 
@@ -134,7 +105,78 @@ pub async fn compile_doc(
         });
     }
 
-    for gm in doc.group_membership {
+    process_group_membership(doc.group_membership, &mut data, &mut comp);
+
+    process_service_properties(
+        doc.entity_property,
+        doc.resource_property,
+        &mut data,
+        &mut comp,
+        ctx,
+    )
+    .await;
+
+    process_attribute_assignments(&mut data, &mut comp);
+    process_policies(doc.policy, &mut data, &mut comp);
+
+    if !comp.errors.errors.is_empty() {
+        Err(comp.errors.errors)
+    } else {
+        Ok(CompiledDocument {
+            aid: comp.aid,
+            data,
+        })
+    }
+}
+
+fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
+    comp.namespace.table.insert(
+        "entity".to_string(),
+        Spanned::new(
+            0..0,
+            NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_eid()),
+        ),
+    );
+    comp.namespace.table.insert(
+        "authly:role".to_string(),
+        Spanned::new(
+            0..0,
+            NamespaceEntry::PropertyLabel(BuiltinID::PropAuthlyRole.to_eid()),
+        ),
+    );
+
+    for user in &mut data.users {
+        if let Some(label) = &user.label {
+            comp.ns_add(label, NamespaceEntry::User(*user.eid.get_ref()));
+        }
+
+        if let Some(username) = user.username.take() {
+            data.entity_ident.push(EntityIdent {
+                eid: *user.eid.as_ref(),
+                kind: "username".to_string(),
+                ident: username.into_inner(),
+            });
+        }
+    }
+
+    for group in &data.groups {
+        comp.ns_add(&group.name, NamespaceEntry::Group(*group.eid.get_ref()));
+    }
+
+    for service in &data.services {
+        comp.ns_add(
+            &service.label,
+            NamespaceEntry::Service(*service.eid.get_ref()),
+        );
+    }
+}
+
+fn process_group_membership(
+    memberships: Vec<GroupMembership>,
+    data: &mut CompiledDocumentData,
+    comp: &mut CompileCtx,
+) {
+    for gm in memberships {
         let Some(group_eid) = comp.ns_group_lookup(&gm.group) else {
             continue;
         };
@@ -152,8 +194,16 @@ pub async fn compile_doc(
 
         data.group_memberships.push(compiled_membership);
     }
+}
 
-    for doc_eprop in doc.entity_property {
+async fn process_service_properties(
+    entity_properties: Vec<EntityProperty>,
+    resource_properties: Vec<ResourceProperty>,
+    data: &mut CompiledDocumentData,
+    comp: &mut CompileCtx,
+    ctx: &AuthlyCtx,
+) {
+    for doc_eprop in entity_properties {
         if let Some(svc_label) = &doc_eprop.service {
             let Some(svc_eid) = comp.ns_service_lookup(svc_label) else {
                 continue;
@@ -164,7 +214,7 @@ pub async fn compile_doc(
                 ServicePropertyKind::Entity,
                 &doc_eprop.label,
                 doc_eprop.attributes,
-                &mut comp,
+                comp,
                 ctx,
             )
             .await
@@ -174,7 +224,7 @@ pub async fn compile_doc(
         }
     }
 
-    for doc_rprop in doc.resource_property {
+    for doc_rprop in resource_properties {
         let Some(svc_eid) = comp.ns_service_lookup(&doc_rprop.service) else {
             continue;
         };
@@ -184,59 +234,13 @@ pub async fn compile_doc(
             ServicePropertyKind::Resource,
             &doc_rprop.label,
             doc_rprop.attributes,
-            &mut comp,
+            comp,
             ctx,
         )
         .await
         {
             data.svc_res_props.push(compiled_property);
         }
-    }
-
-    for policy in doc.policy {
-        let (src, outcome) = match (policy.allow, policy.deny) {
-            (Some(src), None) => (src, PolicyOutcome::Allow),
-            (None, Some(src)) => (src, PolicyOutcome::Deny),
-            (Some(allow), Some(deny)) => {
-                let span = cmp::min(allow.span().start, deny.span().start)
-                    ..cmp::max(allow.span().end, deny.span().end);
-
-                comp.errors.push(span, CompileError::AmbiguousPolicyOutcome);
-                continue;
-            }
-            (None, None) => {
-                comp.errors
-                    .push(policy.label.span(), CompileError::PolicyBodyMissing);
-                continue;
-            }
-        };
-
-        let _compiled_policy =
-            match PolicyCompiler::new(&comp.namespace, &data, outcome).compile(src.as_ref()) {
-                Ok(compiled_policy) => compiled_policy,
-                Err(errors) => {
-                    for error in errors {
-                        // translate the policy error span into the document
-                        let mut error_span = error.span;
-                        error_span.start += src.span().start;
-                        error_span.end += src.span().end;
-
-                        comp.errors
-                            .push(error_span, CompileError::Policy(error.kind));
-                    }
-
-                    continue;
-                }
-            };
-    }
-
-    if !comp.errors.errors.is_empty() {
-        Err(comp.errors.errors)
-    } else {
-        Ok(CompiledDocument {
-            aid: comp.aid,
-            data,
-        })
     }
 }
 
@@ -294,6 +298,82 @@ async fn compile_service_property(
     Some(compiled_property)
 }
 
+/// Assign attributes to entities
+fn process_attribute_assignments(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
+    let mut assignments: Vec<(EID, Spanned<QualifiedAttributeName>)> = vec![];
+
+    for user in &mut data.users {
+        for attribute in std::mem::take(&mut user.attributes) {
+            assignments.push((*user.eid.get_ref(), attribute));
+        }
+    }
+
+    for service in &mut data.services {
+        for attribute in std::mem::take(&mut service.attributes) {
+            assignments.push((*service.eid.get_ref(), attribute));
+        }
+    }
+
+    for (eid, spanned_qattr) in assignments {
+        let Some(prop_id) = comp.ns_property_lookup(&Spanned::new(
+            spanned_qattr.span(),
+            &spanned_qattr.as_ref().property,
+        )) else {
+            continue;
+        };
+
+        match data.find_attribute_by_label(prop_id, &spanned_qattr.get_ref().attribute) {
+            Ok(attrid) => {
+                data.entity_attribute_assignments
+                    .push(CompiledEntityAttributeAssignment { eid, attrid });
+            }
+            Err(_) => {
+                comp.errors
+                    .push(spanned_qattr.span(), CompileError::UnresolvedAttribute);
+            }
+        }
+    }
+}
+
+fn process_policies(policies: Vec<Policy>, data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
+    for policy in policies {
+        let (src, outcome) = match (policy.allow, policy.deny) {
+            (Some(src), None) => (src, PolicyOutcome::Allow),
+            (None, Some(src)) => (src, PolicyOutcome::Deny),
+            (Some(allow), Some(deny)) => {
+                let span = cmp::min(allow.span().start, deny.span().start)
+                    ..cmp::max(allow.span().end, deny.span().end);
+
+                comp.errors.push(span, CompileError::AmbiguousPolicyOutcome);
+                continue;
+            }
+            (None, None) => {
+                comp.errors
+                    .push(policy.label.span(), CompileError::PolicyBodyMissing);
+                continue;
+            }
+        };
+
+        let _compiled_policy =
+            match PolicyCompiler::new(&comp.namespace, &data, outcome).compile(src.as_ref()) {
+                Ok(compiled_policy) => compiled_policy,
+                Err(errors) => {
+                    for error in errors {
+                        // translate the policy error span into the document
+                        let mut error_span = error.span;
+                        error_span.start += src.span().start;
+                        error_span.end += src.span().end;
+
+                        comp.errors
+                            .push(error_span, CompileError::Policy(error.kind));
+                    }
+
+                    continue;
+                }
+            };
+    }
+}
+
 impl CompileCtx {
     fn ns_add(&mut self, name: &Spanned<String>, entry: NamespaceEntry) -> bool {
         if let Some(entry) = self
@@ -312,7 +392,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_entity_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
+    fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
         match self.ns_lookup(key, CompileError::UnresolvedEntity)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             NamespaceEntry::User(eid) => Some(*eid),
@@ -321,7 +401,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_profile_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
+    fn ns_profile_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
         match self.ns_lookup(key, CompileError::UnresolvedProfile)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             NamespaceEntry::User(eid) => Some(*eid),
@@ -333,7 +413,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_group_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
+    fn ns_group_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
         match self.ns_lookup(key, CompileError::UnresolvedGroup)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             _ => {
@@ -343,7 +423,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_service_lookup(&mut self, key: &Spanned<String>) -> Option<EID> {
+    fn ns_service_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
         match self.ns_lookup(key, CompileError::UnresolvedService)? {
             NamespaceEntry::Service(eid) => Some(*eid),
             _ => {
@@ -354,8 +434,23 @@ impl CompileCtx {
         }
     }
 
-    fn ns_lookup(&mut self, key: &Spanned<String>, error: CompileError) -> Option<&NamespaceEntry> {
-        match self.namespace.table.get(key.get_ref().as_str()) {
+    fn ns_property_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
+        match self.ns_lookup(key, CompileError::UnresolvedProperty)? {
+            NamespaceEntry::PropertyLabel(eid) => Some(*eid),
+            _ => {
+                self.errors
+                    .push(key.span(), CompileError::UnresolvedProperty);
+                None
+            }
+        }
+    }
+
+    fn ns_lookup(
+        &mut self,
+        key: &Spanned<impl AsRef<str>>,
+        error: CompileError,
+    ) -> Option<&NamespaceEntry> {
+        match self.namespace.table.get(key.get_ref().as_ref()) {
             Some(entry) => Some(entry.get_ref()),
             None => {
                 self.errors.push(key.span(), error);
