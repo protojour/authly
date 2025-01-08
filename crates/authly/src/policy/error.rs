@@ -16,6 +16,12 @@ pub enum PolicyCompileErrorKind {
     #[error("unknown label: {0}")]
     UnknownLabel(String),
 
+    #[error("unknown property")]
+    UnknownProperty(String),
+
     #[error("no attribute {1} in {0}")]
     UnknownAttribute(String, String),
+
+    #[error("compile error: {0}")]
+    Misc(&'static str),
 }

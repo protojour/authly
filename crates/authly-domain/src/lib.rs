@@ -16,10 +16,22 @@ impl EID {
         loop {
             let id: u128 = rand::thread_rng().gen();
             // low IDs are reserved for builtin/fixed
-            if id > 32767 {
+            if id > u16::MAX as u128 {
                 return EID(id);
             }
         }
+    }
+}
+
+#[repr(u32)]
+pub enum BuiltinID {
+    Authly = 0,
+    PropEntity = 1,
+}
+
+impl BuiltinID {
+    pub fn to_eid(self) -> EID {
+        EID(self as u128)
     }
 }
 

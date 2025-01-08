@@ -1,13 +1,16 @@
+use std::cmp;
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, ops::Range};
 
+use authly_domain::BuiltinID;
 use authly_domain::{document::Document, EID};
 use serde_spanned::Spanned;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::db::service_db::ServicePropertyKind;
 use crate::document::compiled_document::{EntityIdent, EntityPassword};
 use crate::policy::compiler::PolicyCompiler;
+use crate::policy::PolicyOutcome;
 use crate::{
     db::service_db::{self, ServiceProperty},
     AuthlyCtx,
@@ -67,6 +70,15 @@ pub async fn compile_doc(
         errors: Default::default(),
     };
     let mut data = CompiledDocumentData::default();
+
+    // setup namespace
+    comp.namespace.table.insert(
+        "entity".to_string(),
+        Spanned::new(
+            0..0,
+            NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_eid()),
+        ),
+    );
 
     data.users = doc.user;
     data.groups = doc.group;
@@ -182,27 +194,40 @@ pub async fn compile_doc(
     }
 
     for policy in doc.policy {
-        if let Some(allow) = policy.allow {
-            let policy_span = allow.span();
+        let (src, outcome) = match (policy.allow, policy.deny) {
+            (Some(src), None) => (src, PolicyOutcome::Allow),
+            (None, Some(src)) => (src, PolicyOutcome::Deny),
+            (Some(allow), Some(deny)) => {
+                let span = cmp::min(allow.span().start, deny.span().start)
+                    ..cmp::max(allow.span().end, deny.span().end);
 
-            match PolicyCompiler::new(&comp.namespace, &data).compile(allow.as_ref()) {
-                Ok(_policy) => {}
+                comp.errors.push(span, CompileError::AmbiguousPolicyOutcome);
+                continue;
+            }
+            (None, None) => {
+                comp.errors
+                    .push(policy.label.span(), CompileError::PolicyBodyMissing);
+                continue;
+            }
+        };
+
+        let _compiled_policy =
+            match PolicyCompiler::new(&comp.namespace, &data).compile(src.as_ref(), outcome) {
+                Ok(compiled_policy) => compiled_policy,
                 Err(errors) => {
                     for error in errors {
+                        // translate the policy error span into the document
                         let mut error_span = error.span;
-                        error_span.start += policy_span.start;
-                        error_span.end += policy_span.end;
+                        error_span.start += src.span().start;
+                        error_span.end += src.span().end;
 
-                        warn!("policy error: {:?} {:?}", error_span, error.kind);
-
-                        // comp.errors
-                        //     .push(error_span, CompileError::Policy(error.kind));
+                        comp.errors
+                            .push(error_span, CompileError::Policy(error.kind));
                     }
-                }
-            }
-        }
 
-        // TODO: deny
+                    continue;
+                }
+            };
     }
 
     if !comp.errors.errors.is_empty() {

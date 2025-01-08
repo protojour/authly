@@ -1,17 +1,22 @@
+use expr::Expr;
+use parser::{PolicyParser, Rule};
 use pest::{
     error::InputLocation,
     iterators::Pair,
     pratt_parser::{Assoc, Op, PrattParser},
     Parser,
 };
-use pest_parse::{PolicyParser, Rule};
 
 use crate::document::{compiled_document::CompiledDocumentData, doc_compiler::Namespace};
 
-use super::error::{PolicyCompileError, PolicyCompileErrorKind};
+use super::{
+    error::{PolicyCompileError, PolicyCompileErrorKind},
+    PolicyOutcome,
+};
 
-mod expr;
-mod pest_parse;
+pub(super) mod expr;
+mod parse_check;
+mod parser;
 
 pub struct PolicyCompiler<'a> {
     namespace: &'a Namespace,
@@ -34,7 +39,21 @@ impl<'a> PolicyCompiler<'a> {
         }
     }
 
-    pub fn compile(mut self, input: &str) -> Result<(), Vec<PolicyCompileError>> {
+    pub fn compile(
+        &mut self,
+        input: &str,
+        outcome: PolicyOutcome,
+    ) -> Result<(), Vec<PolicyCompileError>> {
+        let _expr = self.parse_and_check(input, outcome)?;
+
+        Ok(())
+    }
+
+    pub fn parse_and_check(
+        &mut self,
+        input: &str,
+        _outcome: PolicyOutcome,
+    ) -> Result<Expr, Vec<PolicyCompileError>> {
         let expr_root_pair = pest_parse_policy_as_expr(input)?;
         let parse_ctx = ParseCtx {
             expr_pratt: PrattParser::<Rule>::new()
@@ -43,14 +62,12 @@ impl<'a> PolicyCompiler<'a> {
                 .op(Op::prefix(Rule::unary_not)),
         };
 
-        let expr = self.pest_expr(expr_root_pair, &parse_ctx, 0);
-
-        println!("{expr:#?}");
+        let expr = self.pest_expr(expr_root_pair, &parse_ctx);
 
         if !self.errors.is_empty() {
-            Err(self.errors)
+            Err(std::mem::take(&mut self.errors))
         } else {
-            Ok(())
+            Ok(expr)
         }
     }
 }
@@ -83,27 +100,5 @@ fn parse_error(error: pest::error::Error<Rule>) -> PolicyCompileError {
     PolicyCompileError {
         kind: PolicyCompileErrorKind::Parse(error.variant.message().to_string()),
         span,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use authly_domain::EID;
-
-    use crate::document::doc_compiler::NamespaceEntry;
-
-    use super::*;
-
-    #[test]
-    fn simple() {
-        let namespace = Namespace::from_iter([
-            ("entity".to_string(), NamespaceEntry::PropertyLabel(EID(1))),
-            ("foo".to_string(), NamespaceEntry::PropertyLabel(EID(2))),
-        ]);
-        let doc_data = CompiledDocumentData::default();
-
-        PolicyCompiler::new(&namespace, &doc_data)
-            .compile("Subject.entity == foo")
-            .unwrap();
     }
 }

@@ -15,8 +15,10 @@ pub enum CompileError {
     UnresolvedProfile,
     UnresolvedGroup,
     UnresolvedService,
-    Db(String),
+    PolicyBodyMissing,
+    AmbiguousPolicyOutcome,
     Policy(PolicyCompileErrorKind),
+    Db(String),
 }
 
 #[derive(Debug)]

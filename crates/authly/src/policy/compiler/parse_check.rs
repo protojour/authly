@@ -1,5 +1,7 @@
+//! This module takes the pest parse tree and transforms it into Expr,
+//! with basic type checking
+
 use pest::{iterators::Pair, Span};
-use pest_derive::Parser;
 
 use crate::{
     document::doc_compiler::NamespaceEntry,
@@ -8,21 +10,18 @@ use crate::{
 
 use super::{
     expr::{Expr, Global, Label, Term},
+    parser::Rule,
     ParseCtx, PolicyCompiler,
 };
 
-/// The Authly policy language parser
-#[derive(Parser)]
-#[grammar = "../grammar/policy.pest"]
-pub struct PolicyParser;
-
 impl<'a> PolicyCompiler<'a> {
     /// Parse and check expression, performs name lookups
-    pub(super) fn pest_expr(&mut self, pairs: Pair<Rule>, ctx: &ParseCtx, level: usize) -> Expr {
-        match pairs.as_rule() {
+    pub(super) fn pest_expr(&mut self, pair: Pair<Rule>, ctx: &ParseCtx) -> Expr {
+        match pair.as_rule() {
+            // parse operator precedence using pratt parser
             Rule::expr => ctx
                 .expr_pratt
-                .map_primary(|expr_atom| self.pest_expr(expr_atom, ctx, level + 1))
+                .map_primary(|expr_atom| self.pest_expr(expr_atom, ctx))
                 .map_prefix(|op, rhs| match op.as_rule() {
                     Rule::unary_not => Expr::Not(Box::new(rhs)),
                     _ => unimplemented!("prefix {op:?}"),
@@ -32,23 +31,27 @@ impl<'a> PolicyCompiler<'a> {
                     Rule::infix_or => Expr::Or(Box::new(lhs), Box::new(rhs)),
                     _ => unimplemented!("infix {op:?}"),
                 })
-                .parse(pairs.into_inner()),
+                .parse(pair.into_inner()),
             Rule::expr_equals => {
-                let mut pairs = pairs.into_inner();
+                let mut pairs = pair.into_inner();
                 let lhs = self.pest_term(pairs.next().unwrap());
                 let rhs = self.pest_term(pairs.next().unwrap());
 
                 Expr::Equals(lhs, rhs)
             }
             Rule::expr_contains => {
-                let mut pairs = pairs.into_inner();
+                let mut pairs = pair.into_inner();
                 let lhs = self.pest_term(pairs.next().unwrap());
                 let rhs = self.pest_term(pairs.next().unwrap());
 
                 Expr::Contains(lhs, rhs)
             }
             _ => {
-                panic!()
+                self.pest_error(
+                    pair.as_span(),
+                    PolicyCompileErrorKind::Misc("unhandled syntax"),
+                );
+                Expr::Error
             }
         }
     }
@@ -56,7 +59,7 @@ impl<'a> PolicyCompiler<'a> {
     fn pest_term(&mut self, pair: Pair<Rule>) -> Term {
         match pair.as_rule() {
             Rule::label => {
-                let Some(label) = self.pest_property_label(pair) else {
+                let Some(label) = self.pest_any_label(pair) else {
                     return Term::Error;
                 };
 
@@ -81,7 +84,15 @@ impl<'a> PolicyCompiler<'a> {
                 };
 
                 let attr_label_str = pairs.next().unwrap().as_str();
-                let compiled_property = self.doc_data.find_property(property_label.0).unwrap();
+                let Some(compiled_property) = self.doc_data.find_property(property_label.0) else {
+                    self.pest_error(
+                        pest_property_label.as_span(),
+                        PolicyCompileErrorKind::UnknownProperty(
+                            pest_property_label.as_str().to_string(),
+                        ),
+                    );
+                    return Term::Error;
+                };
 
                 let attr_label = match compiled_property
                     .attributes
@@ -105,6 +116,23 @@ impl<'a> PolicyCompiler<'a> {
             }
             _ => {
                 unimplemented!("term {pair:?}")
+            }
+        }
+    }
+
+    fn pest_any_label(&mut self, pair: Pair<Rule>) -> Option<Label> {
+        let label = pair.as_str();
+        match self.namespace.get_entry(label) {
+            Some(NamespaceEntry::User(id)) => Some(Label(*id)),
+            Some(NamespaceEntry::Group(id)) => Some(Label(*id)),
+            Some(NamespaceEntry::Service(id)) => Some(Label(*id)),
+            Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(*id)),
+            _ => {
+                self.pest_error(
+                    pair.as_span(),
+                    PolicyCompileErrorKind::UnknownLabel(label.to_string()),
+                );
+                None
             }
         }
     }
@@ -139,103 +167,5 @@ impl<'a> PolicyCompiler<'a> {
             span: span.start()..span.end(),
             kind,
         });
-    }
-}
-
-#[cfg(test)]
-mod policy_tests {
-    use pest::{
-        iterators::{Pair, Pairs},
-        Parser,
-    };
-
-    use super::PolicyParser;
-
-    fn parse_policy_ok(input: &str) -> Pair<super::Rule> {
-        PolicyParser::parse(super::Rule::policy, input)
-            .unwrap()
-            .next()
-            .unwrap()
-    }
-
-    #[test]
-    fn policy_hmm() {
-        PolicyParser::parse(super::Rule::label, "label").unwrap();
-        PolicyParser::parse(super::Rule::label, "Global").unwrap_err();
-        PolicyParser::parse(super::Rule::global, "Subject").unwrap();
-        PolicyParser::parse(super::Rule::term_field, "Subject.label").unwrap();
-        PolicyParser::parse(super::Rule::term_field, "Subject").unwrap_err();
-        PolicyParser::parse(super::Rule::term_attr, "label/label").unwrap();
-        PolicyParser::parse(super::Rule::term_attr, "label/label:label").unwrap();
-        PolicyParser::parse(super::Rule::term, "Subject.label").unwrap();
-        PolicyParser::parse(super::Rule::term, "label/label").unwrap();
-        PolicyParser::parse(super::Rule::term, "label/label ==").unwrap();
-    }
-
-    #[test]
-    fn policy_field_equals_label() {
-        parse_policy_ok("Subject.entity == testservice");
-    }
-
-    #[test]
-    fn policy_field_contains_attribute() {
-        parse_policy_ok("Subject.role contains a/b");
-        parse_policy_ok("Subject.role contains foo/bar");
-    }
-
-    #[test]
-    fn policy_conjunction() {
-        parse_policy_ok("Subject.role contains a/b and Resource.name == foo");
-    }
-
-    #[test]
-    fn policy_disjuction() {
-        parse_policy_ok("Subject.role contains a/b or Resource.name == foo");
-    }
-
-    #[test]
-    fn policy_not() {
-        parse_policy_ok("not Subject.role contains a/b");
-    }
-
-    #[test]
-    fn policy_not_conj() {
-        parse_policy_ok("not Subject.role contains a/b and not a == b");
-    }
-
-    #[test]
-    fn policy_not_conj_parenthesized() {
-        parse_policy_ok("(not Subject.role contains a/b) and (not a == b)");
-    }
-
-    #[test]
-    fn policy_parenthesized() {
-        parse_policy_ok(
-            "(Subject.role contains a/b and Resource.name == foo) or Subject.b == label",
-        );
-    }
-
-    #[test]
-    fn policy_print_tree() {
-        let foo = parse_policy_ok("(not Subject.role contains a/b) and (not a == b)")
-            .into_inner()
-            .next()
-            .unwrap();
-
-        let p = foo.into_inner();
-
-        fn print_rec(pairs: Pairs<super::Rule>, level: usize) {
-            for child in pairs {
-                for _ in 0..level {
-                    print!("  ");
-                }
-
-                println!("{:?}", child.as_rule());
-
-                print_rec(child.into_inner(), level + 1);
-            }
-        }
-
-        print_rec(p, 0);
     }
 }
