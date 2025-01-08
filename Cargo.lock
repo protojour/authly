@@ -246,6 +246,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "authly-domain",
+ "authly-policy",
  "authly-proto",
  "axum",
  "axum-extra",
@@ -346,6 +347,7 @@ dependencies = [
 name = "authly-policy"
 version = "0.1.0"
 dependencies = [
+ "int-enum",
  "tracing",
  "unsigned-varint",
 ]
@@ -1818,6 +1820,19 @@ name = "inlinable_string"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8fae54786f62fb2918dcfae3d568594e50eb9b5c25bf04371af6fe7516452fb"
+
+[[package]]
+name = "int-enum"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a37a9c11c6ecfec8b9bed97337dfecff3686d02ba8f52e8addad2829d047128"
+dependencies = [
+ "proc-macro2",
+ "proc-macro2-diagnostics",
+ "quote",
+ "syn 2.0.94",
+ "version_check",
+]
 
 [[package]]
 name = "ipnet"

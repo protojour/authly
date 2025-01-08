@@ -3,6 +3,7 @@ use super::compiler::{
     PolicyCompiler,
 };
 use authly_domain::{BuiltinID, EID};
+use authly_policy::OpCode;
 
 use crate::document::{
     compiled_document::{CompiledAttribute, CompiledDocumentData, CompiledProperty},
@@ -40,8 +41,15 @@ fn test_env() -> (Namespace, CompiledDocumentData) {
 
 fn to_expr(src: &str) -> Expr {
     let (namespace, doc_data) = test_env();
-    PolicyCompiler::new(&namespace, &doc_data)
-        .parse_and_check(src, PolicyOutcome::Allow)
+    PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
+        .parse_and_check(src)
+        .unwrap()
+}
+
+fn to_opcodes(src: &str) -> Vec<OpCode> {
+    let (namespace, doc_data) = test_env();
+    PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
+        .compile_opcodes(src)
         .unwrap()
 }
 
@@ -109,5 +117,25 @@ fn test_expr_logical_paren() {
             Expr::or(subject_entity_equals_svc(), subject_entity_equals_svc()),
         ),
         to_expr("Subject.entity == svc and (Subject.entity == svc or Subject.entity == svc)")
+    );
+}
+
+#[test]
+fn test_opcodes() {
+    assert_eq!(
+        vec![
+            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0),
+            OpCode::LoadConstId(SVC.0),
+            OpCode::IsEq,
+            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0),
+            OpCode::LoadConstId(SVC.0),
+            OpCode::IsEq,
+            OpCode::And,
+            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0),
+            OpCode::LoadConstId(SVC.0),
+            OpCode::Or,
+            OpCode::TrueThenAllow,
+        ],
+        to_opcodes("Subject.entity == svc and Subject.entity == svc or Subject.entity == svc")
     );
 }

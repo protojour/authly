@@ -11,6 +11,7 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
+int-enum = "1"
 tracing = "0.1"
 unsigned-varint = "0.8"
 

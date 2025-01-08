@@ -212,7 +212,7 @@ pub async fn compile_doc(
         };
 
         let _compiled_policy =
-            match PolicyCompiler::new(&comp.namespace, &data).compile(src.as_ref(), outcome) {
+            match PolicyCompiler::new(&comp.namespace, &data, outcome).compile(src.as_ref()) {
                 Ok(compiled_policy) => compiled_policy,
                 Err(errors) => {
                     for error in errors {

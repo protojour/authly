@@ -1,25 +1,12 @@
+use int_enum::IntEnum;
+
 pub enum Outcome {
     Allow,
     Deny,
     Error,
 }
 
-pub mod opcode {
-    pub const LOAD_SUBJECT_EID: u8 = 0;
-    pub const LOAD_SUBJECT_TAGS: u8 = 1;
-    pub const LOAD_RESOURCE_EID: u8 = 2;
-    pub const LOAD_RESOURCE_TAGS: u8 = 3;
-    pub const LOAD_CONST_ID: u8 = 4;
-    pub const IS_EQ: u8 = 6;
-    pub const SUPERSET_OF: u8 = 7;
-    pub const CONTAINS_TAG: u8 = 8;
-    pub const TRUE_THEN_ALLOW: u8 = 9;
-    pub const TRUE_THEN_DENY: u8 = 10;
-    pub const FALSE_THEN_ALLOW: u8 = 11;
-    pub const FALSE_THEN_DENY: u8 = 12;
-}
-
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum OpCode {
     LoadSubjectEid(u128),
     LoadSubjectTags,
@@ -29,56 +16,87 @@ pub enum OpCode {
     IsEq,
     SupersetOf,
     ContainsTag,
+    And,
+    Or,
+    Not,
     TrueThenAllow,
     TrueThenDeny,
     FalseThenAllow,
     FalseThenDeny,
 }
 
+#[repr(u8)]
+#[derive(IntEnum)]
+pub enum Bytecode {
+    LoadSubjectEid = 0,
+    LoadSubjectTags = 1,
+    LoadResourceEid = 2,
+    LoadResourceTags = 3,
+    LoadConstId = 4,
+    IsEq = 5,
+    SupersetOf = 6,
+    ContainsTag = 7,
+    And = 8,
+    Or = 9,
+    Not = 10,
+    TrueThenAllow = 11,
+    TrueThenDeny = 12,
+    FalseThenAllow = 13,
+    FalseThenDeny = 14,
+}
+
 pub fn to_bytecode(opcodes: &[OpCode]) -> Vec<u8> {
     let mut out = Vec::with_capacity(opcodes.len());
-    use opcode::*;
 
     for opcode in opcodes {
         match opcode {
             OpCode::LoadSubjectEid(eid) => {
-                out.push(LOAD_SUBJECT_EID);
+                out.push(Bytecode::LoadSubjectEid as u8);
                 out.extend(unsigned_varint::encode::u128(*eid, &mut Default::default()));
             }
             OpCode::LoadSubjectTags => {
-                out.push(LOAD_SUBJECT_TAGS);
+                out.push(Bytecode::LoadSubjectTags as u8);
             }
             OpCode::LoadResourceEid(eid) => {
-                out.push(LOAD_RESOURCE_EID);
+                out.push(Bytecode::LoadResourceEid as u8);
                 out.extend(unsigned_varint::encode::u128(*eid, &mut Default::default()));
             }
             OpCode::LoadResourceTags => {
-                out.push(LOAD_RESOURCE_TAGS);
+                out.push(Bytecode::LoadResourceTags as u8);
             }
             OpCode::LoadConstId(id) => {
-                out.push(LOAD_CONST_ID);
+                out.push(Bytecode::LoadConstId as u8);
                 out.extend(unsigned_varint::encode::u128(*id, &mut Default::default()));
             }
             OpCode::IsEq => {
-                out.push(IS_EQ);
+                out.push(Bytecode::IsEq as u8);
             }
             OpCode::SupersetOf => {
-                out.push(SUPERSET_OF);
+                out.push(Bytecode::SupersetOf as u8);
             }
             OpCode::ContainsTag => {
-                out.push(CONTAINS_TAG);
+                out.push(Bytecode::ContainsTag as u8);
+            }
+            OpCode::And => {
+                out.push(Bytecode::And as u8);
+            }
+            OpCode::Or => {
+                out.push(Bytecode::Or as u8);
+            }
+            OpCode::Not => {
+                out.push(Bytecode::Not as u8);
             }
             OpCode::TrueThenAllow => {
-                out.push(TRUE_THEN_ALLOW);
+                out.push(Bytecode::TrueThenAllow as u8);
             }
             OpCode::TrueThenDeny => {
-                out.push(TRUE_THEN_DENY);
+                out.push(Bytecode::TrueThenDeny as u8);
             }
             OpCode::FalseThenAllow => {
-                out.push(FALSE_THEN_ALLOW);
+                out.push(Bytecode::FalseThenAllow as u8);
             }
             OpCode::FalseThenDeny => {
-                out.push(FALSE_THEN_DENY);
+                out.push(Bytecode::FalseThenDeny as u8);
             }
         }
     }

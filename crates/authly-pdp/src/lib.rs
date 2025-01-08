@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use authly_policy::{opcode, Outcome};
+use authly_policy::{Bytecode, Outcome};
 use bit_set::BitSet;
 
 #[expect(unused)]
@@ -41,8 +41,12 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
     while let Some(code) = pc.first() {
         pc = &pc[1..];
 
-        match *code {
-            opcode::LOAD_SUBJECT_EID => {
+        let Ok(code) = Bytecode::try_from(*code) else {
+            return Outcome::Error;
+        };
+
+        match code {
+            Bytecode::LoadSubjectEid => {
                 let Ok((key, next)) = unsigned_varint::decode::u128(pc) else {
                     return Outcome::Error;
                 };
@@ -52,10 +56,10 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                 stack.push(StackItem::Id(*eid));
                 pc = next;
             }
-            opcode::LOAD_SUBJECT_TAGS => {
+            Bytecode::LoadSubjectTags => {
                 stack.push(StackItem::Tags(&env.subject_flags));
             }
-            opcode::LOAD_RESOURCE_EID => {
+            Bytecode::LoadResourceEid => {
                 let Ok((key, next)) = unsigned_varint::decode::u128(pc) else {
                     return Outcome::Error;
                 };
@@ -65,17 +69,17 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                 stack.push(StackItem::Id(*eid));
                 pc = next;
             }
-            opcode::LOAD_RESOURCE_TAGS => {
+            Bytecode::LoadResourceTags => {
                 stack.push(StackItem::Tags(&env.resource_flags));
             }
-            opcode::LOAD_CONST_ID => {
+            Bytecode::LoadConstId => {
                 let Ok((id, next)) = unsigned_varint::decode::u128(pc) else {
                     return Outcome::Error;
                 };
                 stack.push(StackItem::Id(id));
                 pc = next;
             }
-            opcode::IS_EQ => {
+            Bytecode::IsEq => {
                 let Some(a) = stack.pop() else {
                     return Outcome::Error;
                 };
@@ -84,7 +88,7 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                 };
                 stack.push(StackItem::Uint(if a == b { 1 } else { 0 }));
             }
-            opcode::SUPERSET_OF => {
+            Bytecode::SupersetOf => {
                 let Some(StackItem::Tags(a)) = stack.pop() else {
                     return Outcome::Error;
                 };
@@ -93,7 +97,7 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                 };
                 stack.push(StackItem::Uint(if a.is_superset(b) { 1 } else { 0 }));
             }
-            opcode::CONTAINS_TAG => {
+            Bytecode::ContainsTag => {
                 let Some(StackItem::Tags(a)) = stack.pop() else {
                     return Outcome::Error;
                 };
@@ -103,7 +107,31 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                 // BUG: Does not support u128
                 stack.push(StackItem::Uint(if a.contains(f as usize) { 1 } else { 0 }));
             }
-            opcode::TRUE_THEN_ALLOW => {
+            Bytecode::And => {
+                let Some(StackItem::Uint(rhs)) = stack.pop() else {
+                    return Outcome::Error;
+                };
+                let Some(StackItem::Uint(lhs)) = stack.pop() else {
+                    return Outcome::Error;
+                };
+                stack.push(StackItem::Uint(if rhs > 0 && lhs > 0 { 1 } else { 0 }));
+            }
+            Bytecode::Or => {
+                let Some(StackItem::Uint(rhs)) = stack.pop() else {
+                    return Outcome::Error;
+                };
+                let Some(StackItem::Uint(lhs)) = stack.pop() else {
+                    return Outcome::Error;
+                };
+                stack.push(StackItem::Uint(if rhs > 0 || lhs > 0 { 1 } else { 0 }));
+            }
+            Bytecode::Not => {
+                let Some(StackItem::Uint(val)) = stack.pop() else {
+                    return Outcome::Error;
+                };
+                stack.push(StackItem::Uint(if val > 0 { 0 } else { 1 }));
+            }
+            Bytecode::TrueThenAllow => {
                 let Some(StackItem::Uint(u)) = stack.pop() else {
                     return Outcome::Error;
                 };
@@ -111,7 +139,7 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                     return Outcome::Allow;
                 }
             }
-            opcode::TRUE_THEN_DENY => {
+            Bytecode::TrueThenDeny => {
                 let Some(StackItem::Uint(u)) = stack.pop() else {
                     return Outcome::Error;
                 };
@@ -119,7 +147,7 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                     return Outcome::Deny;
                 }
             }
-            opcode::FALSE_THEN_ALLOW => {
+            Bytecode::FalseThenAllow => {
                 let Some(StackItem::Uint(u)) = stack.pop() else {
                     return Outcome::Error;
                 };
@@ -127,7 +155,7 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                     return Outcome::Allow;
                 }
             }
-            opcode::FALSE_THEN_DENY => {
+            Bytecode::FalseThenDeny => {
                 let Some(StackItem::Uint(u)) = stack.pop() else {
                     return Outcome::Error;
                 };
@@ -135,7 +163,6 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Outcome {
                     return Outcome::Deny;
                 }
             }
-            _ => return Outcome::Error,
         }
     }
 
