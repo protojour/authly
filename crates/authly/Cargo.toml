@@ -27,6 +27,7 @@ bit-set = "0.8"
 clap = { version = "4", features = ["derive"] }
 cookie = "0.18"
 figment = { version = "0.10", features = ["env"] }
+fnv = "1"
 hexhex = "1"
 http = "1"
 hiqlite = { version = "0.3", default-features = false, features = [
@@ -76,3 +77,10 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 unsigned-varint = "0.8"
 uuid = "1"
 x509-parser = "0.16"
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[[bench]]
+name = "authly_benches"
+harness = false

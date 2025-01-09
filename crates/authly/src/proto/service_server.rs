@@ -8,9 +8,9 @@ use tonic::{metadata::MetadataMap, Request, Response};
 
 use crate::{
     access_control, access_token,
-    db::service_db::find_service_label_by_eid,
+    db::{entity_db, service_db::find_service_label_by_eid},
     mtls::PeerServiceEID,
-    session::{self, authenticate_session_cookie, Session},
+    session::{authenticate_session_cookie, find_session_cookie, Session},
     AuthlyCtx, Eid,
 };
 
@@ -47,6 +47,8 @@ impl AuthlyService for AuthlyServiceServerImpl {
         }))
     }
 
+    // TODO: This could use some local caching of both service auth and user auth?
+    // Calling the RPC from authly-test takes over 2ms.
     async fn get_access_token(
         &self,
         request: Request<proto::Empty>,
@@ -62,8 +64,11 @@ impl AuthlyService for AuthlyServiceServerImpl {
             .await
             .map_err(tonic::Status::unauthenticated)?;
 
-        let token = access_token::create_access_token(&session, &self.ctx)
-            .map_err(|_| tonic::Status::internal("access token error"))?;
+        let user_attrs = entity_db::list_entity_attrs(&self.ctx, session.eid).await?;
+
+        let token =
+            access_token::create_access_token(&session, user_attrs, &self.ctx.dynamic_config)
+                .map_err(|_| tonic::Status::internal("access token error"))?;
 
         Ok(Response::new(proto::AccessToken {
             token,
@@ -92,10 +97,12 @@ async fn svc_auth(
 }
 
 async fn session_auth(metadata: &MetadataMap, ctx: &AuthlyCtx) -> Result<Session, &'static str> {
-    let cookie_headers = metadata
-        .get_all(COOKIE.as_str())
-        .iter()
-        .filter_map(|data| data.to_str().ok());
+    let session_cookie = find_session_cookie(
+        metadata
+            .get_all(COOKIE.as_str())
+            .iter()
+            .filter_map(|data| data.to_str().ok()),
+    )?;
 
-    authenticate_session_cookie(session::parse_cookie_jar(cookie_headers), ctx).await
+    authenticate_session_cookie(session_cookie, ctx).await
 }

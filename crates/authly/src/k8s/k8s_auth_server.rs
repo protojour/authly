@@ -19,8 +19,8 @@ use tracing::{error, info};
 
 use crate::{
     cert::{Cert, MakeSigningRequest},
-    db::{config_db::DynamicConfig, service_db},
-    AuthlyCtx, EnvConfig,
+    db::service_db,
+    AuthlyCtx, DynamicConfig, EnvConfig,
 };
 
 const K8S_SA_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";

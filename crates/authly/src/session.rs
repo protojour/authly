@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use authly_domain::Eid;
-use cookie::{Cookie, CookieJar};
+use cookie::Cookie;
 use rand::Rng;
 use time::OffsetDateTime;
 use tracing::warn;
@@ -25,12 +25,10 @@ impl SessionToken {
     }
 }
 
-pub async fn authenticate_session_cookie(
-    jar: CookieJar,
+pub(crate) async fn authenticate_session_cookie(
+    session_cookie: Cookie<'_>,
     ctx: &AuthlyCtx,
 ) -> Result<Session, &'static str> {
-    let session_cookie = jar.get("session-cookie").ok_or("no session cookie")?;
-
     let now = OffsetDateTime::now_utc();
 
     let token_hex = session_cookie.value();
@@ -51,15 +49,12 @@ pub async fn authenticate_session_cookie(
     Ok(session)
 }
 
-pub fn parse_cookie_jar<'a>(cookie_headers: impl Iterator<Item = &'a str>) -> CookieJar {
-    let cookies = cookie_headers
+pub fn find_session_cookie<'a>(
+    cookie_headers: impl Iterator<Item = &'a str>,
+) -> Result<Cookie<'a>, &'static str> {
+    cookie_headers
         .flat_map(|value| value.split(';'))
-        .filter_map(|cookie| Cookie::parse_encoded(cookie.to_owned()).ok());
-
-    let mut jar = CookieJar::new();
-    for cookie in cookies {
-        jar.add_original(cookie);
-    }
-
-    jar
+        .filter_map(|cookie| Cookie::parse_encoded(cookie).ok())
+        .find(|cookie| cookie.name() == "session-cookie")
+        .ok_or("no session cookie")
 }

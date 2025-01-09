@@ -3,11 +3,8 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::anyhow;
 use authly_domain::{document::Document, Eid};
 use axum::{routing::post, Router};
-use cert::MakeSigningRequest;
-use db::{
-    config_db::{self, DynamicConfig},
-    document_db,
-};
+use cert::{Cert, MakeSigningRequest};
+use db::{config_db, document_db};
 use document::doc_compiler::compile_doc;
 pub use env_config::EnvConfig;
 use hiqlite::ServerTlsConfig;
@@ -19,18 +16,18 @@ use tower_server::{Scheme, TlsConfigFactory};
 use tracing::info;
 use util::protocol_router::ProtocolRouter;
 
+pub mod access_token;
 pub mod cert;
 pub mod mtls;
+pub mod session;
 
 mod access_control;
-mod access_token;
 mod db;
 mod document;
 mod env_config;
 mod k8s;
 mod policy;
 mod proto;
-mod session;
 mod user_auth;
 mod util;
 
@@ -46,6 +43,11 @@ struct AuthlyCtx {
     db: hiqlite::Client,
     dynamic_config: Arc<DynamicConfig>,
     cancel: CancellationToken,
+}
+
+pub struct DynamicConfig {
+    /// A long-lived CA
+    pub local_ca: Cert<KeyPair>,
 }
 
 pub struct Init {

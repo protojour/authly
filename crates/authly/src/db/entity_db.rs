@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-
 use argon2::{password_hash::SaltString, Argon2};
 use authly_domain::Eid;
+use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 
 use super::{Convert, Db, DbResult, Row};
@@ -11,7 +10,7 @@ pub struct EntityPasswordHash {
     pub secret_hash: String,
 }
 
-pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<HashSet<Eid>> {
+pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<Eid>> {
     Ok(deps
         .query_raw(
             "SELECT attrid FROM ent_attr WHERE eid = $1".into(),

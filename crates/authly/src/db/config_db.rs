@@ -9,7 +9,7 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use thiserror::Error;
 use tracing::{debug, info};
 
-use crate::cert::Cert;
+use crate::{cert::Cert, DynamicConfig};
 
 use super::DbError;
 
@@ -20,11 +20,6 @@ pub enum ConfigDbError {
 
     #[error("crypto error: {0}")]
     Crypto(anyhow::Error),
-}
-
-pub struct DynamicConfig {
-    /// A long-lived CA
-    pub local_ca: Cert<KeyPair>,
 }
 
 pub async fn load_db_config(db: &Client) -> Result<DynamicConfig, ConfigDbError> {
