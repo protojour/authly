@@ -1,34 +1,29 @@
-use authly_domain::EID;
+use authly_domain::Eid;
 use hiqlite::{params, Param};
 use time::OffsetDateTime;
 
-use crate::{
-    session::{Session, SessionToken},
-    AuthlyCtx,
-};
+use crate::session::{Session, SessionToken};
 
-use super::{Convert, DbError, DbResult};
+use super::{Convert, Db, DbError, DbResult, Row};
 
-pub async fn store_session(session: &Session, ctx: &AuthlyCtx) -> DbResult<()> {
-    ctx.db
-        .execute(
-            "INSERT INTO session (token, eid, expires_at) VALUES ($1, $2, $3)",
-            params!(
-                session.token.0.clone(),
-                session.eid.as_param(),
-                session.expires_at.unix_timestamp()
-            ),
-        )
-        .await?;
+pub async fn store_session(deps: &impl Db, session: &Session) -> DbResult<()> {
+    deps.execute(
+        "INSERT INTO session (token, eid, expires_at) VALUES ($1, $2, $3)".into(),
+        params!(
+            session.token.0.clone(),
+            session.eid.as_param(),
+            session.expires_at.unix_timestamp()
+        ),
+    )
+    .await?;
 
     Ok(())
 }
 
-pub async fn get_session(token: SessionToken, ctx: &AuthlyCtx) -> DbResult<Option<Session>> {
-    let Some(mut row) = ctx
-        .db
+pub async fn get_session(deps: &impl Db, token: SessionToken) -> DbResult<Option<Session>> {
+    let Some(mut row) = deps
         .query_raw(
-            "SELECT eid, expires_at FROM session WHERE token = $1",
+            "SELECT eid, expires_at FROM session WHERE token = $1".into(),
             params!(token.0.clone()),
         )
         .await?
@@ -40,8 +35,8 @@ pub async fn get_session(token: SessionToken, ctx: &AuthlyCtx) -> DbResult<Optio
 
     Ok(Some(Session {
         token,
-        eid: EID::from_row(&mut row, "eid"),
-        expires_at: OffsetDateTime::from_unix_timestamp(row.get("expires_at"))
+        eid: Eid::from_row(&mut row, "eid"),
+        expires_at: OffsetDateTime::from_unix_timestamp(row.get_int("expires_at"))
             .map_err(|_| DbError::Timestamp)?,
     }))
 }

@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use authly_domain::EID;
+use authly_domain::Eid;
 use authly_policy::OpCode;
 use rand::Rng;
 
@@ -54,17 +54,17 @@ mod builtin {
 pub struct Model {
     entity_attrs: Vec<Attribute>,
     entity_rels: Vec<Relationship>,
-    entity_tags: HashMap<EID, BTreeSet<ObjId>>,
-    services: HashMap<EID, Service>,
-    policies: HashMap<EID, HashMap<ObjId, Policy>>,
+    entity_tags: HashMap<Eid, BTreeSet<ObjId>>,
+    services: HashMap<Eid, Service>,
+    policies: HashMap<Eid, HashMap<ObjId, Policy>>,
     tag_policies: HashMap<ObjId, HashSet<ObjId>>,
 
     properties: Properties,
 }
 
 impl Model {
-    fn add_user(&mut self, data: UserData) -> EID {
-        let eid = EID::random();
+    fn add_user(&mut self, data: UserData) -> Eid {
+        let eid = Eid::random();
         self.entity_tags
             .entry(eid)
             .or_default()
@@ -92,8 +92,8 @@ impl Model {
         eid
     }
 
-    fn add_group(&mut self, name: impl Into<String>) -> EID {
-        let eid = EID::random();
+    fn add_group(&mut self, name: impl Into<String>) -> Eid {
+        let eid = Eid::random();
         self.entity_tags
             .entry(eid)
             .or_default()
@@ -101,7 +101,7 @@ impl Model {
         eid
     }
 
-    fn set_membership(&mut self, subject: EID, object: EID) {
+    fn set_membership(&mut self, subject: Eid, object: Eid) {
         self.entity_rels.push(Relationship {
             subject,
             property: builtin::MEMBER,
@@ -109,8 +109,8 @@ impl Model {
         });
     }
 
-    fn add_service(&mut self, name: impl Into<String>) -> EID {
-        let eid = EID::random();
+    fn add_service(&mut self, name: impl Into<String>) -> Eid {
+        let eid = Eid::random();
         self.entity_tags
             .entry(eid)
             .or_default()
@@ -129,7 +129,7 @@ impl Model {
         eid
     }
 
-    fn add_policy(&mut self, svc: EID, name: impl Into<String>, opcodes: Vec<OpCode>) -> ObjId {
+    fn add_policy(&mut self, svc: Eid, name: impl Into<String>, opcodes: Vec<OpCode>) -> ObjId {
         let id = ObjId::random();
         self.policies.entry(svc).or_default().insert(
             id,
@@ -153,16 +153,16 @@ impl Model {
 
 #[derive(Debug)]
 struct Attribute {
-    pub subject: EID,
+    pub subject: Eid,
     pub property: PropId,
     pub value: AttrValue,
 }
 
 #[derive(Debug)]
 struct Relationship {
-    pub subject: EID,
+    pub subject: Eid,
     pub property: PropId,
-    pub object: EID,
+    pub object: Eid,
 }
 
 #[derive(Debug)]
@@ -190,14 +190,14 @@ struct Properties {
 }
 
 impl Properties {
-    pub fn svc_entity_tags(&mut self, name: impl Into<String>, entity: EID) -> (PropId, &mut Tags) {
+    pub fn svc_entity_tags(&mut self, name: impl Into<String>, entity: Eid) -> (PropId, &mut Tags) {
         self.new_attr(name, PropertyScope::ServiceEntity(entity))
     }
 
     pub fn svc_resource_tags(
         &mut self,
         name: impl Into<String>,
-        service: EID,
+        service: Eid,
     ) -> (PropId, &mut Tags) {
         self.new_attr(name, PropertyScope::ServiceResource(service))
     }
@@ -233,13 +233,13 @@ struct Property {
 #[derive(Debug)]
 enum PropertyScope {
     GlobalEntities,
-    ServiceEntity(EID),
-    ServiceResource(EID),
+    ServiceEntity(Eid),
+    ServiceResource(Eid),
 }
 
 #[derive(Debug)]
 enum PropertyKind {
-    EID,
+    Eid,
     Tags(Tags),
 }
 

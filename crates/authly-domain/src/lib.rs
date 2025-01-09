@@ -9,15 +9,15 @@ use serde::{
 pub mod document;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct EID(pub u128);
+pub struct Eid(pub u128);
 
-impl EID {
+impl Eid {
     pub fn random() -> Self {
         loop {
             let id: u128 = rand::thread_rng().gen();
             // low IDs are reserved for builtin/fixed
             if id > u16::MAX as u128 {
-                return EID(id);
+                return Eid(id);
             }
         }
     }
@@ -34,8 +34,8 @@ pub enum BuiltinID {
 }
 
 impl BuiltinID {
-    pub fn to_eid(self) -> EID {
-        EID(self as u128)
+    pub fn to_eid(self) -> Eid {
+        Eid(self as u128)
     }
 
     pub fn label(self) -> Option<&'static str> {
@@ -65,7 +65,7 @@ pub struct QualifiedAttributeName {
     pub attribute: String,
 }
 
-impl FromStr for EID {
+impl FromStr for Eid {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -75,11 +75,11 @@ impl FromStr for EID {
             return Err("invalid value");
         }
 
-        Ok(EID(id))
+        Ok(Eid(id))
     }
 }
 
-impl<'de> Deserialize<'de> for EID {
+impl<'de> Deserialize<'de> for Eid {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -122,12 +122,12 @@ impl<T> FromStrVisitor<T> {
     pub fn new(expecting: &'static str) -> Self {
         Self {
             expecting,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 }
 
-impl<'de, T: FromStr> Visitor<'de> for FromStrVisitor<T>
+impl<T: FromStr> Visitor<'_> for FromStrVisitor<T>
 where
     T::Err: Display,
 {

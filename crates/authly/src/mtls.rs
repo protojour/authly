@@ -1,9 +1,9 @@
-use authly_domain::EID;
+use authly_domain::Eid;
 use hyper::body::Incoming;
 use x509_parser::prelude::{FromDer, X509Certificate};
 
 #[derive(Clone)]
-pub struct PeerServiceEID(pub EID);
+pub struct PeerServiceEID(pub Eid);
 
 /// A middleware for mTLS
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl tower_server::tls::TlsConnectionMiddleware for MTLSMiddleware {
         };
         if let Some(peer_subject_common_name) = &data.peer_subject_common_name {
             if let Ok(parsed) = peer_subject_common_name.parse() {
-                req.extensions_mut().insert(PeerServiceEID(EID(parsed)));
+                req.extensions_mut().insert(PeerServiceEID(Eid(parsed)));
             }
         }
     }

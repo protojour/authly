@@ -1,19 +1,28 @@
 use std::borrow::Cow;
 
-use authly_domain::EID;
+use authly_domain::Eid;
 use hiqlite::{params, Param, Params};
 use itertools::Itertools;
 use tracing::debug;
 
-use crate::{document::compiled_document::CompiledDocument, AuthlyCtx};
+use crate::document::compiled_document::CompiledDocument;
 
-use super::{Convert, DbResult, Literal};
+use super::{Convert, Db, DbResult, Literal};
 
-pub async fn store_document(document: CompiledDocument, ctx: &AuthlyCtx) -> DbResult<()> {
+pub async fn store_document(deps: &impl Db, document: CompiledDocument) -> DbResult<()> {
+    let stmts = document_txn_statements(document);
+
+    for (stmt, _) in &stmts {
+        debug!("{stmt}");
+    }
+
+    deps.txn(stmts).await?;
+
+    Ok(())
+}
+
+fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, str>, Params)> {
     let CompiledDocument { aid, data } = document;
-
-    // TODO: users and groups
-
     let mut stmts: Vec<(Cow<'static, str>, Params)> = vec![];
 
     stmts.push((
@@ -170,13 +179,7 @@ pub async fn store_document(document: CompiledDocument, ctx: &AuthlyCtx) -> DbRe
         }
     }
 
-    for (stmt, _) in &stmts {
-        debug!("{stmt}");
-    }
-
-    ctx.db.txn(stmts).await?;
-
-    Ok(())
+    stmts
 }
 
 struct NotIn<'a, I>(&'a str, I);
@@ -184,7 +187,7 @@ struct NotIn<'a, I>(&'a str, I);
 fn gc<'a>(
     table: &str,
     NotIn(id, keep): NotIn<impl Iterator<Item = impl Literal>>,
-    aid: EID,
+    aid: Eid,
 ) -> (Cow<'static, str>, Vec<Param>) {
     (
         format!(

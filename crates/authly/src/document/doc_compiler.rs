@@ -3,21 +3,19 @@ use std::collections::hash_map::Entry;
 use std::{collections::HashMap, ops::Range};
 
 use authly_domain::document::{EntityProperty, GroupMembership, Policy, ResourceProperty};
-use authly_domain::{document::Document, EID};
+use authly_domain::{document::Document, Eid};
 use authly_domain::{BuiltinID, QualifiedAttributeName};
 use serde_spanned::Spanned;
 use tracing::debug;
 
 use crate::db::service_db::ServicePropertyKind;
+use crate::db::service_db::{self, ServiceProperty};
+use crate::db::Db;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, EntityIdent, EntityPassword,
 };
 use crate::policy::compiler::PolicyCompiler;
 use crate::policy::PolicyOutcome;
-use crate::{
-    db::service_db::{self, ServiceProperty},
-    AuthlyCtx,
-};
 
 use super::compiled_document::{
     CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData,
@@ -45,22 +43,22 @@ impl Namespace {
 
 struct CompileCtx {
     /// Authority ID
-    aid: EID,
+    aid: Eid,
 
     namespace: Namespace,
 
-    eprop_cache: HashMap<EID, Vec<ServiceProperty>>,
-    rprop_cache: HashMap<EID, Vec<ServiceProperty>>,
+    eprop_cache: HashMap<Eid, Vec<ServiceProperty>>,
+    rprop_cache: HashMap<Eid, Vec<ServiceProperty>>,
 
     errors: Errors,
 }
 
 #[derive(Debug)]
 pub enum NamespaceEntry {
-    User(EID),
-    Group(EID),
-    Service(EID),
-    PropertyLabel(EID),
+    User(Eid),
+    Group(Eid),
+    Service(Eid),
+    PropertyLabel(Eid),
 }
 
 #[derive(Default)]
@@ -70,10 +68,10 @@ struct Errors {
 
 pub async fn compile_doc(
     doc: Document,
-    ctx: &AuthlyCtx,
+    db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
-        aid: EID(doc.authly_document.id.get_ref().as_u128()),
+        aid: Eid(doc.authly_document.id.get_ref().as_u128()),
         namespace: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
@@ -119,7 +117,7 @@ pub async fn compile_doc(
         doc.resource_property,
         &mut data,
         &mut comp,
-        ctx,
+        db,
     )
     .await;
 
@@ -197,7 +195,7 @@ async fn process_service_properties(
     resource_properties: Vec<ResourceProperty>,
     data: &mut CompiledDocumentData,
     comp: &mut CompileCtx,
-    ctx: &AuthlyCtx,
+    db: &impl Db,
 ) {
     for doc_eprop in entity_properties {
         if let Some(svc_label) = &doc_eprop.service {
@@ -211,7 +209,7 @@ async fn process_service_properties(
                 &doc_eprop.label,
                 doc_eprop.attributes,
                 comp,
-                ctx,
+                db,
             )
             .await
             {
@@ -231,7 +229,7 @@ async fn process_service_properties(
             &doc_rprop.label,
             doc_rprop.attributes,
             comp,
-            ctx,
+            db,
         )
         .await
         {
@@ -241,15 +239,15 @@ async fn process_service_properties(
 }
 
 async fn compile_service_property(
-    svc_eid: EID,
+    svc_eid: Eid,
     property_kind: ServicePropertyKind,
     doc_property_label: &Spanned<String>,
     doc_attributes: Vec<Spanned<String>>,
     comp: &mut CompileCtx,
-    ctx: &AuthlyCtx,
+    db: &impl Db,
 ) -> Option<CompiledProperty> {
     let Some(db_props_cached) = comp
-        .db_service_properties_cached(svc_eid, property_kind, ctx)
+        .db_service_properties_cached(svc_eid, property_kind, db)
         .await
     else {
         return None;
@@ -263,7 +261,7 @@ async fn compile_service_property(
         id: db_eprop
             .as_ref()
             .map(|db_prop| db_prop.id)
-            .unwrap_or_else(EID::random),
+            .unwrap_or_else(Eid::random),
         svc_eid,
         label: doc_property_label.as_ref().to_string(),
         attributes: vec![],
@@ -281,7 +279,7 @@ async fn compile_service_property(
             id: db_attr
                 .as_ref()
                 .map(|attr| attr.0)
-                .unwrap_or_else(EID::random),
+                .unwrap_or_else(Eid::random),
             label: doc_attribute.into_inner(),
         });
     }
@@ -296,7 +294,7 @@ async fn compile_service_property(
 
 /// Assign attributes to entities
 fn process_attribute_assignments(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
-    let mut assignments: Vec<(EID, Spanned<QualifiedAttributeName>)> = vec![];
+    let mut assignments: Vec<(Eid, Spanned<QualifiedAttributeName>)> = vec![];
 
     for user in &mut data.users {
         for attribute in std::mem::take(&mut user.attributes) {
@@ -388,7 +386,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
+    fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
         match self.ns_lookup(key, CompileError::UnresolvedEntity)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             NamespaceEntry::User(eid) => Some(*eid),
@@ -397,7 +395,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_profile_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
+    fn ns_profile_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
         match self.ns_lookup(key, CompileError::UnresolvedProfile)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             NamespaceEntry::User(eid) => Some(*eid),
@@ -409,7 +407,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_group_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
+    fn ns_group_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
         match self.ns_lookup(key, CompileError::UnresolvedGroup)? {
             NamespaceEntry::Group(eid) => Some(*eid),
             _ => {
@@ -419,7 +417,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_service_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
+    fn ns_service_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
         match self.ns_lookup(key, CompileError::UnresolvedService)? {
             NamespaceEntry::Service(eid) => Some(*eid),
             _ => {
@@ -430,7 +428,7 @@ impl CompileCtx {
         }
     }
 
-    fn ns_property_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EID> {
+    fn ns_property_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
         match self.ns_lookup(key, CompileError::UnresolvedProperty)? {
             NamespaceEntry::PropertyLabel(eid) => Some(*eid),
             _ => {
@@ -457,9 +455,9 @@ impl CompileCtx {
 
     async fn db_service_properties_cached<'s>(
         &'s mut self,
-        svc_eid: EID,
+        svc_eid: Eid,
         property_kind: ServicePropertyKind,
-        ctx: &AuthlyCtx,
+        db: &impl Db,
     ) -> Option<&'s Vec<ServiceProperty>> {
         let cache = match property_kind {
             ServicePropertyKind::Entity => &mut self.eprop_cache,
@@ -469,20 +467,16 @@ impl CompileCtx {
         match cache.entry(svc_eid) {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
-                let db_props = match service_db::list_service_properties(
-                    self.aid,
-                    svc_eid,
-                    property_kind,
-                    ctx,
-                )
-                .await
-                {
-                    Ok(db_props) => db_props,
-                    Err(e) => {
-                        self.errors.push(0..0, CompileError::Db(e.to_string()));
-                        return None;
-                    }
-                };
+                let db_props =
+                    match service_db::list_service_properties(db, self.aid, svc_eid, property_kind)
+                        .await
+                    {
+                        Ok(db_props) => db_props,
+                        Err(e) => {
+                            self.errors.push(0..0, CompileError::Db(e.to_string()));
+                            return None;
+                        }
+                    };
 
                 Some(vacant.insert(db_props))
             }

@@ -16,7 +16,7 @@ use crate::{
     },
     mtls::PeerServiceEID,
     session::{Session, SessionToken, SESSION_TTL},
-    AuthlyCtx, EID,
+    AuthlyCtx, Eid,
 };
 
 pub enum AuthError {
@@ -89,7 +89,7 @@ pub async fn authenticate(
     let (ehash, secret) = match body {
         AuthenticateRequest::User { username, password } => {
             let ehash = entity_db::find_local_authority_entity_password_hash_by_credential_ident(
-                "username", &username, &ctx,
+                &ctx, "username", &username,
             )
             .await?
             .ok_or_else(|| AuthError::UserAuthFailed)?;
@@ -118,14 +118,14 @@ pub async fn authenticate(
         .into_response())
 }
 
-async fn init_session(eid: EID, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
+async fn init_session(eid: Eid, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
     let session = Session {
         token: SessionToken::new_random(),
         eid,
         expires_at: time::OffsetDateTime::now_utc() + SESSION_TTL,
     };
 
-    session_db::store_session(&session, ctx).await?;
+    session_db::store_session(ctx, &session).await?;
 
     Ok(session)
 }
@@ -143,7 +143,7 @@ fn make_session_cookie(session: &Session) -> Cookie<'static> {
     cookie
 }
 
-async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<EID, AuthError> {
+async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<Eid, AuthError> {
     // check Argon2 hash
     tokio::task::spawn_blocking(move || -> Result<(), AuthError> {
         use argon2::password_hash::PasswordHash;

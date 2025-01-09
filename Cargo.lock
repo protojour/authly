@@ -271,6 +271,7 @@ dependencies = [
  "rand",
  "rcgen",
  "reqwest",
+ "rusqlite",
  "rust-embed",
  "rustls",
  "rustls-pemfile",

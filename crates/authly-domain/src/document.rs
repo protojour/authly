@@ -2,7 +2,7 @@ use serde::Deserialize;
 use toml::Spanned;
 use uuid::Uuid;
 
-use crate::{QualifiedAttributeName, EID};
+use crate::{Eid, QualifiedAttributeName};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -51,7 +51,7 @@ pub struct AuthlyDocument {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct User {
-    pub eid: Spanned<EID>,
+    pub eid: Spanned<Eid>,
     #[serde(default)]
     pub label: Option<Spanned<String>>,
 
@@ -85,7 +85,7 @@ pub struct PasswordHash {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Group {
-    pub eid: Spanned<EID>,
+    pub eid: Spanned<Eid>,
     pub name: Spanned<String>,
 }
 
@@ -112,7 +112,7 @@ pub struct EntityProperty {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Service {
-    pub eid: Spanned<EID>,
+    pub eid: Spanned<Eid>,
     pub label: Spanned<String>,
 
     #[serde(default)]

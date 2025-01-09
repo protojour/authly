@@ -11,7 +11,7 @@ use crate::{
     db::service_db::find_service_label_by_eid,
     mtls::PeerServiceEID,
     session::{self, authenticate_session_cookie, Session},
-    AuthlyCtx, EID,
+    AuthlyCtx, Eid,
 };
 
 pub struct AuthlyServiceServerImpl {
@@ -37,7 +37,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
         request: Request<proto::Empty>,
     ) -> tonic::Result<Response<proto::ServiceMetadata>> {
         let svc_eid = svc_auth(request.extensions(), &[], &self.ctx).await?;
-        let label = find_service_label_by_eid(svc_eid, &self.ctx)
+        let label = find_service_label_by_eid(&self.ctx, svc_eid)
             .await?
             .ok_or_else(|| tonic::Status::internal("no service label"))?;
 
@@ -74,7 +74,7 @@ async fn svc_auth(
     extensions: &tonic::Extensions,
     required_roles: &[BuiltinID],
     ctx: &AuthlyCtx,
-) -> tonic::Result<EID> {
+) -> tonic::Result<Eid> {
     let peer_svc_eid = extensions
         .get::<PeerServiceEID>()
         .ok_or_else(|| tonic::Status::unauthenticated("invalid service identity"))?;

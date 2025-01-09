@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, ops::Range};
 
 use authly_domain::{
     document::{Group, Service, User},
-    BuiltinID, EID,
+    BuiltinID, Eid,
 };
 
 use crate::policy::error::PolicyCompileErrorKind;
@@ -26,7 +26,7 @@ pub enum CompileError {
 #[derive(Debug)]
 pub struct CompiledDocument {
     /// authority ID
-    pub aid: EID,
+    pub aid: Eid,
     pub data: CompiledDocumentData,
 }
 
@@ -50,35 +50,35 @@ pub struct CompiledDocumentData {
 
 #[derive(Debug)]
 pub struct EntityIdent {
-    pub eid: EID,
+    pub eid: Eid,
     pub kind: String,
     pub ident: String,
 }
 
 #[derive(Debug)]
 pub struct EntityPassword {
-    pub eid: EID,
+    pub eid: Eid,
     pub hash: String,
 }
 
 #[derive(Debug)]
 pub struct CompiledEntityAttributeAssignment {
-    pub eid: EID,
-    pub attrid: EID,
+    pub eid: Eid,
+    pub attrid: Eid,
 }
 
 #[derive(Debug)]
 pub struct CompiledGroupMembership {
     #[expect(unused)]
-    pub group_eid: EID,
-    pub members: BTreeSet<EID>,
+    pub group_eid: Eid,
+    pub members: BTreeSet<Eid>,
 }
 
 #[derive(Debug)]
 pub struct CompiledProperty {
     /// TODO: Is it an entity?
-    pub id: EID,
-    pub svc_eid: EID,
+    pub id: Eid,
+    pub svc_eid: Eid,
     pub label: String,
 
     pub attributes: Vec<CompiledAttribute>,
@@ -86,7 +86,7 @@ pub struct CompiledProperty {
 
 #[derive(Debug)]
 pub struct CompiledAttribute {
-    pub id: EID,
+    pub id: Eid,
     pub label: String,
 }
 
@@ -96,7 +96,7 @@ pub enum AttrLookupError {
 }
 
 impl CompiledDocumentData {
-    pub fn find_property(&self, prop_id: EID) -> Option<&CompiledProperty> {
+    pub fn find_property(&self, prop_id: Eid) -> Option<&CompiledProperty> {
         self.svc_ent_props
             .iter()
             .chain(self.svc_res_props.iter())
@@ -105,9 +105,9 @@ impl CompiledDocumentData {
 
     pub fn find_attribute_by_label(
         &self,
-        prop_id: EID,
+        prop_id: Eid,
         attr_label: &str,
-    ) -> Result<EID, AttrLookupError> {
+    ) -> Result<Eid, AttrLookupError> {
         match self.find_property(prop_id) {
             Some(property) => property
                 .attributes

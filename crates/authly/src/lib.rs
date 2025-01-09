@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
-use authly_domain::{document::Document, EID};
+use authly_domain::{document::Document, Eid};
 use axum::{routing::post, Router};
 use cert::MakeSigningRequest;
 use db::{
@@ -103,7 +103,7 @@ pub async fn serve() -> anyhow::Result<()> {
 
 pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow::Result<()> {
     let Init { ctx, .. } = initialize().await?;
-    let eid = EID(eid.parse()?);
+    let eid = Eid(eid.parse()?);
 
     let pem = ctx
         .dynamic_config
@@ -167,7 +167,7 @@ async fn initialize() -> anyhow::Result<Init> {
                 }
             };
 
-            document_db::store_document(compiled_doc, &ctx).await?;
+            document_db::store_document(&ctx, compiled_doc).await?;
         }
     }
 

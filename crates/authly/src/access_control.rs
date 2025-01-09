@@ -1,4 +1,4 @@
-use authly_domain::{BuiltinID, EID};
+use authly_domain::{BuiltinID, Eid};
 
 use crate::{
     db::{entity_db, DbError},
@@ -14,7 +14,7 @@ pub enum SvcAccessControlError {
 ///
 /// This currently does not use policies, it only checks whether the service is assigned the required attribute.
 pub async fn svc_access_control(
-    svc_eid: EID,
+    svc_eid: Eid,
     required_authly_roles: &[BuiltinID],
     ctx: &AuthlyCtx,
 ) -> Result<(), SvcAccessControlError> {
@@ -22,7 +22,7 @@ pub async fn svc_access_control(
         return Ok(());
     }
 
-    let attributes = entity_db::list_entity_attrs(svc_eid, ctx)
+    let attributes = entity_db::list_entity_attrs(ctx, svc_eid)
         .await
         .map_err(SvcAccessControlError::Db)?;
 

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use authly_domain::EID;
+use authly_domain::Eid;
 use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -75,7 +75,7 @@ enum CsrError {
     Internal,
     Unauthorized,
     ServiceAccountNotFound,
-    InvalidPublicKey(EID),
+    InvalidPublicKey(Eid),
 }
 
 impl IntoResponse for CsrError {
@@ -106,9 +106,9 @@ async fn csr_handler(
 
     let kubernetes_io = token_data.claims.kubernetes_io;
     let eid = service_db::find_service_eid_by_k8s_service_account_name(
+        &state.ctx,
         &kubernetes_io.namespace,
         &kubernetes_io.serviceaccount.name,
-        &state.ctx,
     )
     .await
     .map_err(|err| {

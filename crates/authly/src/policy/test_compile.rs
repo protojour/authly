@@ -2,7 +2,7 @@ use super::compiler::{
     expr::{Expr, Global, Label, Term},
     PolicyCompiler,
 };
-use authly_domain::{BuiltinID, EID};
+use authly_domain::{BuiltinID, Eid};
 use authly_policy::OpCode;
 
 use crate::document::{
@@ -12,9 +12,9 @@ use crate::document::{
 
 use super::PolicyOutcome;
 
-const SVC: EID = EID(42);
-const ROLE: EID = EID(1337);
-const ROLE_ROOT: EID = EID(1338);
+const SVC: Eid = Eid(42);
+const ROLE: Eid = Eid(1337);
+const ROLE_ROOT: Eid = Eid(1338);
 
 fn test_env() -> (Namespace, CompiledDocumentData) {
     let namespace = Namespace::from_iter([
