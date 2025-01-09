@@ -60,7 +60,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
 
         let session = session_auth(request.metadata(), &self.ctx)
             .await
-            .map_err(|msg| tonic::Status::unauthenticated(msg))?;
+            .map_err(tonic::Status::unauthenticated)?;
 
         Ok(Response::new(proto::AccessToken {
             token: "TODO".to_string(),

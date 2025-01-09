@@ -19,7 +19,7 @@ impl tower_server::tls::TlsConnectionMiddleware for MTLSMiddleware {
 
     fn data(&self, connection: &rustls::ServerConnection) -> Self::Data {
         let peer_der = connection.peer_certificates()?.first()?;
-        let (_, peer_cert) = X509Certificate::from_der(&peer_der).ok()?;
+        let (_, peer_cert) = X509Certificate::from_der(peer_der).ok()?;
 
         let mut data = MTLSConnectionData::default();
 

@@ -123,7 +123,7 @@ impl<'a> Literal for &'a str {
 
 pub struct StrLiteral<'a>(&'a str);
 
-impl<'a> Display for StrLiteral<'a> {
+impl Display for StrLiteral<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "'")?;
 
@@ -169,7 +169,7 @@ impl Db for AuthlyCtx {
     }
 }
 
-impl<'a> Row for hiqlite::Row<'a> {
+impl Row for hiqlite::Row<'_> {
     fn get_int(&mut self, idx: &str) -> i64 {
         self.get(idx)
     }

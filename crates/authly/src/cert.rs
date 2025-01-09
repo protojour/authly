@@ -114,15 +114,15 @@ pub trait MakeSigningRequest: Sized {
 impl MakeSigningRequest for KeyPair {}
 impl MakeSigningRequest for SubjectPublicKeyInfo {}
 
-impl<K> Into<reqwest::Certificate> for &Cert<K> {
-    fn into(self) -> reqwest::Certificate {
-        reqwest::tls::Certificate::from_der(&self.der).unwrap()
+impl<K> From<&Cert<K>> for reqwest::Certificate {
+    fn from(value: &Cert<K>) -> Self {
+        reqwest::tls::Certificate::from_der(&value.der).unwrap()
     }
 }
 
-impl Into<reqwest::Identity> for &Cert<KeyPair> {
-    fn into(self) -> reqwest::Identity {
-        reqwest::Identity::from_pem(self.certificate_and_key_pem().as_bytes()).unwrap()
+impl From<&Cert<KeyPair>> for reqwest::Identity {
+    fn from(value: &Cert<KeyPair>) -> Self {
+        reqwest::Identity::from_pem(value.certificate_and_key_pem().as_bytes()).unwrap()
     }
 }
 

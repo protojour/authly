@@ -29,9 +29,7 @@ pub async fn authenticate_session_cookie(
     jar: CookieJar,
     ctx: &AuthlyCtx,
 ) -> Result<Session, &'static str> {
-    let session_cookie = jar
-        .get("session-cookie")
-        .ok_or_else(|| "no session cookie")?;
+    let session_cookie = jar.get("session-cookie").ok_or("no session cookie")?;
 
     let now = OffsetDateTime::now_utc();
 
@@ -44,7 +42,7 @@ pub async fn authenticate_session_cookie(
             warn!(?err, "session lookup error");
             "internal error"
         })?
-        .ok_or_else(|| "no session")?;
+        .ok_or("no session")?;
 
     if session.expires_at < now {
         return Err("session expired");

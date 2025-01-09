@@ -8,7 +8,7 @@ use super::{
     PolicyCompiler,
 };
 
-impl<'a> PolicyCompiler<'a> {
+impl PolicyCompiler<'_> {
     pub fn codegen_expr_root(&mut self, expr: Expr) {
         self.codegen_expr(expr);
         self.ops.push(match self.outcome {

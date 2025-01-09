@@ -63,8 +63,7 @@ pub async fn try_insert_entity_credentials(
         Ok(
             argon2::PasswordHash::generate(Argon2::default(), secret, &salt)
                 .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
-                .to_string()
-                .into(),
+                .to_string(),
         )
     })
     .await??;

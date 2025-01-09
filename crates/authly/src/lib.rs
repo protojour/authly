@@ -255,7 +255,6 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
         let replica_count = env_config.k8s_replicas.unwrap_or(1);
 
         (0..replica_count)
-            .into_iter()
             .map(|idx| hiqlite::Node {
                 id: idx + 1,
                 addr_api: format!("{statefulset}-{idx}.{headless_svc}:{HIQLITE_API_PORT}"),

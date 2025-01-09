@@ -77,11 +77,12 @@ pub async fn compile_doc(
         rprop_cache: Default::default(),
         errors: Default::default(),
     };
-    let mut data = CompiledDocumentData::default();
-
-    data.users = doc.user;
-    data.groups = doc.group;
-    data.services = doc.service;
+    let mut data = CompiledDocumentData {
+        users: doc.user,
+        groups: doc.group,
+        services: doc.service,
+        ..Default::default()
+    };
 
     seed_namespace(&mut data, &mut comp);
 
@@ -246,12 +247,9 @@ async fn compile_service_property(
     comp: &mut CompileCtx,
     db: &impl Db,
 ) -> Option<CompiledProperty> {
-    let Some(db_props_cached) = comp
+    let db_props_cached = comp
         .db_service_properties_cached(svc_eid, property_kind, db)
-        .await
-    else {
-        return None;
-    };
+        .await?;
 
     let db_eprop = db_props_cached
         .iter()
@@ -349,7 +347,7 @@ fn process_policies(policies: Vec<Policy>, data: &mut CompiledDocumentData, comp
         };
 
         let _compiled_policy =
-            match PolicyCompiler::new(&comp.namespace, &data, outcome).compile(src.as_ref()) {
+            match PolicyCompiler::new(&comp.namespace, data, outcome).compile(src.as_ref()) {
                 Ok(compiled_policy) => compiled_policy,
                 Err(errors) => {
                     for error in errors {

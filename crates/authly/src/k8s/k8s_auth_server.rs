@@ -198,7 +198,7 @@ impl JwtVerifier {
     }
 
     fn verify(&self, token: &str) -> Result<TokenData<claims::KubernetesJwtClaims>, CsrError> {
-        let token_data = jsonwebtoken::decode(&token, &self.decoding_key, &self.validation)
+        let token_data = jsonwebtoken::decode(token, &self.decoding_key, &self.validation)
             .map_err(|err| {
                 info!(?err, "token not verified");
                 CsrError::Unauthorized

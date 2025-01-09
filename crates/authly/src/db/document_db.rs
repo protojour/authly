@@ -184,7 +184,7 @@ fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, str>
 
 struct NotIn<'a, I>(&'a str, I);
 
-fn gc<'a>(
+fn gc(
     table: &str,
     NotIn(id, keep): NotIn<impl Iterator<Item = impl Literal>>,
     aid: Eid,

@@ -73,10 +73,8 @@ impl Db for RwLock<rusqlite::Connection> {
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
         let conn = self.read().unwrap();
-        Ok(
-            rusqlite::Connection::execute(&conn, &sql, rusqlite_params(params))
-                .map_err(DbError::Rusqlite)?,
-        )
+        rusqlite::Connection::execute(&conn, &sql, rusqlite_params(params))
+            .map_err(DbError::Rusqlite)
     }
 
     async fn txn<C, Q>(&self, sql: Q) -> Result<Vec<Result<usize, DbError>>, DbError>
@@ -163,7 +161,7 @@ impl RusqliteRow {
     }
 }
 
-impl<'a> Row for RusqliteRow {
+impl Row for RusqliteRow {
     fn get_int(&mut self, idx: &str) -> i64 {
         match self.entries.remove(idx).unwrap() {
             rusqlite::types::Value::Integer(i) => i,

@@ -14,7 +14,7 @@ use super::{
     ParseCtx, PolicyCompiler,
 };
 
-impl<'a> PolicyCompiler<'a> {
+impl PolicyCompiler<'_> {
     /// Parse and check expression, performs name lookups
     pub(super) fn pest_expr(&mut self, pair: Pair<Rule>, ctx: &ParseCtx) -> Expr {
         match pair.as_rule() {
