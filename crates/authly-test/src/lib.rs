@@ -23,7 +23,7 @@ fn testservice_web_client() -> anyhow::Result<reqwest::Client> {
 async fn testservice_authly_client() -> anyhow::Result<authly_client::Client> {
     Ok(authly_client::Client::builder()
         .with_url("https://localhost:10443")
-        .with_authly_local_ca_pem(std::fs::read("../../test/exported-local-ca.pem")?)
+        .with_authly_local_ca_pem(std::fs::read("../../test/exported-local-ca.pem")?)?
         .with_identity(authly_client::identity::Identity::from_multi_pem(
             std::fs::read("../../test/testservice-identity.pem")?,
         )?)

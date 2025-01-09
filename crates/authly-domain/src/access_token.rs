@@ -5,6 +5,8 @@ use crate::Eid;
 /// Claims for the Authly Access Token JWT
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthlyAccessTokenClaims {
+    pub exp: i64,
+
     pub authly: Authly,
 }
 

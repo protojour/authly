@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use authly_domain::access_token::AuthlyAccessTokenClaims;
 use authly_proto::service as proto;
 use authly_proto::service::authly_service_client::AuthlyServiceClient;
 use http::header::{AUTHORIZATION, COOKIE};
@@ -34,6 +35,9 @@ pub enum Error {
     #[error("network error: {0}")]
     Network(anyhow::Error),
 
+    #[error("invalid access token: {0}")]
+    InvalidAccessToken(anyhow::Error),
+
     #[error("unclassified error: {0}")]
     Unclassified(anyhow::Error),
 }
@@ -52,11 +56,13 @@ fn unauthorized(err: impl std::error::Error + Send + Sync + 'static) -> Error {
 
 pub struct Client {
     client: AuthlyServiceClient<tonic::transport::Channel>,
+    jwt_decoding_key: jsonwebtoken::DecodingKey,
 }
 
 pub struct ClientBuilder {
     authly_local_ca: Option<Vec<u8>>,
     identity: Option<Identity>,
+    jwt_decoding_key: Option<jsonwebtoken::DecodingKey>,
     url: Cow<'static, str>,
 }
 
@@ -65,6 +71,7 @@ impl Client {
         ClientBuilder {
             authly_local_ca: None,
             identity: None,
+            jwt_decoding_key: None,
             url: Cow::Borrowed("https://authly"),
         }
     }
@@ -112,9 +119,17 @@ impl Client {
             .map_err(network)?
             .into_inner();
 
+        let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
+        let token_data = jsonwebtoken::decode::<AuthlyAccessTokenClaims>(
+            &proto.token,
+            &self.jwt_decoding_key,
+            &validation,
+        )
+        .map_err(|err| Error::InvalidAccessToken(err.into()))?;
+
         Ok(AccessToken {
             token: proto.token,
-            user_eid: proto.user_eid,
+            claims: token_data.claims,
         })
     }
 }
@@ -151,6 +166,7 @@ impl ClientBuilder {
                 EncodeConfig::new().set_line_ending(pem::LineEnding::LF),
             );
 
+            self.jwt_decoding_key = Some(jwt_decoding_key_from_cert(&authly_local_ca)?);
             self.authly_local_ca = Some(authly_local_ca);
             self.identity = Some(Identity {
                 cert_pem: client_cert_pem.into_bytes(),
@@ -164,9 +180,10 @@ impl ClientBuilder {
     }
 
     /// Use the given CA certificate to verify the Authly server
-    pub fn with_authly_local_ca_pem(mut self, ca: Vec<u8>) -> Self {
+    pub fn with_authly_local_ca_pem(mut self, ca: Vec<u8>) -> Result<Self, Error> {
+        self.jwt_decoding_key = Some(jwt_decoding_key_from_cert(&ca)?);
         self.authly_local_ca = Some(ca);
-        self
+        Ok(self)
     }
 
     /// Use a pre-certified client identity
@@ -186,6 +203,9 @@ impl ClientBuilder {
         let authly_local_ca = self
             .authly_local_ca
             .ok_or_else(|| Error::AuthlyCA("not provided"))?;
+        let jwt_decoding_key = self
+            .jwt_decoding_key
+            .ok_or_else(|| Error::AuthlyCA("missing public key"))?;
         let identity = self
             .identity
             .ok_or_else(|| Error::Identity("not provided"))?;
@@ -204,6 +224,21 @@ impl ClientBuilder {
 
         Ok(Client {
             client: AuthlyServiceClient::new(endpoint.connect().await.map_err(unclassified)?),
+            jwt_decoding_key,
         })
     }
+}
+
+fn jwt_decoding_key_from_cert(cert: &[u8]) -> Result<jsonwebtoken::DecodingKey, Error> {
+    let pem = pem::parse(cert).map_err(|_| Error::AuthlyCA("invalid authly certificate"))?;
+
+    let (_, x509_cert) = x509_parser::parse_x509_certificate(pem.contents())
+        .map_err(|_| Error::AuthlyCA("invalid authly certificate"))?;
+
+    let public_key = x509_cert.public_key();
+
+    // Assume that EC is always used
+    Ok(jsonwebtoken::DecodingKey::from_ec_der(
+        &public_key.subject_public_key.data,
+    ))
 }

@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use authly_domain::Eid;
 use cookie::Cookie;
 use hyper::header::SET_COOKIE;
 use reqwest::{ClientBuilder, Identity};
@@ -32,7 +33,7 @@ async fn user_auth_ok() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn auth_get_access_token() -> anyhow::Result<()> {
+async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let web_client = testservice_web_client().unwrap();
@@ -65,8 +66,7 @@ async fn auth_get_access_token() -> anyhow::Result<()> {
         .await
         .unwrap();
 
-    assert_eq!(access_token.token.len(), 167);
-    assert_eq!(access_token.user_eid, "111111");
+    assert_eq!(access_token.claims.authly.user_eid, Eid(111111));
 
     Ok(())
 }

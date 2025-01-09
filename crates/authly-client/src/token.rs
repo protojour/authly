@@ -1,7 +1,9 @@
+use authly_domain::access_token::AuthlyAccessTokenClaims;
+
 pub struct AccessToken {
     /// The access token in JWT format
     pub token: String,
 
-    /// The user that the access token represents
-    pub user_eid: String,
+    /// The decoded/verified token claims
+    pub claims: AuthlyAccessTokenClaims,
 }

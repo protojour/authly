@@ -10,11 +10,18 @@ publish = true
 
 [dependencies]
 authly-proto.path = "../authly-proto"
+authly-domain = { path = "../authly-domain", features = ["access_token"] }
 anyhow = "1"
 http = "1"
+jsonwebtoken = "9"
 pem = "3"
-reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "http2",
+    "json",
+    "rustls-tls",
+] }
 rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params" }
 thiserror = "2"
 tonic = { version = "0.12", default-features = false, features = ["tls"] }
 tracing = "0.1"
+x509-parser = "0.16"

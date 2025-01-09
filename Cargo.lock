@@ -297,14 +297,17 @@ name = "authly-client"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "authly-domain",
  "authly-proto",
  "http",
+ "jsonwebtoken",
  "pem",
  "rcgen",
  "reqwest",
  "thiserror 2.0.9",
  "tonic",
  "tracing",
+ "x509-parser",
 ]
 
 [[package]]
@@ -369,6 +372,7 @@ dependencies = [
  "anyhow",
  "authly",
  "authly-client",
+ "authly-domain",
  "axum",
  "cookie",
  "hyper",

@@ -14,6 +14,7 @@ doctest = false
 [dependencies]
 authly.path = "../authly"
 authly-client.path = "../authly-client"
+authly-domain.path = "../authly-domain"
 anyhow = "1"
 axum = "0.7"
 cookie = "0.18"
