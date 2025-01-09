@@ -16,9 +16,16 @@ authly.path = "../authly"
 authly-client.path = "../authly-client"
 anyhow = "1"
 axum = "0.7"
+cookie = "0.18"
 hyper = "1"
-reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
-rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params", features = ["x509-parser"] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "http2",
+    "json",
+    "rustls-tls",
+] }
+rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params", features = [
+    "x509-parser",
+] }
 rustls = "0.23"
 serde_json = "1"
 time = "0.3"

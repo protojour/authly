@@ -118,9 +118,7 @@ impl CompiledDocumentData {
             None => {
                 if prop_id == BuiltinID::PropAuthlyRole.to_eid() {
                     match attr_label {
-                        "resolve_session_info" => {
-                            Ok(BuiltinID::AttrAuthlyRoleResolveSessionInfo.to_eid())
-                        }
+                        "get_access_token" => Ok(BuiltinID::AttrAuthlyRoleGetAccessToken.to_eid()),
                         _ => Err(AttrLookupError::NoAttribute),
                     }
                 } else {

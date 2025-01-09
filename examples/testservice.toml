@@ -4,7 +4,7 @@ id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 [[service]]
 eid = "272878235402143010663560859986869906352"
 label = "testservice"
-attributes = ["authly:role/resolve_session_info"]
+attributes = ["authly:role/get_access_token"]
 kubernetes = { service-account = [
     { namespace = "authly-test", name = "testservice" },
 ] }

@@ -2,12 +2,15 @@ use std::borrow::Cow;
 
 use authly_proto::service as proto;
 use authly_proto::service::authly_service_client::AuthlyServiceClient;
-use http::header::AUTHORIZATION;
+use http::header::{AUTHORIZATION, COOKIE};
 use identity::Identity;
 use pem::{EncodeConfig, Pem};
 use rcgen::KeyPair;
+use token::AccessToken;
+use tonic::Request;
 
 pub mod identity;
+pub mod token;
 
 const K8S_SA_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 
@@ -70,7 +73,7 @@ impl Client {
     pub async fn eid(&self) -> Result<String, Error> {
         let mut client = self.client.clone();
         let metadata = client
-            .metadata(proto::Empty::default())
+            .get_metadata(proto::Empty::default())
             .await
             .map_err(network)?
             .into_inner();
@@ -82,12 +85,35 @@ impl Client {
     pub async fn label(&self) -> Result<String, Error> {
         let mut client = self.client.clone();
         let metadata = client
-            .metadata(proto::Empty::default())
+            .get_metadata(proto::Empty::default())
             .await
             .map_err(network)?
             .into_inner();
 
         Ok(metadata.label)
+    }
+
+    /// Get a token suitable for evaluating access control.
+    pub async fn get_access_token(&self, session_token: &str) -> Result<AccessToken, Error> {
+        let mut client = self.client.clone();
+        let mut request = Request::new(proto::Empty::default());
+        request.metadata_mut().append(
+            COOKIE.as_str(),
+            format!("session-cookie={session_token}")
+                .parse()
+                .map_err(unclassified)?,
+        );
+
+        let proto = client
+            .get_access_token(request)
+            .await
+            .map_err(network)?
+            .into_inner();
+
+        Ok(AccessToken {
+            token: proto.token,
+            user_eid: proto.user_eid,
+        })
     }
 }
 

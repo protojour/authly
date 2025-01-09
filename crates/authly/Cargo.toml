@@ -22,6 +22,7 @@ axum = { version = "0.7", features = ["macros"] }
 axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
 bit-set = "0.8"
 clap = { version = "4", features = ["derive"] }
+cookie = "0.18"
 figment = { version = "0.10", features = ["env"] }
 hexhex = "1"
 http = "1"

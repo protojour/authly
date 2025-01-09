@@ -7,9 +7,9 @@ use tracing::debug;
 
 use crate::{document::compiled_document::CompiledDocument, AuthlyCtx};
 
-use super::{Convert, Literal};
+use super::{Convert, DbResult, Literal};
 
-pub async fn store_document(document: CompiledDocument, ctx: &AuthlyCtx) -> anyhow::Result<()> {
+pub async fn store_document(document: CompiledDocument, ctx: &AuthlyCtx) -> DbResult<()> {
     let CompiledDocument { aid, data } = document;
 
     // TODO: users and groups

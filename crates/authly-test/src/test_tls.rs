@@ -2,7 +2,7 @@ use std::{error::Error, sync::Arc};
 
 use authly::{
     cert::{Cert, MakeSigningRequest},
-    tls_middleware::PeerSubjectCommonName,
+    mtls::PeerSubjectCommonName,
 };
 use axum::{response::IntoResponse, Extension};
 use hyper::body::Incoming;
@@ -220,7 +220,7 @@ async fn spawn_server(rustls_config_factory: TlsConfigFactory) -> (u16, Cancella
     let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
         .with_scheme(tower_server::Scheme::Https)
         .with_tls_config(rustls_config_factory)
-        .with_tls_connection_middleware(authly::tls_middleware::TlsMiddleware)
+        .with_tls_connection_middleware(authly::mtls::MTLSMiddleware)
         .with_cancellation_token(cancel.clone())
         .bind()
         .await

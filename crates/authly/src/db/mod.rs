@@ -2,11 +2,30 @@ use std::fmt::Display;
 
 use authly_domain::EID;
 use hiqlite::Row;
+use thiserror::Error;
 
 pub mod config_db;
 pub mod document_db;
 pub mod entity_db;
 pub mod service_db;
+pub mod session_db;
+
+#[derive(Error, Debug)]
+pub enum DbError {
+    #[error("db: {0}")]
+    Hiqlite(hiqlite::Error),
+
+    #[error("timestamp encoding")]
+    Timestamp,
+}
+
+impl From<hiqlite::Error> for DbError {
+    fn from(value: hiqlite::Error) -> Self {
+        Self::Hiqlite(value)
+    }
+}
+
+pub type DbResult<T> = Result<T, DbError>;
 
 pub trait Convert: Sized {
     fn from_row(row: &mut Row, idx: &str) -> Self;

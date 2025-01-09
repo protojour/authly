@@ -133,6 +133,7 @@ fn test_opcodes() {
             OpCode::And,
             OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0),
             OpCode::LoadConstId(SVC.0),
+            OpCode::IsEq,
             OpCode::Or,
             OpCode::TrueThenAllow,
         ],

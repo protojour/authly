@@ -2,12 +2,22 @@ syntax = "proto3";
 package authly_service;
 
 service AuthlyService {
-    rpc Metadata (Empty) returns (ServiceMetadata);
+    // Fetch metadata about the service using this API.
+    rpc GetMetadata (Empty) returns (ServiceMetadata);
+
+    // Exchange a valid session for an access token.
+    // The session info is passed as Authorization header or cookie.
+    rpc GetAccessToken (Empty) returns (AccessToken);
 }
 
 message ServiceMetadata {
     string eid = 1;
     string label = 2;
+}
+
+message AccessToken {
+    string token = 1;
+    string user_eid = 2;
 }
 
 message Empty {}

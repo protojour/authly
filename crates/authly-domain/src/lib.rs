@@ -28,7 +28,7 @@ pub enum BuiltinID {
     Authly = 0,
     PropEntity = 1,
     PropAuthlyRole = 2,
-    AttrAuthlyRoleResolveSessionInfo = 3,
+    AttrAuthlyRoleGetAccessToken = 3,
 }
 
 impl BuiltinID {

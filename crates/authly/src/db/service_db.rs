@@ -1,16 +1,15 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
 use hiqlite::{params, Param};
 use indoc::indoc;
 use tracing::warn;
 
 use crate::{AuthlyCtx, EID};
 
-use super::Convert;
+use super::{Convert, DbResult};
 
-pub async fn find_service_label_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Result<String> {
-    let mut row = ctx
+pub async fn find_service_label_by_eid(eid: EID, ctx: &AuthlyCtx) -> DbResult<Option<String>> {
+    let Some(mut row) = ctx
         .db
         .query_raw(
             "SELECT svc.label FROM svc WHERE eid = $1",
@@ -23,16 +22,18 @@ pub async fn find_service_label_by_eid(eid: EID, ctx: &AuthlyCtx) -> anyhow::Res
         })?
         .into_iter()
         .next()
-        .ok_or_else(|| anyhow!("service not found"))?;
+    else {
+        return Ok(None);
+    };
 
-    Ok(row.get("label"))
+    Ok(Some(row.get("label")))
 }
 
 pub async fn find_service_eid_by_k8s_service_account_name(
     namespace: &str,
     account_name: &str,
     ctx: &AuthlyCtx,
-) -> anyhow::Result<Option<EID>> {
+) -> DbResult<Option<EID>> {
     let Some(mut row) = ctx
         .db
         .query_raw(
@@ -69,7 +70,7 @@ pub async fn list_service_properties(
     svc_eid: EID,
     property_kind: ServicePropertyKind,
     ctx: &AuthlyCtx,
-) -> anyhow::Result<Vec<ServiceProperty>> {
+) -> DbResult<Vec<ServiceProperty>> {
     let rows = match property_kind {
         ServicePropertyKind::Entity => {
             ctx.db
