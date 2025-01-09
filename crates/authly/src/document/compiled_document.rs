@@ -117,10 +117,13 @@ impl CompiledDocumentData {
                 .ok_or(AttrLookupError::NoAttribute),
             None => {
                 if prop_id == BuiltinID::PropAuthlyRole.to_eid() {
-                    match attr_label {
-                        "get_access_token" => Ok(BuiltinID::AttrAuthlyRoleGetAccessToken.to_eid()),
-                        _ => Err(AttrLookupError::NoAttribute),
-                    }
+                    BuiltinID::PropAuthlyRole
+                        .attributes()
+                        .iter()
+                        .copied()
+                        .find(|attr| attr.label() == Some(attr_label))
+                        .map(BuiltinID::to_eid)
+                        .ok_or(AttrLookupError::NoAttribute)
                 } else {
                     Err(AttrLookupError::NoProperty)
                 }

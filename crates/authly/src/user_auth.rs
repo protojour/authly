@@ -1,5 +1,6 @@
 use argon2::Argon2;
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use authly_domain::BuiltinID;
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::{
     cookie::{Cookie, Expiration, SameSite},
     CookieJar,
@@ -8,17 +9,33 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
+    access_control::{svc_access_control, SvcAccessControlError},
     db::{
         entity_db::{self, EntityPasswordHash},
         session_db, DbError,
     },
+    mtls::PeerServiceEID,
     session::{Session, SessionToken, SESSION_TTL},
     AuthlyCtx, EID,
 };
 
 pub enum AuthError {
-    AuthFailed,
+    UnprivilegedService,
+    UserAuthFailed,
     Db(DbError),
+}
+
+impl IntoResponse for AuthError {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::UnprivilegedService => StatusCode::FORBIDDEN.into_response(),
+            Self::UserAuthFailed => StatusCode::UNAUTHORIZED.into_response(),
+            Self::Db(err) => {
+                warn!(?err, "auth db error");
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
+    }
 }
 
 impl From<DbError> for AuthError {
@@ -27,14 +44,11 @@ impl From<DbError> for AuthError {
     }
 }
 
-impl IntoResponse for AuthError {
-    fn into_response(self) -> axum::response::Response {
-        match self {
-            Self::AuthFailed => StatusCode::UNAUTHORIZED.into_response(),
-            Self::Db(err) => {
-                warn!(?err, "auth db error");
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
-            }
+impl From<SvcAccessControlError> for AuthError {
+    fn from(value: SvcAccessControlError) -> Self {
+        match value {
+            SvcAccessControlError::Denied => Self::UnprivilegedService,
+            SvcAccessControlError::Db(db_error) => Self::Db(db_error),
         }
     }
 }
@@ -63,8 +77,11 @@ pub struct AuthenticateResponse {
 
 pub async fn authenticate(
     State(ctx): State<AuthlyCtx>,
+    Extension(PeerServiceEID(peer_svc_eid)): Extension<PeerServiceEID>,
     Json(body): Json<AuthenticateRequest>,
 ) -> Result<axum::response::Response, AuthError> {
+    svc_access_control(peer_svc_eid, &[BuiltinID::AttrAuthlyRoleAuthenticate], &ctx).await?;
+
     // BUG: figure this out:
     let _mfa_needed = false;
     // TODO: authority selection?
@@ -75,7 +92,7 @@ pub async fn authenticate(
                 "username", &username, &ctx,
             )
             .await?
-            .ok_or_else(|| AuthError::AuthFailed)?;
+            .ok_or_else(|| AuthError::UserAuthFailed)?;
             (ehash, password)
         }
     };
@@ -132,22 +149,22 @@ async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<EID,
         use argon2::password_hash::PasswordHash;
         let hash = PasswordHash::new(&ehash.secret_hash).map_err(|err| {
             warn!(?err, "invalid secret hash");
-            AuthError::AuthFailed
+            AuthError::UserAuthFailed
         })?;
 
         hash.verify_password(&[&Argon2::default()], secret)
             .map_err(|err| match err {
-                argon2::password_hash::Error::Password => AuthError::AuthFailed,
+                argon2::password_hash::Error::Password => AuthError::UserAuthFailed,
                 _ => {
                     warn!(?err, "failed to verify secret hash");
-                    AuthError::AuthFailed
+                    AuthError::UserAuthFailed
                 }
             })
     })
     .await
     .map_err(|err| {
         warn!(?err, "failed to join");
-        AuthError::AuthFailed
+        AuthError::UserAuthFailed
     })??;
 
     Ok(ehash.eid)

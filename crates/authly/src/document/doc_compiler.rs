@@ -34,6 +34,13 @@ impl Namespace {
         let spanned = self.table.get(key)?;
         Some(spanned.as_ref())
     }
+
+    fn insert_builtin_property(&mut self, builtin: BuiltinID) {
+        self.table.insert(
+            builtin.label().unwrap().to_string(),
+            Spanned::new(0..0, NamespaceEntry::PropertyLabel(builtin.to_eid())),
+        );
+    }
 }
 
 struct CompileCtx {
@@ -130,20 +137,9 @@ pub async fn compile_doc(
 }
 
 fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
-    comp.namespace.table.insert(
-        "entity".to_string(),
-        Spanned::new(
-            0..0,
-            NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_eid()),
-        ),
-    );
-    comp.namespace.table.insert(
-        "authly:role".to_string(),
-        Spanned::new(
-            0..0,
-            NamespaceEntry::PropertyLabel(BuiltinID::PropAuthlyRole.to_eid()),
-        ),
-    );
+    for builtin_prop in [BuiltinID::PropEntity, BuiltinID::PropAuthlyRole] {
+        comp.namespace.insert_builtin_property(builtin_prop);
+    }
 
     for user in &mut data.users {
         if let Some(label) = &user.label {

@@ -22,7 +22,7 @@ use util::protocol_router::ProtocolRouter;
 pub mod cert;
 pub mod mtls;
 
-mod auth;
+mod access_control;
 mod db;
 mod document;
 mod env_config;
@@ -30,6 +30,7 @@ mod k8s;
 mod policy;
 mod proto;
 mod session;
+mod user_auth;
 mod util;
 
 #[derive(rust_embed::Embed)]
@@ -68,7 +69,7 @@ pub async fn serve() -> anyhow::Result<()> {
     }
 
     let http_api = Router::new()
-        .route("/api/auth/authenticate", post(auth::authenticate))
+        .route("/api/auth/authenticate", post(user_auth::authenticate))
         .with_state(ctx.clone());
 
     let rustls_config = main_service_rustls(&env_config, &ctx.dynamic_config)?;

@@ -1,9 +1,9 @@
+use authly_domain::EID;
 use hyper::body::Incoming;
 use x509_parser::prelude::{FromDer, X509Certificate};
 
-/// A Request extension that stores the verified peer common name
 #[derive(Clone)]
-pub struct PeerSubjectCommonName(pub String);
+pub struct PeerServiceEID(pub EID);
 
 /// A middleware for mTLS
 #[derive(Clone)]
@@ -41,8 +41,9 @@ impl tower_server::tls::TlsConnectionMiddleware for MTLSMiddleware {
             return;
         };
         if let Some(peer_subject_common_name) = &data.peer_subject_common_name {
-            req.extensions_mut()
-                .insert(PeerSubjectCommonName(peer_subject_common_name.clone()));
+            if let Ok(parsed) = peer_subject_common_name.parse() {
+                req.extensions_mut().insert(PeerServiceEID(EID(parsed)));
+            }
         }
     }
 }

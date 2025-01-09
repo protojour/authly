@@ -7,8 +7,9 @@ use http::header::COOKIE;
 use tonic::{metadata::MetadataMap, Request, Response};
 
 use crate::{
-    db::{entity_db, service_db::find_service_label_by_eid},
-    mtls::PeerSubjectCommonName,
+    access_control,
+    db::service_db::find_service_label_by_eid,
+    mtls::PeerServiceEID,
     session::{self, authenticate_session_cookie, Session},
     AuthlyCtx, EID,
 };
@@ -35,7 +36,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
         &self,
         request: Request<proto::Empty>,
     ) -> tonic::Result<Response<proto::ServiceMetadata>> {
-        let svc_eid = svc_auth(request.extensions(), None, &self.ctx).await?;
+        let svc_eid = svc_auth(request.extensions(), &[], &self.ctx).await?;
         let label = find_service_label_by_eid(svc_eid, &self.ctx)
             .await?
             .ok_or_else(|| tonic::Status::internal("no service label"))?;
@@ -52,7 +53,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
     ) -> tonic::Result<Response<proto::AccessToken>> {
         let _svc_eid = svc_auth(
             request.extensions(),
-            Some(BuiltinID::AttrAuthlyRoleGetAccessToken),
+            &[BuiltinID::AttrAuthlyRoleGetAccessToken],
             &self.ctx,
         )
         .await?;
@@ -71,29 +72,20 @@ impl AuthlyService for AuthlyServiceServerImpl {
 /// Authenticate and authorize the client
 async fn svc_auth(
     extensions: &tonic::Extensions,
-    required_role: Option<BuiltinID>,
+    required_roles: &[BuiltinID],
     ctx: &AuthlyCtx,
 ) -> tonic::Result<EID> {
-    let common_name = extensions
-        .get::<PeerSubjectCommonName>()
+    let peer_svc_eid = extensions
+        .get::<PeerServiceEID>()
         .ok_or_else(|| tonic::Status::unauthenticated("invalid service identity"))?;
 
-    let svc_eid = EID(common_name
-        .0
-        .parse()
-        .map_err(|_| tonic::Status::unauthenticated("invalid service entity id"))?);
+    access_control::svc_access_control(peer_svc_eid.0, required_roles, ctx)
+        .await
+        .map_err(|_| {
+            tonic::Status::unauthenticated("the service does not have the required role")
+        })?;
 
-    if let Some(required_role) = required_role {
-        let attributes = entity_db::list_entity_attrs(svc_eid, ctx).await?;
-
-        if !attributes.contains(&required_role.to_eid()) {
-            return Err(tonic::Status::permission_denied(
-                "the service does not have the required authly role",
-            ));
-        }
-    }
-
-    Ok(svc_eid)
+    Ok(peer_svc_eid.0)
 }
 
 async fn session_auth(metadata: &MetadataMap, ctx: &AuthlyCtx) -> Result<Session, &'static str> {

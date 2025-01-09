@@ -2,7 +2,7 @@ use std::{error::Error, sync::Arc};
 
 use authly::{
     cert::{Cert, MakeSigningRequest},
-    mtls::PeerSubjectCommonName,
+    mtls::PeerServiceEID,
 };
 use axum::{response::IntoResponse, Extension};
 use hyper::body::Incoming;
@@ -130,7 +130,7 @@ async fn test_tls_invalid_host_cert() {
 async fn test_mtls_verified() {
     let ca = Cert::new_authly_ca();
     let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
-    let client_cert = ca.sign(new_key_pair().client_cert("testclientname", Duration::hours(1)));
+    let client_cert = ca.sign(new_key_pair().client_cert("1337", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -150,10 +150,7 @@ async fn test_mtls_verified() {
         .await
         .unwrap();
 
-    assert_eq!(
-        text_response,
-        "it works: peer_subject_common_name=testclientname"
-    );
+    assert_eq!(text_response, "it works: peer_service_eid=1337");
 
     cancel.cancel();
 }
@@ -192,7 +189,7 @@ async fn test_mtls_invalid_issuer() {
     let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
 
     let bad_ca = Cert::new_authly_ca();
-    let bad_client_cert = bad_ca.sign(new_key_pair().client_cert("someclient", Duration::hours(1)));
+    let bad_client_cert = bad_ca.sign(new_key_pair().client_cert("1337", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -235,14 +232,10 @@ async fn spawn_server(rustls_config_factory: TlsConfigFactory) -> (u16, Cancella
 }
 
 async fn test_handler(
-    peer_subject_common_name: Option<Extension<PeerSubjectCommonName>>,
+    peer_service_eid: Option<Extension<PeerServiceEID>>,
 ) -> axum::response::Response {
-    if let Some(Extension(peer_subject_common_name)) = peer_subject_common_name {
-        format!(
-            "it works: peer_subject_common_name={}",
-            peer_subject_common_name.0
-        )
-        .into_response()
+    if let Some(Extension(PeerServiceEID(eid))) = peer_service_eid {
+        format!("it works: peer_service_eid={}", eid.0).into_response()
     } else {
         "it works: no client auth".into_response()
     }

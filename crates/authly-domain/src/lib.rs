@@ -23,17 +23,39 @@ impl EID {
     }
 }
 
+#[derive(Clone, Copy)]
 #[repr(u32)]
 pub enum BuiltinID {
     Authly = 0,
     PropEntity = 1,
     PropAuthlyRole = 2,
     AttrAuthlyRoleGetAccessToken = 3,
+    AttrAuthlyRoleAuthenticate = 4,
 }
 
 impl BuiltinID {
     pub fn to_eid(self) -> EID {
         EID(self as u128)
+    }
+
+    pub fn label(self) -> Option<&'static str> {
+        match self {
+            BuiltinID::Authly => None,
+            BuiltinID::PropEntity => Some("entity"),
+            BuiltinID::PropAuthlyRole => Some("authly:role"),
+            BuiltinID::AttrAuthlyRoleGetAccessToken => Some("get_access_token"),
+            BuiltinID::AttrAuthlyRoleAuthenticate => Some("authenticate"),
+        }
+    }
+
+    pub fn attributes(self) -> &'static [BuiltinID] {
+        match self {
+            Self::PropAuthlyRole => &[
+                Self::AttrAuthlyRoleGetAccessToken,
+                Self::AttrAuthlyRoleAuthenticate,
+            ],
+            _ => &[],
+        }
     }
 }
 

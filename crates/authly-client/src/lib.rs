@@ -97,6 +97,8 @@ impl Client {
     pub async fn get_access_token(&self, session_token: &str) -> Result<AccessToken, Error> {
         let mut client = self.client.clone();
         let mut request = Request::new(proto::Empty::default());
+
+        // TODO: This should use Authorization instead of Cookie?
         request.metadata_mut().append(
             COOKIE.as_str(),
             format!("session-cookie={session_token}")
