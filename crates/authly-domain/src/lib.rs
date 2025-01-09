@@ -3,11 +3,16 @@ use std::{fmt::Display, marker::PhantomData, str::FromStr};
 use rand::Rng;
 use serde::{
     de::{Error, Visitor},
-    Deserialize,
+    Deserialize, Serialize,
 };
 
+#[cfg(feature = "access_token")]
+pub mod access_token;
+
+#[cfg(feature = "document")]
 pub mod document;
 
+/// Authly Entity ID
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Eid(pub u128);
 
@@ -85,6 +90,15 @@ impl<'de> Deserialize<'de> for Eid {
         D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_str(FromStrVisitor::new("entity id"))
+    }
+}
+
+impl Serialize for Eid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
     }
 }
 

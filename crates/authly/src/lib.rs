@@ -23,6 +23,7 @@ pub mod cert;
 pub mod mtls;
 
 mod access_control;
+mod access_token;
 mod db;
 mod document;
 mod env_config;

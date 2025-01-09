@@ -65,7 +65,7 @@ async fn auth_get_access_token() -> anyhow::Result<()> {
         .await
         .unwrap();
 
-    assert_eq!(access_token.token, "TODO");
+    assert_eq!(access_token.token.len(), 167);
     assert_eq!(access_token.user_eid, "111111");
 
     Ok(())

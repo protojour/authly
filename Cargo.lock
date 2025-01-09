@@ -315,7 +315,6 @@ dependencies = [
  "indoc",
  "rand",
  "serde",
- "serde_json",
  "serde_spanned",
  "thiserror 2.0.9",
  "toml",

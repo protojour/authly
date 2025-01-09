@@ -12,7 +12,10 @@ publish = false
 doctest = false
 
 [dependencies]
-authly-domain.path = "../authly-domain"
+authly-domain = { path = "../authly-domain", features = [
+    "document",
+    "access_token",
+] }
 authly-proto.path = "../authly-proto"
 authly-policy.path = "../authly-policy"
 

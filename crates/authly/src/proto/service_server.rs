@@ -7,7 +7,7 @@ use http::header::COOKIE;
 use tonic::{metadata::MetadataMap, Request, Response};
 
 use crate::{
-    access_control,
+    access_control, access_token,
     db::service_db::find_service_label_by_eid,
     mtls::PeerServiceEID,
     session::{self, authenticate_session_cookie, Session},
@@ -62,8 +62,11 @@ impl AuthlyService for AuthlyServiceServerImpl {
             .await
             .map_err(tonic::Status::unauthenticated)?;
 
+        let token = access_token::create_access_token(&session, &self.ctx)
+            .map_err(|_| tonic::Status::internal("access token error"))?;
+
         Ok(Response::new(proto::AccessToken {
-            token: "TODO".to_string(),
+            token,
             user_eid: session.eid.0.to_string(),
         }))
     }
