@@ -1,7 +1,10 @@
+//! Policy Decision Point
+
 use std::collections::HashMap;
 
-use authly_common::policy::code::{Bytecode, Outcome};
 use bit_set::BitSet;
+
+use super::code::{Bytecode, Outcome};
 
 #[expect(unused)]
 pub struct PolicyEngine {

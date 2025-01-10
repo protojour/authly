@@ -3,7 +3,6 @@ members = [
     "crates/authly",
     "crates/authly-client",
     "crates/authly-common",
-    "crates/authly-pdp",
     "crates/authly-pip",
     "crates/authly-proto",
     "crates/authly-test",

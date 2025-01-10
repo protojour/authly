@@ -323,6 +323,7 @@ name = "authly-common"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "bit-set",
  "byteorder",
  "fnv",
  "indoc",
@@ -335,16 +336,6 @@ dependencies = [
  "tracing",
  "unsigned-varint",
  "uuid",
-]
-
-[[package]]
-name = "authly-pdp"
-version = "0.1.0"
-dependencies = [
- "authly-common",
- "bit-set",
- "tracing",
- "unsigned-varint",
 ]
 
 [[package]]
