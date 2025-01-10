@@ -1,4 +1,4 @@
-use authly_policy::OpCode;
+use authly_common::policy::code::{to_bytecode, OpCode};
 use expr::Expr;
 use parser::{PolicyParser, Rule};
 use pest::{
@@ -55,7 +55,7 @@ impl<'a> PolicyCompiler<'a> {
         self.codegen_expr_root(expr);
 
         let ops = std::mem::take(&mut self.ops);
-        let bytecode = authly_policy::to_bytecode(&ops);
+        let bytecode = to_bytecode(&ops);
 
         Ok(bytecode)
     }

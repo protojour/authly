@@ -2,8 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use authly_common::Eid;
-use authly_policy::OpCode;
+use authly_common::{policy::code::OpCode, Eid};
 use rand::Rng;
 
 fn random_id() -> u128 {

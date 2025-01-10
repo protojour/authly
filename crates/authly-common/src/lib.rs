@@ -19,6 +19,8 @@ pub mod access_token;
 #[cfg(feature = "document")]
 pub mod document;
 
+pub mod policy;
+
 /// Authly Identifier
 pub struct Id128<K>(u128, PhantomData<K>);
 

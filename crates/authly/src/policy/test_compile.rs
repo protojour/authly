@@ -2,8 +2,7 @@ use super::compiler::{
     expr::{Expr, Global, Label, Term},
     PolicyCompiler,
 };
-use authly_common::{BuiltinID, Eid, ObjId};
-use authly_policy::OpCode;
+use authly_common::{policy::code::OpCode, BuiltinID, Eid, ObjId};
 
 use crate::document::{
     compiled_document::{CompiledAttribute, CompiledDocumentData, CompiledProperty},

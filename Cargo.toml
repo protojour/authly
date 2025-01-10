@@ -5,7 +5,6 @@ members = [
     "crates/authly-common",
     "crates/authly-pdp",
     "crates/authly-pip",
-    "crates/authly-policy",
     "crates/authly-proto",
     "crates/authly-test",
     "crates/authly-testservice",

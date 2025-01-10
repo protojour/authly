@@ -252,7 +252,6 @@ dependencies = [
  "anyhow",
  "argon2",
  "authly-common",
- "authly-policy",
  "authly-proto",
  "axum",
  "axum-extra",
@@ -327,12 +326,14 @@ dependencies = [
  "byteorder",
  "fnv",
  "indoc",
+ "int-enum",
  "rand",
  "serde",
  "serde_spanned",
  "thiserror 2.0.9",
  "toml",
  "tracing",
+ "unsigned-varint",
  "uuid",
 ]
 
@@ -340,7 +341,7 @@ dependencies = [
 name = "authly-pdp"
 version = "0.1.0"
 dependencies = [
- "authly-policy",
+ "authly-common",
  "bit-set",
  "tracing",
  "unsigned-varint",
@@ -351,18 +352,8 @@ name = "authly-pip"
 version = "0.1.0"
 dependencies = [
  "authly-common",
- "authly-policy",
  "bit-set",
  "rand",
- "tracing",
- "unsigned-varint",
-]
-
-[[package]]
-name = "authly-policy"
-version = "0.1.0"
-dependencies = [
- "int-enum",
  "tracing",
  "unsigned-varint",
 ]

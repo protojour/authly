@@ -16,12 +16,14 @@ access_token = []
 anyhow = "1"
 byteorder = "1"
 fnv = "1"
+int-enum = "1"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_spanned = { version = "0.6", optional = true }
 thiserror = "2"
 toml = { version = "0.8", optional = true }
 tracing = "0.1"
+unsigned-varint = "0.8"
 uuid = { version = "1", features = ["serde", "v4"], optional = true }
 
 [dev-dependencies]

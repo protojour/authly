@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use authly_policy::{Bytecode, Outcome};
+use authly_common::policy::code::{Bytecode, Outcome};
 use bit_set::BitSet;
 
 #[expect(unused)]
