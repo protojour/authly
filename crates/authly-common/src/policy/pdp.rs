@@ -6,24 +6,26 @@ use fnv::{FnvHashMap, FnvHashSet};
 
 use super::code::{Bytecode, Outcome};
 
+#[derive(Debug)]
 pub enum PdpError {
     Bug,
 }
 
 pub struct PolicyEngine {
-    attr_triggers: FnvHashMap<u128, BTreeSet<u64>>,
-    policies: HashMap<u64, Policy>,
+    pub attr_triggers: FnvHashMap<u128, BTreeSet<u64>>,
+    pub policies: HashMap<u64, Policy>,
 }
 
-struct Policy {
+pub struct Policy {
     bytecode: Vec<u8>,
 }
 
+#[derive(Default)]
 pub struct PolicyEnv {
-    subject_eids: FnvHashMap<u128, u128>,
-    subject_attrs: FnvHashSet<u128>,
-    resource_eids: FnvHashMap<u128, u128>,
-    resource_attrs: FnvHashSet<u128>,
+    pub subject_eids: FnvHashMap<u128, u128>,
+    pub subject_attrs: FnvHashSet<u128>,
+    pub resource_eids: FnvHashMap<u128, u128>,
+    pub resource_attrs: FnvHashSet<u128>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -33,53 +35,55 @@ enum StackItem<'a> {
     Id(u128),
 }
 
-pub fn eval(engine: &PolicyEngine, env: &PolicyEnv) -> Result<Outcome, PdpError> {
-    let mut outcomes: Vec<Outcome> = vec![];
+impl PolicyEngine {
+    pub fn eval(&self, env: &PolicyEnv) -> Result<Outcome, PdpError> {
+        let mut outcomes: Vec<Outcome> = vec![];
 
-    for attr in &env.subject_attrs {
-        eval_triggers(*attr, engine, env, &mut outcomes)?;
+        for attr in &env.subject_attrs {
+            self.eval_triggers(*attr, env, &mut outcomes)?;
+        }
+
+        for attr in &env.resource_attrs {
+            self.eval_triggers(*attr, env, &mut outcomes)?;
+        }
+
+        if outcomes.is_empty() {
+            // idea: Fallback mode, no policies matched
+            for subj_attr in &env.subject_attrs {
+                if env.resource_attrs.contains(subj_attr) {
+                    return Ok(Outcome::Allow);
+                }
+            }
+
+            Ok(Outcome::Deny)
+        } else if outcomes
+            .iter()
+            .any(|outcome| matches!(outcome, Outcome::Deny))
+        {
+            Ok(Outcome::Deny)
+        } else {
+            Ok(Outcome::Allow)
+        }
     }
 
-    for attr in &env.resource_attrs {
-        eval_triggers(*attr, engine, env, &mut outcomes)?;
-    }
+    fn eval_triggers(
+        &self,
+        attr: u128,
+        env: &PolicyEnv,
+        outcomes: &mut Vec<Outcome>,
+    ) -> Result<(), PdpError> {
+        if let Some(policy_indexes) = self.attr_triggers.get(&attr) {
+            for idx in policy_indexes {
+                let Some(policy) = self.policies.get(idx) else {
+                    continue;
+                };
 
-    if outcomes.is_empty() {
-        // idea: Fallback mode, no policies matched
-        for subj_attr in &env.subject_attrs {
-            if env.resource_attrs.contains(subj_attr) {
-                return Ok(Outcome::Allow);
+                outcomes.push(eval_policy(&policy.bytecode, env)?);
             }
         }
 
-        Ok(Outcome::Deny)
-    } else if outcomes
-        .iter()
-        .any(|outcome| matches!(outcome, Outcome::Deny))
-    {
-        Ok(Outcome::Deny)
-    } else {
-        Ok(Outcome::Allow)
+        Ok(())
     }
-}
-
-fn eval_triggers(
-    attr: u128,
-    engine: &PolicyEngine,
-    env: &PolicyEnv,
-    outcomes: &mut Vec<Outcome>,
-) -> Result<(), PdpError> {
-    if let Some(policy_indexes) = engine.attr_triggers.get(&attr) {
-        for idx in policy_indexes {
-            let Some(policy) = engine.policies.get(idx) else {
-                continue;
-            };
-
-            outcomes.push(eval_policy(&policy.bytecode, env)?);
-        }
-    }
-
-    Ok(())
 }
 
 pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Result<Outcome, PdpError> {
@@ -97,10 +101,10 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Result<Outcome, PdpError> 
                 let Ok((key, next)) = unsigned_varint::decode::u128(pc) else {
                     return Err(PdpError::Bug);
                 };
-                let Some(eid) = env.subject_eids.get(&key) else {
+                let Some(id) = env.subject_eids.get(&key) else {
                     return Err(PdpError::Bug);
                 };
-                stack.push(StackItem::Id(*eid));
+                stack.push(StackItem::Id(*id));
                 pc = next;
             }
             Bytecode::LoadSubjectAttrs => {
@@ -110,10 +114,10 @@ pub fn eval_policy(mut pc: &[u8], env: &PolicyEnv) -> Result<Outcome, PdpError> 
                 let Ok((key, next)) = unsigned_varint::decode::u128(pc) else {
                     return Err(PdpError::Bug);
                 };
-                let Some(eid) = env.resource_eids.get(&key) else {
+                let Some(id) = env.resource_eids.get(&key) else {
                     return Err(PdpError::Bug);
                 };
-                stack.push(StackItem::Id(*eid));
+                stack.push(StackItem::Id(*id));
                 pc = next;
             }
             Bytecode::LoadResourceAttrs => {

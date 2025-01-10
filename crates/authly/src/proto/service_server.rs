@@ -1,14 +1,21 @@
-use authly_common::{access_token::AuthlyAccessTokenClaims, BuiltinID, Eid};
+use authly_common::{
+    access_token::AuthlyAccessTokenClaims,
+    policy::{
+        code::Outcome,
+        pdp::{PolicyEngine, PolicyEnv},
+    },
+    BuiltinID, ObjId,
+};
 use authly_proto::service::{
     self as proto,
     authly_service_server::{AuthlyService, AuthlyServiceServer},
 };
-use fnv::FnvHashSet;
 use http::header::{AUTHORIZATION, COOKIE};
 use tonic::{
     metadata::{Ascii, MetadataMap},
     Request, Response,
 };
+use tracing::warn;
 
 use crate::{
     access_control::{self, AuthorizedPeerService},
@@ -99,25 +106,68 @@ impl AuthlyService for AuthlyServiceServerImpl {
         &self,
         request: Request<proto::AccessControlRequest>,
     ) -> tonic::Result<Response<proto::AccessControlResponse>> {
-        let _peer_svc = svc_mtls_auth(
+        let peer_svc = svc_mtls_auth(
             request.extensions(),
             &[BuiltinID::AttrAuthlyRoleGetAccessToken],
             &self.ctx,
         )
         .await?;
-        let _opt_user_claims = get_access_token_opt(request.metadata(), &self.ctx)?;
+        let opt_user_claims = get_access_token_opt(request.metadata(), &self.ctx)?;
 
-        let _resource_attributes: FnvHashSet<Eid> = request
-            .into_inner()
-            .resource_attributes
-            .into_iter()
-            .map(|bytes| {
-                Eid::from_bytes(&bytes)
-                    .ok_or_else(|| tonic::Status::invalid_argument("invalid attribute"))
-            })
-            .collect::<Result<_, tonic::Status>>()?;
+        let mut policy_env = PolicyEnv::default();
 
-        Ok(Response::new(proto::AccessControlResponse { outcome: 0 }))
+        // svc attributes
+        for attr in peer_svc.attributes {
+            policy_env.subject_attrs.insert(attr.value());
+        }
+
+        // FIXME: should support multiple entity IDs in environment?
+        if let Some(user_claims) = opt_user_claims {
+            // user attributes
+            for attr in user_claims.authly.attributes {
+                policy_env.subject_attrs.insert(attr.value());
+            }
+
+            policy_env.subject_eids.insert(
+                BuiltinID::PropEntity.to_obj_id().value(),
+                user_claims.authly.user_eid.value(),
+            );
+        } else {
+            policy_env.subject_eids.insert(
+                BuiltinID::PropEntity.to_obj_id().value(),
+                peer_svc.eid.value(),
+            );
+        }
+
+        // resource attributes
+        for resource_attr in request.into_inner().resource_attributes {
+            let obj_id = ObjId::from_bytes(&resource_attr)
+                .ok_or_else(|| tonic::Status::invalid_argument("invalid attribute"))?;
+
+            policy_env.resource_attrs.insert(obj_id.value());
+        }
+
+        // TODO: load triggers and policies
+        let policy_engine = PolicyEngine {
+            attr_triggers: Default::default(),
+            policies: Default::default(),
+        };
+
+        let outcome = match policy_engine.eval(&policy_env) {
+            Ok(outcome) => {
+                if matches!(outcome, Outcome::Allow) {
+                    1
+                } else {
+                    0
+                }
+            }
+            Err(err) => {
+                warn!(?err, "policy engine error");
+                0
+            }
+        };
+
+        Ok(Response::new(proto::AccessControlResponse { outcome }))
     }
 }
 
