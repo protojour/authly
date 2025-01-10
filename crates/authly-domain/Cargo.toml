@@ -9,7 +9,7 @@ rust-version.workspace = true
 publish = true
 
 [features]
-document = ["dep:toml", "dep:uuid", "dep:serde_spanned"]
+document = ["dep:serde_spanned", "dep:toml", "dep:uuid"]
 access_token = []
 
 [dependencies]

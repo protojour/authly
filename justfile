@@ -1,14 +1,17 @@
+# generate files necessary for running authly locally
 generate-testdata:
     #!/usr/bin/env bash
     if ! test -f test/cluster.crt; then
         cargo run -p authly issue-cluster-key --out-path test
 
+        AUTHLY_DOCUMENT_PATH="[examples/]" \
         AUTHLY_DATA_DIR=./test/.data \
         AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
         AUTHLY_CLUSTER_KEY_FILE=./test/cluster.key \
             cargo run -p authly issue-service-identity --eid 272878235402143010663560859986869906352 --out test/testservice-identity.pem
     fi
 
+# run debug version on localhost. Necessary for running end-to-end tests.
 rundev: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
@@ -18,6 +21,7 @@ rundev: generate-testdata
     AUTHLY_EXPORT_LOCAL_CA=./test/exported-local-ca.pem \
         cargo run -p authly serve
 
+# run release version on localhost
 runrelease: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
@@ -45,14 +49,16 @@ musl *flags:
 
     $buildcmd build -p authly {{ flags }} --target {{ target }} --target-dir target-musl
 
+# build situ/authly:dev debug image
 dev-image: musl
     docker build . -t situ/authly:dev --platform linux/amd64 --build-arg RUST_PROFILE=debug
 
+# build situ/authly-testservice:dev image
 testservice:
     cross build -p authly-testservice --target x86_64-unknown-linux-musl --target-dir target-musl
     docker build . -f testservice.Dockerfile -t situ/authly-testservice:dev
 
-# deploy local development version of authly to authly-test k8s namespace
+# deploy local development version of authly to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
 k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
     kubectl apply -f test/k8s/authly.yaml
     kubectl apply -f test/k8s/testservice.yaml

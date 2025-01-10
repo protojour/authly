@@ -1,16 +1,23 @@
 use std::{fs, os::unix::ffi::OsStrExt};
 
 use anyhow::anyhow;
-use authly_domain::document::Document;
+use authly_domain::{document::Document, Eid};
+use sha2::Digest;
 use tracing::info;
 
-use crate::{db::document_db, document::doc_compiler::compile_doc, AuthlyCtx, EnvConfig};
+use crate::{
+    db::document_db::{self, DocumentAuthority},
+    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
+    AuthlyCtx, EnvConfig,
+};
 
 /// Load documents from file
 pub async fn load_cfg_documents(env_config: &EnvConfig, ctx: &AuthlyCtx) -> anyhow::Result<()> {
-    for path in &env_config.document_path {
-        let Ok(entries) = fs::read_dir(path) else {
-            tracing::error!(?path, "document path could not be scanned");
+    let doc_authorities = document_db::get_documents(ctx).await?;
+
+    for dir_path in &env_config.document_path {
+        let Ok(entries) = fs::read_dir(dir_path) else {
+            tracing::error!(?dir_path, "document path could not be scanned");
             continue;
         };
 
@@ -24,24 +31,58 @@ pub async fn load_cfg_documents(env_config: &EnvConfig, ctx: &AuthlyCtx) -> anyh
             .collect();
         file_paths.sort();
 
-        for file_path in file_paths {
-            info!(?file_path, "load document");
-            let source = fs::read_to_string(&file_path)
-                .map_err(|_| anyhow!("document {file_path:?} failed to load"))?;
+        for path in file_paths {
+            let path = std::path::absolute(path).unwrap();
+
+            let source = fs::read_to_string(&path)
+                .map_err(|_| anyhow!("document {path:?} failed to load"))?;
+
             let document = Document::from_toml(&source)?;
-            let compiled_doc = match compile_doc(document, ctx).await {
-                Ok(doc) => doc,
-                Err(errors) => {
-                    for error in errors {
-                        tracing::error!("doc error: {error:?}");
-                    }
-                    return Err(anyhow!("document error"));
-                }
+
+            let meta = DocumentMeta {
+                url: format!("file://{}", path.to_str().unwrap()),
+                hash: {
+                    let mut hasher = sha2::Sha256::new();
+                    hasher.update(&source);
+                    hasher.finalize().into()
+                },
             };
 
-            document_db::store_document(ctx, compiled_doc).await?;
+            let aid = Eid::new(document.authly_document.id.get_ref().as_u128());
+
+            if should_process(aid, &meta, &doc_authorities) {
+                info!(?path, "load");
+
+                let compiled_doc = match compile_doc(document, meta, ctx).await {
+                    Ok(doc) => doc,
+                    Err(errors) => {
+                        for error in errors {
+                            tracing::error!("doc error: {error:?}");
+                        }
+                        return Err(anyhow!("document error"));
+                    }
+                };
+
+                document_db::store_document(ctx, compiled_doc).await?;
+            } else {
+                info!(?path, "unchanged");
+            }
         }
     }
 
     Ok(())
+}
+
+fn should_process(aid: Eid, meta: &DocumentMeta, doc_authorities: &[DocumentAuthority]) -> bool {
+    for auth in doc_authorities {
+        if auth.aid != aid {
+            continue;
+        }
+
+        if auth.hash == meta.hash {
+            return false;
+        }
+    }
+
+    true
 }

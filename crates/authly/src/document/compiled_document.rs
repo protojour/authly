@@ -27,7 +27,14 @@ pub enum CompileError {
 pub struct CompiledDocument {
     /// authority ID
     pub aid: Eid,
+    pub meta: DocumentMeta,
     pub data: CompiledDocumentData,
+}
+
+#[derive(Default, Debug)]
+pub struct DocumentMeta {
+    pub url: String,
+    pub hash: [u8; 32],
 }
 
 #[derive(Default, Debug)]

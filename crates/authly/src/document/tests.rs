@@ -1,6 +1,7 @@
 use authly_domain::{document::Document, Eid};
 use indoc::indoc;
 
+use super::compiled_document::DocumentMeta;
 use super::doc_compiler::compile_doc;
 use crate::db::{document_db, entity_db, service_db, sqlite::test_inmemory_db};
 
@@ -28,7 +29,9 @@ async fn test_store_doc_trivial() {
     })
     .unwrap();
 
-    let compiled_doc = compile_doc(doc, &db).await.unwrap();
+    let compiled_doc = compile_doc(doc, DocumentMeta::default(), &db)
+        .await
+        .unwrap();
     document_db::store_document(&db, compiled_doc)
         .await
         .unwrap();

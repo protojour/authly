@@ -19,7 +19,7 @@ use crate::policy::PolicyOutcome;
 
 use super::compiled_document::{
     CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData,
-    CompiledGroupMembership, CompiledProperty,
+    CompiledGroupMembership, CompiledProperty, DocumentMeta,
 };
 
 #[derive(Default)]
@@ -68,6 +68,7 @@ struct Errors {
 
 pub async fn compile_doc(
     doc: Document,
+    meta: DocumentMeta,
     db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
@@ -130,6 +131,7 @@ pub async fn compile_doc(
     } else {
         Ok(CompiledDocument {
             aid: comp.aid,
+            meta,
             data,
         })
     }

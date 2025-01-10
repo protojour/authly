@@ -7,7 +7,9 @@ CREATE TABLE tlskey (
 
 CREATE TABLE authority (
     aid BLOB NOT NULL PRIMARY KEY,
-    kind TEXT NOT NULL
+    kind TEXT NOT NULL,
+    url TEXT,
+    hash BLOB
 );
 
 CREATE TABLE session (

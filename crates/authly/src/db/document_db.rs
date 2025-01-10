@@ -7,7 +7,34 @@ use tracing::debug;
 
 use crate::document::compiled_document::CompiledDocument;
 
-use super::{Convert, Db, DbResult, Literal};
+use super::{Convert, Db, DbResult, Literal, Row};
+
+pub struct DocumentAuthority {
+    pub aid: Eid,
+    #[expect(unused)]
+    pub url: String,
+    pub hash: [u8; 32],
+}
+
+pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentAuthority>> {
+    Ok(deps
+        .query_raw(
+            "SELECT aid, url, hash FROM authority WHERE kind = 'document'".into(),
+            params!(),
+        )
+        .await?
+        .into_iter()
+        .map(|mut row| DocumentAuthority {
+            aid: Eid::from_row(&mut row, "aid"),
+            url: row.get_text("url"),
+            hash: {
+                row.get_blob("hash")
+                    .try_into()
+                    .expect("invalid hash length")
+            },
+        })
+        .collect())
+}
 
 pub async fn store_document(deps: &impl Db, document: CompiledDocument) -> DbResult<()> {
     let stmts = document_txn_statements(document);
@@ -22,12 +49,12 @@ pub async fn store_document(deps: &impl Db, document: CompiledDocument) -> DbRes
 }
 
 fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, str>, Params)> {
-    let CompiledDocument { aid, data } = document;
+    let CompiledDocument { aid, meta, data } = document;
     let mut stmts: Vec<(Cow<'static, str>, Params)> = vec![];
 
     stmts.push((
-        "INSERT INTO authority (aid, kind) VALUES ($1, 'document') ON CONFLICT DO NOTHING".into(),
-        params!(aid.as_param()),
+        "INSERT INTO authority (aid, kind, url, hash) VALUES ($1, 'document', $2, $3) ON CONFLICT DO UPDATE SET url = $2, hash = $3".into(),
+        params!(aid.as_param(), meta.url, meta.hash.to_vec()),
     ));
 
     // entity
