@@ -1,21 +1,18 @@
 use argon2::Argon2;
 use authly_domain::BuiltinID;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
-use axum_extra::extract::{
-    cookie::{Cookie, Expiration, SameSite},
-    CookieJar,
-};
+use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
-    access_control::{svc_access_control, SvcAccessControlError},
+    access_control::{authorize_peer_service, SvcAccessControlError},
     db::{
         entity_db::{self, EntityPasswordHash},
         session_db, DbError,
     },
     mtls::PeerServiceEID,
-    session::{Session, SessionToken, SESSION_TTL},
+    session::{new_session_cookie, Session, SessionToken, SESSION_TTL},
     AuthlyCtx, Eid,
 };
 
@@ -80,7 +77,7 @@ pub async fn authenticate(
     Extension(PeerServiceEID(peer_svc_eid)): Extension<PeerServiceEID>,
     Json(body): Json<AuthenticateRequest>,
 ) -> Result<axum::response::Response, AuthError> {
-    svc_access_control(peer_svc_eid, &[BuiltinID::AttrAuthlyRoleAuthenticate], &ctx).await?;
+    authorize_peer_service(peer_svc_eid, &[BuiltinID::AttrAuthlyRoleAuthenticate], &ctx).await?;
 
     // BUG: figure this out:
     let _mfa_needed = false;
@@ -102,10 +99,10 @@ pub async fn authenticate(
     let session = init_session(eid, &ctx).await?;
 
     Ok((
-        CookieJar::new().add(make_session_cookie(&session)),
+        CookieJar::new().add(new_session_cookie(&session)),
         Json(AuthenticateResponse {
             token: session.token.0,
-            entity_id: eid.0,
+            entity_id: eid.value(),
             authenticated: true,
             mfa_needed: 0,
             mfa_done: vec![],
@@ -128,19 +125,6 @@ async fn init_session(eid: Eid, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
     session_db::store_session(ctx, &session).await?;
 
     Ok(session)
-}
-
-fn make_session_cookie(session: &Session) -> Cookie<'static> {
-    let mut cookie = Cookie::new(
-        "session-cookie",
-        format!("{}", hexhex::hex(&session.token.0)),
-    );
-    cookie.set_path("/");
-    cookie.set_secure(true);
-    cookie.set_http_only(true);
-    cookie.set_expires(Expiration::DateTime(session.expires_at));
-    cookie.set_same_site(SameSite::Strict);
-    cookie
 }
 
 async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<Eid, AuthError> {

@@ -8,6 +8,10 @@ service AuthlyService {
     // Exchange a valid session for an access token.
     // The session info is passed as Authorization header or cookie.
     rpc GetAccessToken (Empty) returns (AccessToken);
+
+    // Perform remote access control.
+    // A valid access token must be passed in an Authorization bearer.
+    rpc AccessControl (AccessControlRequest) returns (AccessControlResponse);
 }
 
 message ServiceMetadata {
@@ -18,6 +22,19 @@ message ServiceMetadata {
 message AccessToken {
     string token = 1;
     string user_eid = 2;
+}
+
+message AccessControlRequest {
+    repeated bytes resource_attributes = 1;
+}
+
+enum AccessControlOutcome {
+    DENY = 0;
+    ALLOW = 1;
+}
+
+message AccessControlResponse {
+    AccessControlOutcome outcome = 1;
 }
 
 message Empty {}

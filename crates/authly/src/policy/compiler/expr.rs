@@ -1,7 +1,5 @@
 //! Policy expression after name lookups
 
-use authly_domain::Eid;
-
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Expr {
     Equals(Term, Term),
@@ -22,7 +20,7 @@ pub enum Term {
 
 /// A label resolved to an ID
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Label(pub Eid);
+pub struct Label(pub u128);
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Global {

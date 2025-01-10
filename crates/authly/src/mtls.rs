@@ -42,7 +42,8 @@ impl tower_server::tls::TlsConnectionMiddleware for MTLSMiddleware {
         };
         if let Some(peer_subject_common_name) = &data.peer_subject_common_name {
             if let Ok(parsed) = peer_subject_common_name.parse() {
-                req.extensions_mut().insert(PeerServiceEID(Eid(parsed)));
+                req.extensions_mut()
+                    .insert(PeerServiceEID(Eid::new(parsed)));
             }
         }
     }

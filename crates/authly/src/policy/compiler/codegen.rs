@@ -55,19 +55,20 @@ impl PolicyCompiler<'_> {
 
     fn codegen_term(&mut self, term: Term) {
         match term {
-            Term::Label(label) => self.ops.push(OpCode::LoadConstId(label.0 .0)),
+            Term::Label(label) => self.ops.push(OpCode::LoadConstId(label.0)),
             Term::Field(global, label) => match global {
                 Global::Subject => {
-                    if label.0 == BuiltinID::PropEntity.to_eid() {
-                        self.ops
-                            .push(OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0));
+                    if label.0 == BuiltinID::PropEntity.to_obj_id().value() {
+                        self.ops.push(OpCode::LoadSubjectEid(
+                            BuiltinID::PropEntity.to_obj_id().value(),
+                        ));
                     }
                 }
                 Global::Resource => {
                     self.ops.push(OpCode::LoadResourceTags);
                 }
             },
-            Term::Attr(_prop, attr) => self.ops.push(OpCode::LoadConstId(attr.0 .0)),
+            Term::Attr(_prop, attr) => self.ops.push(OpCode::LoadConstId(attr.0)),
             Term::Error => {}
         }
     }

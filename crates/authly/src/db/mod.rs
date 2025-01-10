@@ -1,8 +1,9 @@
-use std::{borrow::Cow, fmt::Display, future::Future};
+use std::{borrow::Cow, fmt::Display, future::Future, time::Instant};
 
-use authly_domain::Eid;
+use authly_domain::Id128;
 use hiqlite::Params;
 use thiserror::Error;
+use tracing::info;
 
 use crate::AuthlyCtx;
 
@@ -12,6 +13,8 @@ pub mod entity_db;
 pub mod service_db;
 pub mod session_db;
 pub mod sqlite;
+
+const LOG_QUERIES: bool = false;
 
 #[derive(Error, Debug)]
 pub enum DbError {
@@ -80,14 +83,13 @@ pub trait Convert: Sized {
     fn as_param(&self) -> hiqlite::Param;
 }
 
-impl Convert for Eid {
+impl<K> Convert for Id128<K> {
     fn from_row(row: &mut impl Row, idx: &str) -> Self {
-        let postcard: Vec<u8> = row.get_blob(idx);
-        Self(postcard::from_bytes(&postcard).unwrap())
+        Self::from_bytes(&row.get_blob(idx)).unwrap()
     }
 
     fn as_param(&self) -> hiqlite::Param {
-        hiqlite::Param::Blob(postcard::to_allocvec(&self.0).unwrap())
+        hiqlite::Param::Blob(self.to_bytes().to_vec())
     }
 }
 
@@ -97,17 +99,17 @@ pub trait Literal {
     fn literal(&self) -> Self::Lit;
 }
 
-impl Literal for Eid {
-    type Lit = EIDLiteral;
+impl<K> Literal for Id128<K> {
+    type Lit = IdLiteral;
 
     fn literal(&self) -> Self::Lit {
-        EIDLiteral(postcard::to_allocvec(&self.0).unwrap())
+        IdLiteral(self.to_bytes())
     }
 }
 
-pub struct EIDLiteral(Vec<u8>);
+pub struct IdLiteral([u8; 16]);
 
-impl Display for EIDLiteral {
+impl Display for IdLiteral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "x'{}'", hexhex::hex(&self.0))
     }
@@ -144,12 +146,20 @@ impl Display for StrLiteral<'_> {
 impl Db for AuthlyCtx {
     type Row<'a> = hiqlite::Row<'a>;
 
+    #[tracing::instrument(skip(self, params))]
     async fn query_raw(
         &self,
         stmt: Cow<'static, str>,
         params: Params,
     ) -> Result<Vec<Self::Row<'_>>, DbError> {
-        Ok(hiqlite::Client::query_raw(&self.db, stmt, params).await?)
+        if LOG_QUERIES {
+            let start = Instant::now();
+            let result = hiqlite::Client::query_raw(&self.db, stmt, params).await;
+            info!("query_raw took {:?}", start.elapsed());
+            Ok(result?)
+        } else {
+            Ok(hiqlite::Client::query_raw(&self.db, stmt, params).await?)
+        }
     }
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {

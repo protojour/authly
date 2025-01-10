@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use authly_domain::access_token::AuthlyAccessTokenClaims;
+use authly_domain::{access_token::AuthlyAccessTokenClaims, Eid};
 use authly_proto::service as proto;
 use authly_proto::service::authly_service_client::AuthlyServiceClient;
 use http::header::{AUTHORIZATION, COOKIE};
@@ -42,16 +42,28 @@ pub enum Error {
     Unclassified(anyhow::Error),
 }
 
-fn unclassified(err: impl std::error::Error + Send + Sync + 'static) -> Error {
-    Error::Unclassified(anyhow::Error::from(err))
-}
+mod err {
+    use super::*;
 
-fn network(err: impl std::error::Error + Send + Sync + 'static) -> Error {
-    Error::Unauthorized(anyhow::Error::from(err))
-}
+    pub fn unclassified(err: impl std::error::Error + Send + Sync + 'static) -> Error {
+        Error::Unclassified(anyhow::Error::from(err))
+    }
 
-fn unauthorized(err: impl std::error::Error + Send + Sync + 'static) -> Error {
-    Error::Unauthorized(anyhow::Error::from(err))
+    pub fn tonic(err: tonic::Status) -> Error {
+        match err.code() {
+            tonic::Code::Unauthenticated => Error::Unauthorized(err.into()),
+            tonic::Code::PermissionDenied => Error::Unauthorized(err.into()),
+            _ => Error::Network(err.into()),
+        }
+    }
+
+    pub fn network(err: impl std::error::Error + Send + Sync + 'static) -> Error {
+        Error::Unauthorized(anyhow::Error::from(err))
+    }
+
+    pub fn unauthorized(err: impl std::error::Error + Send + Sync + 'static) -> Error {
+        Error::Unauthorized(anyhow::Error::from(err))
+    }
 }
 
 pub struct Client {
@@ -82,7 +94,7 @@ impl Client {
         let metadata = client
             .get_metadata(proto::Empty::default())
             .await
-            .map_err(network)?
+            .map_err(err::tonic)?
             .into_inner();
 
         Ok(metadata.eid)
@@ -94,13 +106,13 @@ impl Client {
         let metadata = client
             .get_metadata(proto::Empty::default())
             .await
-            .map_err(network)?
+            .map_err(err::tonic)?
             .into_inner();
 
         Ok(metadata.label)
     }
 
-    /// Get a token suitable for evaluating access control.
+    /// Exchange a session token for an access token suitable for evaluating access control.
     pub async fn get_access_token(&self, session_token: &str) -> Result<AccessToken, Error> {
         let mut client = self.client.clone();
         let mut request = Request::new(proto::Empty::default());
@@ -110,13 +122,13 @@ impl Client {
             COOKIE.as_str(),
             format!("session-cookie={session_token}")
                 .parse()
-                .map_err(unclassified)?,
+                .map_err(err::unclassified)?,
         );
 
         let proto = client
             .get_access_token(request)
             .await
-            .map_err(network)?
+            .map_err(err::tonic)?
             .into_inner();
 
         let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
@@ -132,6 +144,36 @@ impl Client {
             claims: token_data.claims,
         })
     }
+
+    pub async fn remote_access_control(
+        &self,
+        resource_attributes: impl IntoIterator<Item = Eid>,
+        access_token: Option<&str>,
+    ) -> Result<bool, Error> {
+        let mut client = self.client.clone();
+        let mut request = Request::new(proto::AccessControlRequest {
+            resource_attributes: resource_attributes
+                .into_iter()
+                .map(|attr| attr.to_bytes().to_vec())
+                .collect(),
+        });
+        if let Some(access_token) = access_token {
+            request.metadata_mut().append(
+                AUTHORIZATION.as_str(),
+                format!("Bearer {access_token}")
+                    .parse()
+                    .map_err(err::unclassified)?,
+            );
+        }
+
+        let access_control_response = client
+            .access_control(request)
+            .await
+            .map_err(err::tonic)?
+            .into_inner();
+
+        Ok(access_control_response.outcome > 0)
+    }
 }
 
 impl ClientBuilder {
@@ -140,27 +182,27 @@ impl ClientBuilder {
         let key_pair = KeyPair::generate().map_err(|_err| Error::PrivateKeyGen)?;
 
         if std::fs::exists(K8S_SA_TOKENFILE).unwrap_or(false) {
-            let token = std::fs::read_to_string(K8S_SA_TOKENFILE).map_err(unclassified)?;
+            let token = std::fs::read_to_string(K8S_SA_TOKENFILE).map_err(err::unclassified)?;
             let authly_local_ca = std::fs::read("/etc/authly/local-ca.crt")
                 .map_err(|_| Error::AuthlyCA("not mounted"))?;
 
             let client_cert = reqwest::ClientBuilder::new()
                 .add_root_certificate(
-                    reqwest::Certificate::from_pem(&authly_local_ca).map_err(unclassified)?,
+                    reqwest::Certificate::from_pem(&authly_local_ca).map_err(err::unclassified)?,
                 )
                 .build()
-                .map_err(unclassified)?
+                .map_err(err::unclassified)?
                 .post("https://authly-k8s/api/csr")
                 .body(key_pair.public_key_der())
                 .header(AUTHORIZATION, format!("Bearer {token}"))
                 .send()
                 .await
-                .map_err(unauthorized)?
+                .map_err(err::unauthorized)?
                 .error_for_status()
-                .map_err(unauthorized)?
+                .map_err(err::unauthorized)?
                 .bytes()
                 .await
-                .map_err(unclassified)?;
+                .map_err(err::unclassified)?;
             let client_cert_pem = pem::encode_config(
                 &Pem::new("CERTIFICATE", client_cert.to_vec()),
                 EncodeConfig::new().set_line_ending(pem::LineEnding::LF),
@@ -218,12 +260,12 @@ impl ClientBuilder {
             ));
 
         let endpoint = tonic::transport::Endpoint::from_shared(self.url.to_string())
-            .map_err(network)?
+            .map_err(err::network)?
             .tls_config(tls_config)
-            .map_err(network)?;
+            .map_err(err::network)?;
 
         Ok(Client {
-            client: AuthlyServiceClient::new(endpoint.connect().await.map_err(unclassified)?),
+            client: AuthlyServiceClient::new(endpoint.connect().await.map_err(err::unclassified)?),
             jwt_decoding_key,
         })
     }

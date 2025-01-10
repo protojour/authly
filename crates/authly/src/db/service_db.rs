@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use authly_domain::ObjId;
 use hiqlite::{params, Param};
 use indoc::indoc;
 use tracing::warn;
@@ -54,9 +55,9 @@ pub async fn find_service_eid_by_k8s_service_account_name(
 
 #[derive(Debug)]
 pub struct ServiceProperty {
-    pub id: Eid,
+    pub id: ObjId,
     pub label: String,
-    pub attributes: Vec<(Eid, String)>,
+    pub attributes: Vec<(ObjId, String)>,
 }
 
 pub enum ServicePropertyKind {
@@ -103,10 +104,10 @@ pub async fn list_service_properties(
         }
     };
 
-    let mut properties: HashMap<Eid, ServiceProperty> = Default::default();
+    let mut properties: HashMap<ObjId, ServiceProperty> = Default::default();
 
     for mut row in rows {
-        let prop_id = Eid::from_row(&mut row, "pid");
+        let prop_id = ObjId::from_row(&mut row, "pid");
 
         let property = properties
             .entry(prop_id)
@@ -118,7 +119,7 @@ pub async fn list_service_properties(
 
         property
             .attributes
-            .push((Eid::from_row(&mut row, "attrid"), row.get_text("alabel")));
+            .push((ObjId::from_row(&mut row, "attrid"), row.get_text("alabel")));
     }
 
     Ok(properties.into_values().collect())

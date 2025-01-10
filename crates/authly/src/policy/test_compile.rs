@@ -2,7 +2,7 @@ use super::compiler::{
     expr::{Expr, Global, Label, Term},
     PolicyCompiler,
 };
-use authly_domain::{BuiltinID, Eid};
+use authly_domain::{BuiltinID, Eid, ObjId};
 use authly_policy::OpCode;
 
 use crate::document::{
@@ -12,15 +12,15 @@ use crate::document::{
 
 use super::PolicyOutcome;
 
-const SVC: Eid = Eid(42);
-const ROLE: Eid = Eid(1337);
-const ROLE_ROOT: Eid = Eid(1338);
+const SVC: Eid = Eid::new(42);
+const ROLE: ObjId = ObjId::new(1337);
+const ROLE_ROOT: ObjId = ObjId::new(1338);
 
 fn test_env() -> (Namespace, CompiledDocumentData) {
     let namespace = Namespace::from_iter([
         (
             "entity".to_string(),
-            NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_eid()),
+            NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_obj_id()),
         ),
         ("svc".to_string(), NamespaceEntry::Service(SVC)),
         ("role".to_string(), NamespaceEntry::PropertyLabel(ROLE)),
@@ -55,8 +55,11 @@ fn to_opcodes(src: &str) -> Vec<OpCode> {
 
 fn subject_entity_equals_svc() -> Expr {
     Expr::Equals(
-        Term::Field(Global::Subject, Label(BuiltinID::PropEntity.to_eid())),
-        Term::Label(Label(SVC)),
+        Term::Field(
+            Global::Subject,
+            Label(BuiltinID::PropEntity.to_obj_id().value()),
+        ),
+        Term::Label(Label(SVC.value())),
     )
 }
 
@@ -72,8 +75,8 @@ fn test_expr_equals() {
 fn test_expr_field_attribute() {
     assert_eq!(
         Expr::Contains(
-            Term::Field(Global::Subject, Label(ROLE)),
-            Term::Attr(Label(ROLE), Label(ROLE_ROOT))
+            Term::Field(Global::Subject, Label(ROLE.value())),
+            Term::Attr(Label(ROLE.value()), Label(ROLE_ROOT.value()))
         ),
         to_expr("Subject.role contains role/root")
     );
@@ -124,15 +127,15 @@ fn test_expr_logical_paren() {
 fn test_opcodes() {
     assert_eq!(
         vec![
-            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0),
-            OpCode::LoadConstId(SVC.0),
+            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_obj_id().value()),
+            OpCode::LoadConstId(SVC.value()),
             OpCode::IsEq,
-            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0),
-            OpCode::LoadConstId(SVC.0),
+            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_obj_id().value()),
+            OpCode::LoadConstId(SVC.value()),
             OpCode::IsEq,
             OpCode::And,
-            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_eid().0),
-            OpCode::LoadConstId(SVC.0),
+            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_obj_id().value()),
+            OpCode::LoadConstId(SVC.value()),
             OpCode::IsEq,
             OpCode::Or,
             OpCode::TrueThenAllow,

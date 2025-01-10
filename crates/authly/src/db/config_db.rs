@@ -58,7 +58,17 @@ pub async fn load_db_config(db: &Client) -> Result<DynamicConfig, ConfigDbError>
         }
     };
 
-    Ok(DynamicConfig { local_ca })
+    let jwt_decoding_key = {
+        let (_, x509_cert) = x509_parser::parse_x509_certificate(&local_ca.der).unwrap();
+
+        // Assume that EC is always used
+        jsonwebtoken::DecodingKey::from_ec_der(&x509_cert.public_key().subject_public_key.data)
+    };
+
+    Ok(DynamicConfig {
+        local_ca,
+        jwt_decoding_key,
+    })
 }
 
 async fn load_tlskey(purpose: &str, db: &Client) -> Result<Option<Cert<KeyPair>>, ConfigDbError> {

@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, ops::Range};
 
 use authly_domain::{
     document::{Group, Service, User},
-    BuiltinID, Eid,
+    BuiltinID, Eid, ObjId,
 };
 
 use crate::policy::error::PolicyCompileErrorKind;
@@ -64,7 +64,7 @@ pub struct EntityPassword {
 #[derive(Debug)]
 pub struct CompiledEntityAttributeAssignment {
     pub eid: Eid,
-    pub attrid: Eid,
+    pub attrid: ObjId,
 }
 
 #[derive(Debug)]
@@ -76,8 +76,7 @@ pub struct CompiledGroupMembership {
 
 #[derive(Debug)]
 pub struct CompiledProperty {
-    /// TODO: Is it an entity?
-    pub id: Eid,
+    pub id: ObjId,
     pub svc_eid: Eid,
     pub label: String,
 
@@ -86,7 +85,7 @@ pub struct CompiledProperty {
 
 #[derive(Debug)]
 pub struct CompiledAttribute {
-    pub id: Eid,
+    pub id: ObjId,
     pub label: String,
 }
 
@@ -96,7 +95,7 @@ pub enum AttrLookupError {
 }
 
 impl CompiledDocumentData {
-    pub fn find_property(&self, prop_id: Eid) -> Option<&CompiledProperty> {
+    pub fn find_property(&self, prop_id: ObjId) -> Option<&CompiledProperty> {
         self.svc_ent_props
             .iter()
             .chain(self.svc_res_props.iter())
@@ -105,9 +104,9 @@ impl CompiledDocumentData {
 
     pub fn find_attribute_by_label(
         &self,
-        prop_id: Eid,
+        prop_id: ObjId,
         attr_label: &str,
-    ) -> Result<Eid, AttrLookupError> {
+    ) -> Result<ObjId, AttrLookupError> {
         match self.find_property(prop_id) {
             Some(property) => property
                 .attributes
@@ -116,13 +115,13 @@ impl CompiledDocumentData {
                 .map(|attr| attr.id)
                 .ok_or(AttrLookupError::NoAttribute),
             None => {
-                if prop_id == BuiltinID::PropAuthlyRole.to_eid() {
+                if prop_id == BuiltinID::PropAuthlyRole.to_obj_id() {
                     BuiltinID::PropAuthlyRole
                         .attributes()
                         .iter()
                         .copied()
                         .find(|attr| attr.label() == Some(attr_label))
-                        .map(BuiltinID::to_eid)
+                        .map(BuiltinID::to_obj_id)
                         .ok_or(AttrLookupError::NoAttribute)
                 } else {
                     Err(AttrLookupError::NoProperty)

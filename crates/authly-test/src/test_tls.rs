@@ -235,7 +235,7 @@ async fn test_handler(
     peer_service_eid: Option<Extension<PeerServiceEID>>,
 ) -> axum::response::Response {
     if let Some(Extension(PeerServiceEID(eid))) = peer_service_eid {
-        format!("it works: peer_service_eid={}", eid.0).into_response()
+        format!("it works: peer_service_eid={}", eid.value()).into_response()
     } else {
         "it works: no client auth".into_response()
     }

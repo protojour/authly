@@ -48,6 +48,8 @@ struct AuthlyCtx {
 pub struct DynamicConfig {
     /// A long-lived CA
     pub local_ca: Cert<KeyPair>,
+
+    pub jwt_decoding_key: jsonwebtoken::DecodingKey,
 }
 
 pub struct Init {
@@ -106,12 +108,12 @@ pub async fn serve() -> anyhow::Result<()> {
 
 pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow::Result<()> {
     let Init { ctx, .. } = initialize().await?;
-    let eid = Eid(eid.parse()?);
+    let eid = Eid::new(eid.parse()?);
 
     let pem = ctx
         .dynamic_config
         .local_ca
-        .sign(KeyPair::generate()?.client_cert(&eid.0.to_string(), Duration::days(7)))
+        .sign(KeyPair::generate()?.client_cert(&eid.value().to_string(), Duration::days(7)))
         .certificate_and_key_pem();
 
     if let Some(out_path) = out {

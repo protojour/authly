@@ -340,7 +340,7 @@ mod tests {
             "allow for memoriam",
             vec![
                 OpCode::LoadSubjectEid(builtin::EID.0),
-                OpCode::LoadConstId(svc_memoriam.0),
+                OpCode::LoadConstId(svc_memoriam.value()),
                 OpCode::IsEq,
                 OpCode::TrueThenAllow,
             ],

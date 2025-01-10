@@ -14,6 +14,8 @@ access_token = []
 
 [dependencies]
 anyhow = "1"
+byteorder = "1"
+fnv = "1"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_spanned = { version = "0.6", optional = true }

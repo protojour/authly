@@ -1,5 +1,5 @@
 use argon2::{password_hash::SaltString, Argon2};
-use authly_domain::Eid;
+use authly_domain::{Eid, ObjId};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 
@@ -10,7 +10,7 @@ pub struct EntityPasswordHash {
     pub secret_hash: String,
 }
 
-pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<Eid>> {
+pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<ObjId>> {
     Ok(deps
         .query_raw(
             "SELECT attrid FROM ent_attr WHERE eid = $1".into(),
@@ -18,7 +18,7 @@ pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<
         )
         .await?
         .into_iter()
-        .map(|mut row| Eid::from_row(&mut row, "attrid"))
+        .map(|mut row| ObjId::from_row(&mut row, "attrid"))
         .collect())
 }
 

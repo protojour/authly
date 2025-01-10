@@ -34,7 +34,7 @@ async fn test_store_doc_trivial() {
         .unwrap();
 
     assert_eq!(
-        entity_db::list_entity_attrs(&db, Eid(272878235402143010663560859986869906352))
+        entity_db::list_entity_attrs(&db, Eid::new(272878235402143010663560859986869906352))
             .await
             .unwrap()
             .len(),
@@ -42,7 +42,7 @@ async fn test_store_doc_trivial() {
     );
 
     assert_eq!(
-        entity_db::list_entity_attrs(&db, Eid(5483905438509438509358943058439058595))
+        entity_db::list_entity_attrs(&db, Eid::new(5483905438509438509358943058439058595))
             .await
             .unwrap()
             .len(),
@@ -55,5 +55,5 @@ async fn test_store_doc_trivial() {
             .unwrap()
             .unwrap();
 
-    assert_eq!(eid, Eid(272878235402143010663560859986869906352));
+    assert_eq!(eid, Eid::new(272878235402143010663560859986869906352));
 }

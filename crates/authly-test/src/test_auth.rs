@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use std::time::Instant;
+
 use authly_domain::Eid;
 use cookie::Cookie;
 use hyper::header::SET_COOKIE;
@@ -61,12 +63,26 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     )
     .unwrap();
 
+    let start = Instant::now();
+
     let access_token = authly_client
         .get_access_token(session_cookie.value_trimmed())
         .await
         .unwrap();
 
-    assert_eq!(access_token.claims.authly.user_eid, Eid(111111));
+    let elapsed = start.elapsed();
+
+    println!("get_access_token took {elapsed:?}");
+
+    assert_eq!(access_token.claims.authly.user_eid, Eid::new(111111));
+    assert!(access_token.claims.authly.attributes.is_empty());
+
+    let outcome = authly_client
+        .remote_access_control([], Some(&access_token.token))
+        .await
+        .unwrap();
+
+    assert!(!outcome);
 
     Ok(())
 }

@@ -307,6 +307,7 @@ dependencies = [
  "anyhow",
  "authly-domain",
  "authly-proto",
+ "fnv",
  "http",
  "jsonwebtoken",
  "pem",
@@ -323,6 +324,7 @@ name = "authly-domain"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "byteorder",
  "fnv",
  "indoc",
  "rand",

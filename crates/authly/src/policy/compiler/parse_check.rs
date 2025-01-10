@@ -1,6 +1,7 @@
 //! This module takes the pest parse tree and transforms it into Expr,
 //! with basic type checking
 
+use authly_domain::ObjId;
 use pest::{iterators::Pair, Span};
 
 use crate::{
@@ -87,9 +88,9 @@ impl PolicyCompiler<'_> {
 
                 let attr_label = match self
                     .doc_data
-                    .find_attribute_by_label(property_label.0, attr_label_str)
+                    .find_attribute_by_label(ObjId::new(property_label.0), attr_label_str)
                 {
-                    Ok(id) => Label(id),
+                    Ok(id) => Label(id.value()),
                     Err(_) => {
                         self.pest_error(
                             span,
@@ -113,10 +114,10 @@ impl PolicyCompiler<'_> {
     fn pest_any_label(&mut self, pair: Pair<Rule>) -> Option<Label> {
         let label = pair.as_str();
         match self.namespace.get_entry(label) {
-            Some(NamespaceEntry::User(id)) => Some(Label(*id)),
-            Some(NamespaceEntry::Group(id)) => Some(Label(*id)),
-            Some(NamespaceEntry::Service(id)) => Some(Label(*id)),
-            Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(*id)),
+            Some(NamespaceEntry::User(id)) => Some(Label(id.value())),
+            Some(NamespaceEntry::Group(id)) => Some(Label(id.value())),
+            Some(NamespaceEntry::Service(id)) => Some(Label(id.value())),
+            Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.value())),
             _ => {
                 self.pest_error(
                     pair.as_span(),
@@ -130,7 +131,7 @@ impl PolicyCompiler<'_> {
     fn pest_property_label(&mut self, pair: Pair<Rule>) -> Option<Label> {
         let label = pair.as_str();
         match self.namespace.get_entry(label) {
-            Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(*id)),
+            Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.value())),
             _ => {
                 self.pest_error(
                     pair.as_span(),

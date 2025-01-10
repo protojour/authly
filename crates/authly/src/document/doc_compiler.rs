@@ -4,7 +4,7 @@ use std::{collections::HashMap, ops::Range};
 
 use authly_domain::document::{EntityProperty, GroupMembership, Policy, ResourceProperty};
 use authly_domain::{document::Document, Eid};
-use authly_domain::{BuiltinID, QualifiedAttributeName};
+use authly_domain::{BuiltinID, ObjId, QualifiedAttributeName};
 use serde_spanned::Spanned;
 use tracing::debug;
 
@@ -36,7 +36,7 @@ impl Namespace {
     fn insert_builtin_property(&mut self, builtin: BuiltinID) {
         self.table.insert(
             builtin.label().unwrap().to_string(),
-            Spanned::new(0..0, NamespaceEntry::PropertyLabel(builtin.to_eid())),
+            Spanned::new(0..0, NamespaceEntry::PropertyLabel(builtin.to_obj_id())),
         );
     }
 }
@@ -58,7 +58,7 @@ pub enum NamespaceEntry {
     User(Eid),
     Group(Eid),
     Service(Eid),
-    PropertyLabel(Eid),
+    PropertyLabel(ObjId),
 }
 
 #[derive(Default)]
@@ -71,7 +71,7 @@ pub async fn compile_doc(
     db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
-        aid: Eid(doc.authly_document.id.get_ref().as_u128()),
+        aid: Eid::new(doc.authly_document.id.get_ref().as_u128()),
         namespace: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
@@ -259,7 +259,7 @@ async fn compile_service_property(
         id: db_eprop
             .as_ref()
             .map(|db_prop| db_prop.id)
-            .unwrap_or_else(Eid::random),
+            .unwrap_or_else(ObjId::random),
         svc_eid,
         label: doc_property_label.as_ref().to_string(),
         attributes: vec![],
@@ -277,7 +277,7 @@ async fn compile_service_property(
             id: db_attr
                 .as_ref()
                 .map(|attr| attr.0)
-                .unwrap_or_else(Eid::random),
+                .unwrap_or_else(ObjId::random),
             label: doc_attribute.into_inner(),
         });
     }
@@ -426,9 +426,9 @@ impl CompileCtx {
         }
     }
 
-    fn ns_property_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
+    fn ns_property_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<ObjId> {
         match self.ns_lookup(key, CompileError::UnresolvedProperty)? {
-            NamespaceEntry::PropertyLabel(eid) => Some(*eid),
+            NamespaceEntry::PropertyLabel(objid) => Some(*objid),
             _ => {
                 self.errors
                     .push(key.span(), CompileError::UnresolvedProperty);
