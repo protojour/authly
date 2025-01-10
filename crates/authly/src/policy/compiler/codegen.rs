@@ -28,7 +28,7 @@ impl PolicyCompiler<'_> {
                 self.codegen_term(lhs);
                 self.codegen_term(rhs);
 
-                self.ops.push(OpCode::ContainsTag);
+                self.ops.push(OpCode::IdSetContains);
             }
             Expr::And(lhs, rhs) => {
                 self.codegen_expr(*lhs);
@@ -58,13 +58,13 @@ impl PolicyCompiler<'_> {
             Term::Field(global, label) => match global {
                 Global::Subject => {
                     if label.0 == BuiltinID::PropEntity.to_obj_id().value() {
-                        self.ops.push(OpCode::LoadSubjectEid(
+                        self.ops.push(OpCode::LoadSubjectId(
                             BuiltinID::PropEntity.to_obj_id().value(),
                         ));
                     }
                 }
                 Global::Resource => {
-                    self.ops.push(OpCode::LoadResourceTags);
+                    self.ops.push(OpCode::LoadResourceAttrs);
                 }
             },
             Term::Attr(_prop, attr) => self.ops.push(OpCode::LoadConstId(attr.0)),

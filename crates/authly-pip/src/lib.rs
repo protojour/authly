@@ -318,9 +318,9 @@ mod tests {
             svc_memoriam,
             "allow for onto users",
             vec![
-                OpCode::LoadSubjectTags,
+                OpCode::LoadSubjectAttrs,
                 OpCode::LoadConstId(role_onto_user.0),
-                OpCode::ContainsTag,
+                OpCode::IdSetContains,
                 OpCode::TrueThenAllow,
             ],
         );
@@ -328,9 +328,9 @@ mod tests {
             svc_memoriam,
             "allow for onto admin",
             vec![
-                OpCode::LoadSubjectTags,
+                OpCode::LoadSubjectAttrs,
                 OpCode::LoadConstId(role_onto_admin.0),
-                OpCode::ContainsTag,
+                OpCode::IdSetContains,
                 OpCode::TrueThenAllow,
             ],
         );
@@ -338,7 +338,7 @@ mod tests {
             svc_memoriam,
             "allow for memoriam",
             vec![
-                OpCode::LoadSubjectEid(builtin::EID.0),
+                OpCode::LoadSubjectId(builtin::EID.0),
                 OpCode::LoadConstId(svc_memoriam.value()),
                 OpCode::IsEq,
                 OpCode::TrueThenAllow,

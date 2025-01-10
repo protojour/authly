@@ -323,7 +323,6 @@ name = "authly-common"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "bit-set",
  "byteorder",
  "fnv",
  "indoc",

@@ -126,14 +126,14 @@ fn test_expr_logical_paren() {
 fn test_opcodes() {
     assert_eq!(
         vec![
-            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_obj_id().value()),
+            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().value()),
             OpCode::LoadConstId(SVC.value()),
             OpCode::IsEq,
-            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_obj_id().value()),
+            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().value()),
             OpCode::LoadConstId(SVC.value()),
             OpCode::IsEq,
             OpCode::And,
-            OpCode::LoadSubjectEid(BuiltinID::PropEntity.to_obj_id().value()),
+            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().value()),
             OpCode::LoadConstId(SVC.value()),
             OpCode::IsEq,
             OpCode::Or,

@@ -3,19 +3,18 @@ use int_enum::IntEnum;
 pub enum Outcome {
     Allow,
     Deny,
-    Error,
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum OpCode {
-    LoadSubjectEid(u128),
-    LoadSubjectTags,
-    LoadResourceEid(u128),
-    LoadResourceTags,
+    LoadSubjectId(u128),
+    LoadSubjectAttrs,
+    LoadResourceId(u128),
+    LoadResourceAttrs,
     LoadConstId(u128),
     IsEq,
     SupersetOf,
-    ContainsTag,
+    IdSetContains,
     And,
     Or,
     Not,
@@ -28,14 +27,14 @@ pub enum OpCode {
 #[repr(u8)]
 #[derive(IntEnum)]
 pub enum Bytecode {
-    LoadSubjectEid = 0,
-    LoadSubjectTags = 1,
-    LoadResourceEid = 2,
-    LoadResourceTags = 3,
+    LoadSubjectId = 0,
+    LoadSubjectAttrs = 1,
+    LoadResourceId = 2,
+    LoadResourceAttrs = 3,
     LoadConstId = 4,
     IsEq = 5,
     SupersetOf = 6,
-    ContainsTag = 7,
+    IdSetContains = 7,
     And = 8,
     Or = 9,
     Not = 10,
@@ -50,19 +49,19 @@ pub fn to_bytecode(opcodes: &[OpCode]) -> Vec<u8> {
 
     for opcode in opcodes {
         match opcode {
-            OpCode::LoadSubjectEid(eid) => {
-                out.push(Bytecode::LoadSubjectEid as u8);
+            OpCode::LoadSubjectId(eid) => {
+                out.push(Bytecode::LoadSubjectId as u8);
                 out.extend(unsigned_varint::encode::u128(*eid, &mut Default::default()));
             }
-            OpCode::LoadSubjectTags => {
-                out.push(Bytecode::LoadSubjectTags as u8);
+            OpCode::LoadSubjectAttrs => {
+                out.push(Bytecode::LoadSubjectAttrs as u8);
             }
-            OpCode::LoadResourceEid(eid) => {
-                out.push(Bytecode::LoadResourceEid as u8);
+            OpCode::LoadResourceId(eid) => {
+                out.push(Bytecode::LoadResourceId as u8);
                 out.extend(unsigned_varint::encode::u128(*eid, &mut Default::default()));
             }
-            OpCode::LoadResourceTags => {
-                out.push(Bytecode::LoadResourceTags as u8);
+            OpCode::LoadResourceAttrs => {
+                out.push(Bytecode::LoadResourceAttrs as u8);
             }
             OpCode::LoadConstId(id) => {
                 out.push(Bytecode::LoadConstId as u8);
@@ -74,8 +73,8 @@ pub fn to_bytecode(opcodes: &[OpCode]) -> Vec<u8> {
             OpCode::SupersetOf => {
                 out.push(Bytecode::SupersetOf as u8);
             }
-            OpCode::ContainsTag => {
-                out.push(Bytecode::ContainsTag as u8);
+            OpCode::IdSetContains => {
+                out.push(Bytecode::IdSetContains as u8);
             }
             OpCode::And => {
                 out.push(Bytecode::And as u8);
