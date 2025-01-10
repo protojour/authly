@@ -10,14 +10,20 @@ generate-testdata:
     fi
 
 rundev: generate-testdata
-    cargo run -p authly issue-cluster-key --out-path test
-
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_DATA_DIR=./test/.data \
     AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
     AUTHLY_CLUSTER_KEY_FILE=./test/cluster.key \
     AUTHLY_EXPORT_LOCAL_CA=./test/exported-local-ca.pem \
         cargo run -p authly serve
+
+runrelease: generate-testdata
+    AUTHLY_HOSTNAME=localhost \
+    AUTHLY_DATA_DIR=./test/.data \
+    AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
+    AUTHLY_CLUSTER_KEY_FILE=./test/cluster.key \
+    AUTHLY_EXPORT_LOCAL_CA=./test/exported-local-ca.pem \
+        cargo run --release -p authly serve
 
 # default target
 target := "x86_64-unknown-linux-musl"
