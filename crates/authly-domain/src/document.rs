@@ -201,7 +201,7 @@ fn preprocess(mut doc: Document) -> Document {
 mod tests {
     #[test]
     fn testusers_example() {
-        let toml = include_str!("../../../examples/testusers.toml");
+        let toml = include_str!("../../../examples/0_testusers.toml");
         let document = super::Document::from_toml(toml).unwrap();
 
         assert_eq!(document.authly_document.id.span(), 23..61);
@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn testservice_example() {
-        let toml = include_str!("../../../examples/testservice.toml");
+        let toml = include_str!("../../../examples/1_testservice.toml");
         super::Document::from_toml(toml).unwrap();
     }
 }

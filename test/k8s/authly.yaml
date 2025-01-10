@@ -149,6 +149,9 @@ spec:
             - mountPath: /etc/authly/cluster
               readOnly: true
               name: authly-cluster-key
+            - mountPath: /etc/authly/documents
+              readOnly: true
+              name: authly-documents
           resources:
             requests:
               memory: 32Mi
@@ -157,6 +160,9 @@ spec:
         - name: authly-cluster-key
           secret:
             secretName: authly-cluster-key
+        - name: authly-documents
+          configMap:
+            name: authly-documents
   volumeClaimTemplates:
     - metadata:
         name: authly-data

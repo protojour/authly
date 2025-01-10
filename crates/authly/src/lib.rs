@@ -1,11 +1,11 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
-use authly_domain::{document::Document, Eid};
+use authly_domain::Eid;
 use axum::{routing::post, Router};
 use cert::{Cert, MakeSigningRequest};
-use db::{config_db, document_db};
-use document::doc_compiler::compile_doc;
+use db::config_db;
+use document::load::load_cfg_documents;
 pub use env_config::EnvConfig;
 use hiqlite::ServerTlsConfig;
 use rcgen::KeyPair;
@@ -151,29 +151,7 @@ async fn initialize() -> anyhow::Result<Init> {
             )?;
         }
 
-        for (_filename, toml) in [
-            (
-                "testusers.toml",
-                include_str!("../../../examples/testusers.toml"),
-            ),
-            (
-                "testservice.tomls",
-                include_str!("../../../examples/testservice.toml"),
-            ),
-        ] {
-            let document = Document::from_toml(toml)?;
-            let compiled_doc = match compile_doc(document, &ctx).await {
-                Ok(doc) => doc,
-                Err(errors) => {
-                    for error in errors {
-                        tracing::error!("doc error: {error:?}");
-                    }
-                    return Err(anyhow!("document error"));
-                }
-            };
-
-            document_db::store_document(&ctx, compiled_doc).await?;
-        }
+        load_cfg_documents(&env_config, &ctx).await?;
     }
 
     Ok(Init { ctx, env_config })

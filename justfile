@@ -10,6 +10,7 @@ generate-testdata:
     fi
 
 rundev: generate-testdata
+    AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_DATA_DIR=./test/.data \
     AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
@@ -18,6 +19,7 @@ rundev: generate-testdata
         cargo run -p authly serve
 
 runrelease: generate-testdata
+    AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_DATA_DIR=./test/.data \
     AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
@@ -50,11 +52,29 @@ testservice:
     cross build -p authly-testservice --target x86_64-unknown-linux-musl --target-dir target-musl
     docker build . -f testservice.Dockerfile -t situ/authly-testservice:dev
 
-kubernetes-test-deploy: generate-testdata dev-image testservice
-    -kubectl create namespace authly-test
-    -kubectl create secret tls authly-cluster-key -n authly-test --cert=test/cluster.crt --key=test/cluster.key
+# deploy local development version of authly to authly-test k8s namespace
+k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
     kubectl apply -f test/k8s/authly.yaml
     kubectl apply -f test/k8s/testservice.yaml
 
     kubectl delete pods --namespace=authly-test -l 'app=authly'
     kubectl delete pods --namespace=authly-test -l 'app=testservice'
+
+# create the authly-test namespace and create basic configmaps and secrets
+k8s-test-setup:
+    -kubectl create namespace authly-test
+
+    kubectl create secret tls authly-cluster-key \
+        -n authly-test \
+        --cert=test/cluster.crt \
+        --key=test/cluster.key \
+        -o yaml \
+        --dry-run=client \
+        | kubectl apply -f -
+
+    kubectl create configmap authly-documents \
+        -n authly-test \
+        --from-file=examples/ \
+        -o yaml \
+        --dry-run=client \
+        | kubectl apply -f -

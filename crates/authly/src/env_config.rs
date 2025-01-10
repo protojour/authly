@@ -8,7 +8,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EnvConfig {
+    /// The hostname against which to generate server certificates
     pub hostname: String,
+
+    /// A list of paths to scan for documents during startup.
+    pub document_path: Vec<PathBuf>,
+
     pub data_dir: PathBuf,
 
     pub node_id: Option<u64>,
@@ -44,6 +49,9 @@ impl Default for EnvConfig {
     fn default() -> Self {
         Self {
             hostname: "authly-local".to_string(),
+
+            document_path: vec![PathBuf::from("/etc/authly/documents")],
+
             data_dir: PathBuf::from("/var/lib/authly/data"),
             node_id: None,
 
