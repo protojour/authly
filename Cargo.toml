@@ -2,7 +2,7 @@
 members = [
     "crates/authly",
     "crates/authly-client",
-    "crates/authly-domain",
+    "crates/authly-common",
     "crates/authly-pdp",
     "crates/authly-pip",
     "crates/authly-policy",

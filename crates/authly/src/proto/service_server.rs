@@ -1,4 +1,4 @@
-use authly_domain::{access_token::AuthlyAccessTokenClaims, BuiltinID, Eid};
+use authly_common::{access_token::AuthlyAccessTokenClaims, BuiltinID, Eid};
 use authly_proto::service::{
     self as proto,
     authly_service_server::{AuthlyService, AuthlyServiceServer},

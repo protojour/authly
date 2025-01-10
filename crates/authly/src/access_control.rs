@@ -1,4 +1,4 @@
-use authly_domain::{BuiltinID, Eid, ObjId};
+use authly_common::{BuiltinID, Eid, ObjId};
 use fnv::FnvHashSet;
 
 use crate::{

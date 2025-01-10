@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use authly_domain::Eid;
+use authly_common::Eid;
 use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},

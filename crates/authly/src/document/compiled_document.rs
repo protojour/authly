@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, ops::Range};
 
-use authly_domain::{
+use authly_common::{
     document::{Group, Service, User},
     BuiltinID, Eid, ObjId,
 };

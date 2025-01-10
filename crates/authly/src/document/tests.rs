@@ -1,4 +1,4 @@
-use authly_domain::{document::Document, Eid};
+use authly_common::{document::Document, Eid};
 use indoc::indoc;
 
 use super::compiled_document::DocumentMeta;

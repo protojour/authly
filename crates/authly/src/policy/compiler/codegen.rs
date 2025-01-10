@@ -1,4 +1,4 @@
-use authly_domain::BuiltinID;
+use authly_common::BuiltinID;
 use authly_policy::OpCode;
 
 use crate::policy::PolicyOutcome;

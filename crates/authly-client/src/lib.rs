@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use authly_domain::{access_token::AuthlyAccessTokenClaims, Eid};
+use authly_common::{access_token::AuthlyAccessTokenClaims, Eid};
 use authly_proto::service as proto;
 use authly_proto::service::authly_service_client::AuthlyServiceClient;
 use http::header::{AUTHORIZATION, COOKIE};

@@ -1,7 +1,7 @@
 //! This module takes the pest parse tree and transforms it into Expr,
 //! with basic type checking
 
-use authly_domain::ObjId;
+use authly_common::ObjId;
 use pest::{iterators::Pair, Span};
 
 use crate::{

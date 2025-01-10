@@ -1,5 +1,5 @@
 [package]
-name = "authly-domain"
+name = "authly-common"
 version = "0.0.1"
 authors.workspace = true
 edition.workspace = true

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use authly_domain::ObjId;
+use authly_common::ObjId;
 use hiqlite::{params, Param};
 use indoc::indoc;
 use tracing::warn;

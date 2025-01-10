@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Display, future::Future, time::Instant};
 
-use authly_domain::Id128;
+use authly_common::Id128;
 use hiqlite::Params;
 use thiserror::Error;
 use tracing::info;

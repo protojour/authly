@@ -2,7 +2,7 @@
 
 use std::time::Instant;
 
-use authly_domain::Eid;
+use authly_common::Eid;
 use cookie::Cookie;
 use hyper::header::SET_COOKIE;
 use reqwest::{ClientBuilder, Identity};

@@ -1,5 +1,5 @@
 use argon2::{password_hash::SaltString, Argon2};
-use authly_domain::{Eid, ObjId};
+use authly_common::{Eid, ObjId};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 

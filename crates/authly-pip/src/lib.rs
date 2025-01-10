@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use authly_domain::Eid;
+use authly_common::Eid;
 use authly_policy::OpCode;
 use rand::Rng;
 

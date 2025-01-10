@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
-use authly_domain::Eid;
+use authly_common::Eid;
 use axum::{routing::post, Router};
 use cert::{Cert, MakeSigningRequest};
 use db::config_db;

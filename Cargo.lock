@@ -251,7 +251,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "argon2",
- "authly-domain",
+ "authly-common",
  "authly-policy",
  "authly-proto",
  "axum",
@@ -305,7 +305,7 @@ name = "authly-client"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "authly-domain",
+ "authly-common",
  "authly-proto",
  "fnv",
  "http",
@@ -320,7 +320,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "authly-domain"
+name = "authly-common"
 version = "0.0.1"
 dependencies = [
  "anyhow",
@@ -350,7 +350,7 @@ dependencies = [
 name = "authly-pip"
 version = "0.1.0"
 dependencies = [
- "authly-domain",
+ "authly-common",
  "authly-policy",
  "bit-set",
  "rand",
@@ -383,7 +383,7 @@ dependencies = [
  "anyhow",
  "authly",
  "authly-client",
- "authly-domain",
+ "authly-common",
  "axum",
  "cookie",
  "hyper",

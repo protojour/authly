@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use authly_domain::Eid;
+use authly_common::Eid;
 use cookie::{Cookie, Expiration, SameSite};
 use rand::Rng;
 use time::OffsetDateTime;

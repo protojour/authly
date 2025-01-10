@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use authly_domain::Eid;
+use authly_common::Eid;
 use hiqlite::{params, Param, Params};
 use itertools::Itertools;
 use tracing::debug;

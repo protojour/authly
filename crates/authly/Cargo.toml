@@ -12,7 +12,7 @@ publish = false
 doctest = false
 
 [dependencies]
-authly-domain = { path = "../authly-domain", features = [
+authly-common = { path = "../authly-common", features = [
     "document",
     "access_token",
 ] }

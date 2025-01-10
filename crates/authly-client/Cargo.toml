@@ -9,8 +9,8 @@ rust-version.workspace = true
 publish = true
 
 [dependencies]
+authly-common = { path = "../authly-common", features = ["access_token"] }
 authly-proto.path = "../authly-proto"
-authly-domain = { path = "../authly-domain", features = ["access_token"] }
 anyhow = "1"
 fnv = "1"
 http = "1"

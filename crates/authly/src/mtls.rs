@@ -1,4 +1,4 @@
-use authly_domain::Eid;
+use authly_common::Eid;
 use hyper::body::Incoming;
 use x509_parser::prelude::{FromDer, X509Certificate};
 

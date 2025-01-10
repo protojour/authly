@@ -1,4 +1,4 @@
-use authly_domain::{
+use authly_common::{
     access_token::{Authly, AuthlyAccessTokenClaims},
     ObjId,
 };

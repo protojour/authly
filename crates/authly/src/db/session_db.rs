@@ -1,4 +1,4 @@
-use authly_domain::Eid;
+use authly_common::Eid;
 use hiqlite::{params, Param};
 use time::OffsetDateTime;
 

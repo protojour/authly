@@ -1,5 +1,5 @@
 use argon2::Argon2;
-use authly_domain::BuiltinID;
+use authly_common::BuiltinID;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};

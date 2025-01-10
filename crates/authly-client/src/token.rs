@@ -1,4 +1,4 @@
-use authly_domain::access_token::AuthlyAccessTokenClaims;
+use authly_common::access_token::AuthlyAccessTokenClaims;
 
 pub struct AccessToken {
     /// The access token in JWT format

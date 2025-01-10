@@ -2,9 +2,10 @@ use std::cmp;
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, ops::Range};
 
-use authly_domain::document::{EntityProperty, GroupMembership, Policy, ResourceProperty};
-use authly_domain::{document::Document, Eid};
-use authly_domain::{BuiltinID, ObjId, QualifiedAttributeName};
+use authly_common::{
+    document::{Document, EntityProperty, GroupMembership, Policy, ResourceProperty},
+    BuiltinID, Eid, ObjId, QualifiedAttributeName,
+};
 use serde_spanned::Spanned;
 use tracing::debug;
 
