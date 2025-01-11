@@ -3007,7 +3007,7 @@ dependencies = [
 [[package]]
 name = "rcgen"
 version = "0.13.2"
-source = "git+https://github.com/audunhalland/rcgen.git?branch=sign-using-params#a1eff576eb1f193bb874141095d195ae493c2d24"
+source = "git+https://github.com/rustls/rcgen.git?branch=main#cd88a397e4e53b26b19c95bb86e7b3d00f75d412"
 dependencies = [
  "pem",
  "ring",

@@ -21,7 +21,7 @@ reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "rustls-tls",
 ] }
-rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params" }
+rcgen = { git = "https://github.com/rustls/rcgen.git", branch = "main" }
 thiserror = "2"
 tonic = { version = "0.12", default-features = false, features = ["tls"] }
 tracing = "0.1"
