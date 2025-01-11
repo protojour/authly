@@ -18,7 +18,7 @@ pub async fn spawn_k8s_manager(ctx: AuthlyCtx) {
         let mut cancel = CancellationToken::default();
 
         loop {
-            let is_leader = ctx.db.is_leader_db().await;
+            let is_leader = ctx.hql.is_leader_db().await;
 
             if is_leader && manager_task.is_none() {
                 info!(

@@ -154,16 +154,16 @@ impl Db for AuthlyCtx {
     ) -> Result<Vec<Self::Row<'_>>, DbError> {
         if LOG_QUERIES {
             let start = Instant::now();
-            let result = hiqlite::Client::query_raw(&self.db, stmt, params).await;
+            let result = hiqlite::Client::query_raw(&self.hql, stmt, params).await;
             info!("query_raw took {:?}", start.elapsed());
             Ok(result?)
         } else {
-            Ok(hiqlite::Client::query_raw(&self.db, stmt, params).await?)
+            Ok(hiqlite::Client::query_raw(&self.hql, stmt, params).await?)
         }
     }
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
-        Ok(hiqlite::Client::execute(&self.db, sql, params).await?)
+        Ok(hiqlite::Client::execute(&self.hql, sql, params).await?)
     }
 
     async fn txn<C, Q>(&self, sql: Q) -> Result<Vec<Result<usize, DbError>>, DbError>
@@ -171,7 +171,7 @@ impl Db for AuthlyCtx {
         Q: IntoIterator<Item = (C, Params)>,
         C: Into<Cow<'static, str>>,
     {
-        Ok(hiqlite::Client::txn(&self.db, sql)
+        Ok(hiqlite::Client::txn(&self.hql, sql)
             .await?
             .into_iter()
             .map(|res| res.map_err(DbError::Hiqlite))

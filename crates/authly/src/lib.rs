@@ -7,7 +7,6 @@ use cert::{Cert, MakeSigningRequest};
 use db::config_db;
 use document::load::load_cfg_documents;
 pub use env_config::EnvConfig;
-use hiqlite::ServerTlsConfig;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
 use serde::{Deserialize, Serialize};
@@ -23,6 +22,8 @@ pub mod mtls;
 pub mod session;
 
 mod access_control;
+mod authority;
+mod broadcast;
 mod db;
 mod document;
 mod env_config;
@@ -41,7 +42,8 @@ const HIQLITE_RAFT_PORT: u16 = 10445;
 
 #[derive(Clone)]
 struct AuthlyCtx {
-    db: hiqlite::Client,
+    /// The client for hiqlite, an embedded database
+    hql: hiqlite::Client,
     dynamic_config: Arc<DynamicConfig>,
     cancel: CancellationToken,
 }
@@ -66,7 +68,7 @@ pub async fn serve() -> anyhow::Result<()> {
         ctx.dynamic_config.local_ca.certificate_pem()
     );
 
-    let cancel = termination_signal();
+    broadcast::spawn_global_message_handler(&ctx);
 
     if env_config.k8s {
         k8s::k8s_manager::spawn_k8s_manager(ctx.clone()).await;
@@ -83,9 +85,11 @@ pub async fn serve() -> anyhow::Result<()> {
         .with_scheme(Scheme::Https)
         .with_tls_config(rustls_config)
         .with_tls_connection_middleware(mtls::MTLSMiddleware)
-        .with_cancellation_token(cancel.clone())
+        .with_cancellation_token(ctx.cancel.clone())
         .bind()
         .await?;
+
+    let cancel = ctx.cancel.clone();
 
     tokio::spawn(
         server.serve(
@@ -134,22 +138,21 @@ enum CacheEntry {
 async fn initialize() -> anyhow::Result<Init> {
     let env_config = EnvConfig::load();
     let node_config = hiqlite_node_config(&env_config);
-    let db = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
-    let cancel = termination_signal();
+    let hql = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
 
-    db.migrate::<Migrations>().await.map_err(|err| {
+    hql.migrate::<Migrations>().await.map_err(|err| {
         tracing::error!(?err, "failed to migrate");
         err
     })?;
 
-    let dynamic_config = config_db::load_db_config(&db).await?;
+    let dynamic_config = config_db::load_db_config(&hql).await?;
     let ctx = AuthlyCtx {
-        db,
+        hql,
         dynamic_config: Arc::new(dynamic_config),
-        cancel,
+        cancel: termination_signal(),
     };
 
-    if ctx.db.is_leader_db().await {
+    if ctx.hql.is_leader_db().await {
         if let Some(export_path) = &env_config.export_local_ca {
             std::fs::write(
                 export_path,
@@ -195,7 +198,7 @@ fn main_service_rustls(
 }
 
 fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
-    let cluster_tls_config = ServerTlsConfig {
+    let cluster_tls_config = hiqlite::ServerTlsConfig {
         key: env_config
             .cluster_key_file
             .to_str()

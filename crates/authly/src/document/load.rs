@@ -6,6 +6,7 @@ use sha2::Digest;
 use tracing::info;
 
 use crate::{
+    authority,
     db::document_db::{self, DocumentAuthority},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     AuthlyCtx, EnvConfig,
@@ -63,7 +64,7 @@ pub async fn load_cfg_documents(env_config: &EnvConfig, ctx: &AuthlyCtx) -> anyh
                     }
                 };
 
-                document_db::store_document(ctx, compiled_doc).await?;
+                authority::put_document(compiled_doc, ctx).await?;
             } else {
                 info!(?path, "unchanged");
             }

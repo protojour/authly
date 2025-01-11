@@ -36,6 +36,9 @@ pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentAuthority>> {
         .collect())
 }
 
+/// Store a new document.
+///
+/// NB: Not to be called directly, should be done through the authority API
 pub async fn store_document(deps: &impl Db, document: CompiledDocument) -> DbResult<()> {
     let stmts = document_txn_statements(document);
 
