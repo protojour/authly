@@ -10,6 +10,7 @@ pub use env_config::EnvConfig;
 use hiqlite::ServerTlsConfig;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
+use serde::{Deserialize, Serialize};
 use time::Duration;
 use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
@@ -125,10 +126,15 @@ pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize, strum::EnumIter, num_derive::ToPrimitive)]
+enum CacheEntry {
+    DummyForNow,
+}
+
 async fn initialize() -> anyhow::Result<Init> {
     let env_config = EnvConfig::load();
     let node_config = hiqlite_node_config(&env_config);
-    let db = hiqlite::start_node(node_config).await?;
+    let db = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
     let cancel = termination_signal();
 
     db.migrate::<Migrations>().await.map_err(|err| {
