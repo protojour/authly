@@ -4,11 +4,11 @@ use authly_common::{
         code::Outcome,
         pdp::{PolicyEngine, PolicyEnv},
     },
+    proto::service::{
+        self as proto,
+        authly_service_server::{AuthlyService, AuthlyServiceServer},
+    },
     BuiltinID, ObjId,
-};
-use authly_proto::service::{
-    self as proto,
-    authly_service_server::{AuthlyService, AuthlyServiceServer},
 };
 use http::header::{AUTHORIZATION, COOKIE};
 use tonic::{

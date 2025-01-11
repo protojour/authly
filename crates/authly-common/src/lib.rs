@@ -13,6 +13,8 @@ use serde::{
     Deserialize, Serialize,
 };
 
+pub mod proto;
+
 #[cfg(feature = "access_token")]
 pub mod access_token;
 

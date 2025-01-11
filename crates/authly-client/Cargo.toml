@@ -10,7 +10,6 @@ publish = true
 
 [dependencies]
 authly-common = { path = "../authly-common", features = ["access_token"] }
-authly-proto.path = "../authly-proto"
 anyhow = "1"
 fnv = "1"
 http = "1"

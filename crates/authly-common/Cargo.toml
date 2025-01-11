@@ -9,22 +9,32 @@ rust-version.workspace = true
 publish = true
 
 [features]
-document = ["dep:serde_spanned", "dep:toml", "dep:uuid"]
 access_token = []
+document = ["dep:serde_spanned", "dep:toml", "dep:uuid"]
+tonic_server = ["tonic/transport"]
 
 [dependencies]
 anyhow = "1"
 byteorder = "1"
 fnv = "1"
 int-enum = "1"
+prost = "0.13"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_spanned = { version = "0.6", optional = true }
 thiserror = "2"
 toml = { version = "0.8", optional = true }
+tonic = { version = "0.12", default-features = false, features = [
+    "prost",
+    "codegen",
+    "channel",
+] }
 tracing = "0.1"
 unsigned-varint = "0.8"
 uuid = { version = "1", features = ["serde", "v4"], optional = true }
+
+[build-dependencies]
+tonic-build = "0.12"
 
 [dev-dependencies]
 indoc = "2"

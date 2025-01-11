@@ -291,7 +291,6 @@ dependencies = [
  "anyhow",
  "argon2",
  "authly-common",
- "authly-proto",
  "axum",
  "axum-extra",
  "bit-set",
@@ -347,7 +346,6 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "authly-common",
- "authly-proto",
  "fnv",
  "http",
  "jsonwebtoken",
@@ -369,11 +367,14 @@ dependencies = [
  "fnv",
  "indoc",
  "int-enum",
+ "prost",
  "rand",
  "serde",
  "serde_spanned",
  "thiserror 2.0.11",
  "toml",
+ "tonic",
+ "tonic-build",
  "tracing",
  "unsigned-varint",
  "uuid",
@@ -388,15 +389,6 @@ dependencies = [
  "rand",
  "tracing",
  "unsigned-varint",
-]
-
-[[package]]
-name = "authly-proto"
-version = "0.1.0"
-dependencies = [
- "prost",
- "tonic",
- "tonic-build",
 ]
 
 [[package]]

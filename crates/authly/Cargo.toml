@@ -15,8 +15,8 @@ doctest = false
 authly-common = { path = "../authly-common", features = [
     "document",
     "access_token",
+    "tonic_server",
 ] }
-authly-proto.path = "../authly-proto"
 
 anyhow = "1"
 argon2 = "0.5"
