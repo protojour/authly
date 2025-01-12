@@ -2,11 +2,12 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use authly_common::Eid;
-use axum::{routing::post, Router};
 use cert::{Cert, MakeSigningRequest};
 use db::config_db;
 use document::load::load_cfg_documents;
 pub use env_config::EnvConfig;
+use openapi::router::openapi_router;
+use openraft::RaftMetrics;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
 use serde::{Deserialize, Serialize};
@@ -28,9 +29,9 @@ mod db;
 mod document;
 mod env_config;
 mod k8s;
+mod openapi;
 mod policy;
 mod proto;
-mod user_auth;
 mod util;
 
 #[derive(rust_embed::Embed)]
@@ -46,6 +47,13 @@ struct AuthlyCtx {
     hql: hiqlite::Client,
     dynamic_config: Arc<DynamicConfig>,
     cancel: CancellationToken,
+}
+
+impl AuthlyCtx {
+    /// Get local database raft metrics. This is synchronous and never fails.
+    async fn metrics_db(&self) -> RaftMetrics<u64, hiqlite::Node> {
+        self.hql.metrics_db().await.expect("never fails")
+    }
 }
 
 pub struct DynamicConfig {
@@ -76,10 +84,6 @@ pub async fn serve() -> anyhow::Result<()> {
         k8s::k8s_auth_server::spawn_k8s_auth_server(&env_config, &ctx).await?;
     }
 
-    let http_api = Router::new()
-        .route("/api/auth/authenticate", post(user_auth::authenticate))
-        .with_state(ctx.clone());
-
     let rustls_config = main_service_rustls(&env_config, &ctx.dynamic_config)?;
     let server = tower_server::Builder::new("0.0.0.0:10443".parse()?)
         .with_scheme(Scheme::Https)
@@ -89,6 +93,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .bind()
         .await?;
 
+    let openapi_router = openapi_router(ctx.clone());
     let cancel = ctx.cancel.clone();
 
     tokio::spawn(
@@ -101,7 +106,7 @@ pub async fn serve() -> anyhow::Result<()> {
                     );
                     grpc_routes.routes().into_axum_router()
                 })
-                .or_default(http_api)
+                .or_default(openapi_router)
                 .into_service(),
         ),
     );

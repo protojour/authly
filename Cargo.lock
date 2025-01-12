@@ -311,6 +311,7 @@ dependencies = [
  "kube",
  "num-derive",
  "num-traits",
+ "openraft",
  "pem",
  "pest",
  "pest_derive",

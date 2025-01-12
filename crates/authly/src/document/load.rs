@@ -64,7 +64,7 @@ pub async fn load_cfg_documents(env_config: &EnvConfig, ctx: &AuthlyCtx) -> anyh
                     }
                 };
 
-                authority::put_document(compiled_doc, ctx).await?;
+                authority::apply_document(compiled_doc, ctx).await?;
             } else {
                 info!(?path, "unchanged");
             }

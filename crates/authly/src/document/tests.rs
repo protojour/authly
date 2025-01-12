@@ -3,7 +3,10 @@ use indoc::indoc;
 
 use super::compiled_document::DocumentMeta;
 use super::doc_compiler::compile_doc;
-use crate::db::{document_db, entity_db, service_db, sqlite::test_inmemory_db};
+use crate::db::{
+    document_db, entity_db, service_db,
+    sqlite::{sqlite_txn, test_inmemory_db},
+};
 
 #[tokio::test]
 async fn test_store_doc_trivial() {
@@ -32,7 +35,7 @@ async fn test_store_doc_trivial() {
     let compiled_doc = compile_doc(doc, DocumentMeta::default(), &db)
         .await
         .unwrap();
-    document_db::store_document(&db, compiled_doc)
+    sqlite_txn(&db, document_db::document_txn_statements(compiled_doc))
         .await
         .unwrap();
 

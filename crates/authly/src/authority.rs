@@ -1,5 +1,5 @@
 use crate::{
-    broadcast::BroadcastMsg,
+    broadcast::{BroadcastError, BroadcastMsgKind},
     db::{document_db, DbError},
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
@@ -10,22 +10,24 @@ pub enum AuthorityError {
     #[error("db error: {0}")]
     Db(#[from] DbError),
 
-    #[error("notify error")]
-    Notify(DbError),
+    #[error("broadcast error: {0}")]
+    Broadcast(#[from] BroadcastError),
 }
 
-/// Store (write or overwrite) a document authority, publish change message
-pub async fn put_document(
-    document: CompiledDocument,
+/// Apply (write or overwrite) a document authority, publish change message
+pub async fn apply_document(
+    compiled_doc: CompiledDocument,
     ctx: &AuthlyCtx,
 ) -> Result<(), AuthorityError> {
-    let aid = document.aid;
-    document_db::store_document(ctx, document).await?;
+    let aid = compiled_doc.aid;
 
     ctx.hql
-        .notify(&BroadcastMsg::AuthorityChanged { aid })
+        .txn(document_db::document_txn_statements(compiled_doc))
         .await
-        .map_err(|err| AuthorityError::Notify(err.into()))?;
+        .map_err(|err| AuthorityError::Db(err.into()))?;
+
+    ctx.send_broadcast(BroadcastMsgKind::AuthorityChanged { aid })
+        .await?;
 
     Ok(())
 }

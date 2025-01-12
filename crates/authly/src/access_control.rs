@@ -17,6 +17,41 @@ pub struct AuthorizedPeerService {
     pub attributes: FnvHashSet<ObjId>,
 }
 
+pub trait AuthlyRole {
+    fn role() -> BuiltinID;
+}
+
+/// Typed roles
+pub mod role {
+    use authly_common::BuiltinID;
+
+    use super::AuthlyRole;
+
+    pub struct ApplyDocument;
+
+    impl AuthlyRole for ApplyDocument {
+        fn role() -> BuiltinID {
+            BuiltinID::AttrAuthlyRoleApplyDocument
+        }
+    }
+}
+
+pub trait VerifyAuthlyRole {
+    fn verify_roles(attributes: &FnvHashSet<ObjId>) -> bool;
+}
+
+impl VerifyAuthlyRole for () {
+    fn verify_roles(_attributes: &FnvHashSet<ObjId>) -> bool {
+        true
+    }
+}
+
+impl<T: AuthlyRole> VerifyAuthlyRole for T {
+    fn verify_roles(attributes: &FnvHashSet<ObjId>) -> bool {
+        attributes.contains(&T::role().to_obj_id())
+    }
+}
+
 /// Access control the given service trying to perform some Authly action.
 ///
 /// This currently does not use policies, it only checks whether the service is assigned the required attribute.

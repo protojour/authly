@@ -123,38 +123,21 @@ pub type Eid = Id128<idkind::Entity>;
 
 pub type ObjId = Id128<idkind::Object>;
 
-/// Authly Entity ID
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct EidOld(pub u128);
-
-impl EidOld {
-    pub fn random() -> Self {
-        loop {
-            let id: u128 = rand::thread_rng().gen();
-            // low IDs are reserved for builtin/fixed
-            if id > u16::MAX as u128 {
-                return EidOld(id);
-            }
-        }
-    }
-
-    pub fn to_bytes(self) -> [u8; 16] {
-        self.0.to_be_bytes()
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        Some(Self(Cursor::new(bytes).read_u128::<BigEndian>().ok()?))
-    }
-}
-
 #[derive(Clone, Copy)]
 #[repr(u32)]
 pub enum BuiltinID {
+    /// Id representing Authly itself
     Authly = 0,
+    /// The entity property
     PropEntity = 1,
+    /// The built-in authly:role for authly internal access control
     PropAuthlyRole = 2,
+    /// A service role for getting an access token
     AttrAuthlyRoleGetAccessToken = 3,
+    /// A service role for authenticating users
     AttrAuthlyRoleAuthenticate = 4,
+    /// A user role for applying documents
+    AttrAuthlyRoleApplyDocument = 5,
 }
 
 impl BuiltinID {
@@ -169,6 +152,7 @@ impl BuiltinID {
             BuiltinID::PropAuthlyRole => Some("authly:role"),
             BuiltinID::AttrAuthlyRoleGetAccessToken => Some("get_access_token"),
             BuiltinID::AttrAuthlyRoleAuthenticate => Some("authenticate"),
+            BuiltinID::AttrAuthlyRoleApplyDocument => Some("apply_document"),
         }
     }
 
@@ -177,6 +161,7 @@ impl BuiltinID {
             Self::PropAuthlyRole => &[
                 Self::AttrAuthlyRoleGetAccessToken,
                 Self::AttrAuthlyRoleAuthenticate,
+                Self::AttrAuthlyRoleApplyDocument,
             ],
             _ => &[],
         }
@@ -187,20 +172,6 @@ impl BuiltinID {
 pub struct QualifiedAttributeName {
     pub property: String,
     pub attribute: String,
-}
-
-impl FromStr for EidOld {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let id = s.parse().map_err(|_| "invalid format")?;
-
-        if id > 0 && id < 32768 {
-            return Err("invalid value");
-        }
-
-        Ok(EidOld(id))
-    }
 }
 
 impl<K> FromStr for Id128<K> {
@@ -217,30 +188,12 @@ impl<K> FromStr for Id128<K> {
     }
 }
 
-impl<'de> Deserialize<'de> for EidOld {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_str(FromStrVisitor::new("entity id"))
-    }
-}
-
 impl<'de, K: idkind::IdKind> Deserialize<'de> for Id128<K> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_str(FromStrVisitor::new(K::name()))
-    }
-}
-
-impl Serialize for EidOld {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.0.to_string())
     }
 }
 

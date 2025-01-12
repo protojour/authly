@@ -36,22 +36,8 @@ pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentAuthority>> {
         .collect())
 }
 
-/// Store a new document.
-///
-/// NB: Not to be called directly, should be done through the authority API
-pub async fn store_document(deps: &impl Db, document: CompiledDocument) -> DbResult<()> {
-    let stmts = document_txn_statements(document);
-
-    for (stmt, _) in &stmts {
-        debug!("{stmt}");
-    }
-
-    deps.txn(stmts).await?;
-
-    Ok(())
-}
-
-fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, str>, Params)> {
+/// Produce the transaction statements for saving a new document
+pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, str>, Params)> {
     let CompiledDocument { aid, meta, data } = document;
     let mut stmts: Vec<(Cow<'static, str>, Params)> = vec![];
 
@@ -207,6 +193,10 @@ fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, str>
                 ));
             }
         }
+    }
+
+    for (stmt, _) in &stmts {
+        debug!("{stmt}");
     }
 
     stmts

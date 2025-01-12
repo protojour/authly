@@ -36,7 +36,9 @@ impl From<hiqlite::Error> for DbError {
 
 pub type DbResult<T> = Result<T, DbError>;
 
-/// Db abstraction around SQLite that works with both rusqlite and hiqlite
+/// Db abstraction around SQLite that works with both rusqlite and hiqlite.
+///
+/// Does not support transactions, so transactions must be tested agains the various concrete connection types.
 pub trait Db {
     type Row<'a>: Row
     where
@@ -53,14 +55,6 @@ pub trait Db {
         sql: Cow<'static, str>,
         params: Params,
     ) -> impl Future<Output = Result<usize, DbError>>;
-
-    fn txn<C, Q>(
-        &self,
-        sql: Q,
-    ) -> impl Future<Output = Result<Vec<Result<usize, DbError>>, DbError>>
-    where
-        Q: IntoIterator<Item = (C, Params)>,
-        C: Into<Cow<'static, str>>;
 }
 
 pub trait Row {
@@ -164,18 +158,6 @@ impl Db for AuthlyCtx {
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
         Ok(hiqlite::Client::execute(&self.hql, sql, params).await?)
-    }
-
-    async fn txn<C, Q>(&self, sql: Q) -> Result<Vec<Result<usize, DbError>>, DbError>
-    where
-        Q: IntoIterator<Item = (C, Params)>,
-        C: Into<Cow<'static, str>>,
-    {
-        Ok(hiqlite::Client::txn(&self.hql, sql)
-            .await?
-            .into_iter()
-            .map(|res| res.map_err(DbError::Hiqlite))
-            .collect())
     }
 }
 

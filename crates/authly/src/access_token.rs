@@ -2,9 +2,15 @@ use authly_common::{
     access_token::{Authly, AuthlyAccessTokenClaims},
     ObjId,
 };
+use axum::RequestPartsExt;
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use fnv::FnvHashSet;
+use http::{request::Parts, StatusCode};
 
-use crate::{session::Session, DynamicConfig};
+use crate::{session::Session, AuthlyCtx, DynamicConfig};
 
 const EXPIRATION: time::Duration = time::Duration::days(365);
 
@@ -56,4 +62,30 @@ pub fn verify_access_token(
     .map_err(|err| AccessTokenError::Unverified(err.into()))?;
 
     Ok(token_data.claims)
+}
+
+/// Axum extension for verified access token
+pub struct VerifiedAccessToken {
+    pub claims: AuthlyAccessTokenClaims,
+}
+
+#[axum::async_trait]
+impl axum::extract::FromRequestParts<AuthlyCtx> for VerifiedAccessToken {
+    type Rejection = (StatusCode, &'static str);
+
+    /// Perform the extraction.
+    async fn from_request_parts(
+        parts: &mut Parts,
+        ctx: &AuthlyCtx,
+    ) -> Result<Self, Self::Rejection> {
+        let authorization = parts
+            .extract::<TypedHeader<Authorization<Bearer>>>()
+            .await
+            .map_err(|_| (StatusCode::UNAUTHORIZED, "no access token"))?;
+
+        let claims = verify_access_token(authorization.token(), &ctx.dynamic_config)
+            .map_err(|_| (StatusCode::UNAUTHORIZED, "invalid access token"))?;
+
+        Ok(Self { claims })
+    }
 }
