@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
-use authly_common::Eid;
+use authly_common::id::Eid;
 use cert::{Cert, MakeSigningRequest};
 use db::config_db;
 use document::load::load_cfg_documents;

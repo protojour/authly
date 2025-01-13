@@ -1,4 +1,4 @@
-use authly_common::Eid;
+use authly_common::id::Eid;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 

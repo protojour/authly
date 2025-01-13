@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use authly_common::Eid;
+use authly_common::id::Eid;
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use itertools::Itertools;

@@ -2,7 +2,11 @@ use std::cmp;
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, ops::Range};
 
-use authly_common::{document, BuiltinID, Eid, ObjId, QualifiedAttributeName};
+use authly_common::{
+    document,
+    id::{BuiltinID, Eid, ObjId},
+    property::QualifiedAttributeName,
+};
 use serde_spanned::Spanned;
 use tracing::debug;
 
@@ -15,8 +19,8 @@ use crate::policy::compiler::PolicyCompiler;
 use crate::policy::PolicyOutcome;
 
 use super::compiled_document::{
-    CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData,
-    CompiledGroupMembership, CompiledProperty, DocumentMeta,
+    CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData, CompiledMembers,
+    CompiledProperty, DocumentMeta,
 };
 
 #[derive(Default)]
@@ -53,8 +57,7 @@ struct CompileCtx {
 
 #[derive(Debug)]
 pub enum NamespaceEntry {
-    User(Eid),
-    Group(Eid),
+    Entity(Eid),
     Service(Eid),
     PropertyLabel(ObjId),
     PolicyLabel(ObjId),
@@ -79,8 +82,7 @@ pub async fn compile_doc(
         errors: Default::default(),
     };
     let mut data = CompiledDocumentData {
-        users: doc.user,
-        groups: doc.group,
+        users: doc.entity,
         services: doc.service,
         ..Default::default()
     };
@@ -112,7 +114,7 @@ pub async fn compile_doc(
         });
     }
 
-    process_group_membership(doc.group_membership, &mut data, &mut comp);
+    process_members(doc.members, &mut data, &mut comp);
 
     process_service_properties(
         doc.entity_property,
@@ -145,7 +147,7 @@ fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
 
     for user in &mut data.users {
         if let Some(label) = &user.label {
-            comp.ns_add(label, NamespaceEntry::User(*user.eid.get_ref()));
+            comp.ns_add(label, NamespaceEntry::Entity(*user.eid.get_ref()));
         }
 
         if let Some(username) = user.username.take() {
@@ -157,10 +159,6 @@ fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
         }
     }
 
-    for group in &data.groups {
-        comp.ns_add(&group.name, NamespaceEntry::Group(*group.eid.get_ref()));
-    }
-
     for service in &data.services {
         comp.ns_add(
             &service.label,
@@ -169,28 +167,28 @@ fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
     }
 }
 
-fn process_group_membership(
-    memberships: Vec<document::GroupMembership>,
+fn process_members(
+    members_list: Vec<document::Members>,
     data: &mut CompiledDocumentData,
     comp: &mut CompileCtx,
 ) {
-    for gm in memberships {
-        let Some(group_eid) = comp.ns_group_lookup(&gm.group) else {
+    for members in members_list {
+        let Some(group_eid) = comp.ns_entity_lookup(&members.entity) else {
             continue;
         };
 
-        let mut compiled_membership = CompiledGroupMembership {
-            group_eid,
+        let mut compiled_members = CompiledMembers {
+            parent_eid: group_eid,
             members: Default::default(),
         };
 
-        for member in &gm.members {
-            if let Some(profile_eid) = comp.ns_profile_lookup(member) {
-                compiled_membership.members.insert(profile_eid);
+        for member in &members.members {
+            if let Some(profile_eid) = comp.ns_entity_lookup(member) {
+                compiled_members.members.insert(profile_eid);
             };
         }
 
-        data.group_memberships.push(compiled_membership);
+        data.members_list.push(compiled_members);
     }
 }
 
@@ -496,32 +494,9 @@ impl CompileCtx {
 
     fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
         match self.ns_lookup(key, CompileError::UnresolvedEntity)? {
-            NamespaceEntry::Group(eid) => Some(*eid),
-            NamespaceEntry::User(eid) => Some(*eid),
+            NamespaceEntry::Entity(eid) => Some(*eid),
             NamespaceEntry::Service(eid) => Some(*eid),
             _ => None,
-        }
-    }
-
-    fn ns_profile_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
-        match self.ns_lookup(key, CompileError::UnresolvedProfile)? {
-            NamespaceEntry::Group(eid) => Some(*eid),
-            NamespaceEntry::User(eid) => Some(*eid),
-            _ => {
-                self.errors
-                    .push(key.span(), CompileError::UnresolvedProfile);
-                None
-            }
-        }
-    }
-
-    fn ns_group_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
-        match self.ns_lookup(key, CompileError::UnresolvedGroup)? {
-            NamespaceEntry::Group(eid) => Some(*eid),
-            _ => {
-                self.errors.push(key.span(), CompileError::UnresolvedGroup);
-                None
-            }
         }
     }
 

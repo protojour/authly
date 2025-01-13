@@ -1,7 +1,7 @@
 use fnv::FnvHashSet;
 use serde::{Deserialize, Serialize};
 
-use crate::{Eid, ObjId};
+use crate::id::{Eid, ObjId};
 
 /// Claims for the Authly Access Token JWT
 #[derive(Serialize, Deserialize, Debug)]

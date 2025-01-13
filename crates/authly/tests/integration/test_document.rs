@@ -1,5 +1,5 @@
 use authly::db::{entity_db, service_db};
-use authly_common::{document::Document, Eid};
+use authly_common::{document::Document, id::Eid};
 use indoc::indoc;
 
 use crate::{compile_and_apply_doc, new_inmemory_db};

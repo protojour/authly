@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use fnv::FnvHashSet;
 
-use crate::ObjId;
+use crate::id::ObjId;
 
 #[derive(Default)]
 pub struct PropertyMapping {

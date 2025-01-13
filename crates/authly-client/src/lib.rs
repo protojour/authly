@@ -2,8 +2,8 @@ use std::borrow::Cow;
 
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
+    id::Eid,
     proto::service::{self as proto, authly_service_client::AuthlyServiceClient},
-    Eid,
 };
 use http::header::{AUTHORIZATION, COOKIE};
 use identity::Identity;

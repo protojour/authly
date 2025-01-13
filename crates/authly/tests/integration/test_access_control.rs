@@ -1,8 +1,8 @@
 use authly::db::service_db;
 use authly_common::{
     document::Document,
+    id::Eid,
     policy::{code::Outcome, pdp::AccessControlParams},
-    Eid,
 };
 use indoc::indoc;
 

@@ -8,7 +8,7 @@ use authly::{
     },
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
 };
-use authly_common::{document::Document, service::PropertyMapping, Eid};
+use authly_common::{document::Document, id::Eid, service::PropertyMapping};
 use tracing::info;
 
 mod test_access_control;

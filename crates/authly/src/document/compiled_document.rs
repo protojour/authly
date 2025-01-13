@@ -1,8 +1,8 @@
 use std::{collections::BTreeSet, ops::Range};
 
 use authly_common::{
-    document::{Group, Service, User},
-    BuiltinID, Eid, ObjId,
+    document::{Entity, Service},
+    id::{BuiltinID, Eid, ObjId},
 };
 
 use crate::{db::service_db, policy::error::PolicyCompileErrorKind};
@@ -39,8 +39,7 @@ pub struct DocumentMeta {
 
 #[derive(Default, Debug)]
 pub struct CompiledDocumentData {
-    pub users: Vec<User>,
-    pub groups: Vec<Group>,
+    pub users: Vec<Entity>,
     pub services: Vec<Service>,
 
     /// Attributes to set on entities
@@ -49,7 +48,7 @@ pub struct CompiledDocumentData {
     pub entity_ident: Vec<EntityIdent>,
     pub entity_password: Vec<EntityPassword>,
 
-    pub group_memberships: Vec<CompiledGroupMembership>,
+    pub members_list: Vec<CompiledMembers>,
 
     pub svc_ent_props: Vec<CompiledProperty>,
     pub svc_res_props: Vec<CompiledProperty>,
@@ -78,8 +77,8 @@ pub struct CompiledEntityAttributeAssignment {
 }
 
 #[derive(Debug)]
-pub struct CompiledGroupMembership {
-    pub group_eid: Eid,
+pub struct CompiledMembers {
+    pub parent_eid: Eid,
     pub members: BTreeSet<Eid>,
 }
 

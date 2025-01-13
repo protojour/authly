@@ -1,7 +1,7 @@
 //! This module takes the pest parse tree and transforms it into Expr,
 //! with basic type checking
 
-use authly_common::ObjId;
+use authly_common::id::ObjId;
 use pest::{iterators::Pair, Span};
 
 use crate::{
@@ -114,8 +114,7 @@ impl PolicyCompiler<'_> {
     fn pest_any_label(&mut self, pair: Pair<Rule>) -> Option<Label> {
         let label = pair.as_str();
         match self.namespace.get_entry(label) {
-            Some(NamespaceEntry::User(id)) => Some(Label(id.value())),
-            Some(NamespaceEntry::Group(id)) => Some(Label(id.value())),
+            Some(NamespaceEntry::Entity(id)) => Some(Label(id.value())),
             Some(NamespaceEntry::Service(id)) => Some(Label(id.value())),
             Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.value())),
             _ => {

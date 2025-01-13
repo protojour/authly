@@ -1,7 +1,7 @@
 [authly-document]
 id = "d783648f-e6ac-4492-87f7-43d5e5805d60"
 
-[[user]]
+[[entity]]
 eid = "111111"
 label = "me"
 email = ["me@mail.com"]
@@ -10,14 +10,14 @@ password-hash = [
     "$argon2id$v=19$m=19456,t=2,p=1$/lj8Yj6ZTJLiqgpYb4Nn0g$z79FFMXstrkY8KmpC0vQWIDcne0lylBbctUAluIVqLk",
 ]
 
-[[group]]
+[[entity]]
 eid = "222222"
-name = "us"
+label = "us"
 
-[[user]]
+[[entity]]
 eid = "333333"
 label = "you"
 
-[[group-membership]]
-group = "us"
+[[members]]
+entity = "us"
 members = ["me", "you"]

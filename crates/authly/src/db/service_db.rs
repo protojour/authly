@@ -1,9 +1,9 @@
 use std::collections::{BTreeSet, HashMap};
 
 use authly_common::{
+    id::ObjId,
     policy::{code::to_bytecode, pdp::PolicyEngine},
     service::PropertyMapping,
-    ObjId,
 };
 use hiqlite::{params, Param};
 use indoc::indoc;

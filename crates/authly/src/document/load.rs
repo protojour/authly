@@ -1,7 +1,7 @@
 use std::{fs, os::unix::ffi::OsStrExt};
 
 use anyhow::anyhow;
-use authly_common::{document::Document, Eid};
+use authly_common::{document::Document, id::Eid};
 use sha2::Digest;
 use tracing::info;
 

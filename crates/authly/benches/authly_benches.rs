@@ -4,7 +4,7 @@ use authly::{
     session::{Session, SessionToken},
     DynamicConfig,
 };
-use authly_common::{Eid, ObjId};
+use authly_common::id::{Eid, ObjId};
 use criterion::{criterion_group, criterion_main, Criterion};
 use fnv::FnvHashSet;
 use time::{Duration, OffsetDateTime};

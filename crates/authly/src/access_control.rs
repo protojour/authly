@@ -1,4 +1,4 @@
-use authly_common::{BuiltinID, Eid, ObjId};
+use authly_common::id::{BuiltinID, Eid, ObjId};
 use fnv::FnvHashSet;
 
 use crate::{
@@ -23,7 +23,7 @@ pub trait AuthlyRole {
 
 /// Typed roles
 pub mod role {
-    use authly_common::BuiltinID;
+    use authly_common::id::BuiltinID;
 
     use super::AuthlyRole;
 

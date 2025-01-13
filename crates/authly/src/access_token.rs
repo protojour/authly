@@ -8,7 +8,7 @@
 
 use authly_common::{
     access_token::{Authly, AuthlyAccessTokenClaims},
-    ObjId,
+    id::ObjId,
 };
 use axum::RequestPartsExt;
 use axum_extra::{

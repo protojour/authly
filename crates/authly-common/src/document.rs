@@ -2,7 +2,7 @@ use serde::Deserialize;
 use toml::Spanned;
 use uuid::Uuid;
 
-use crate::{Eid, QualifiedAttributeName};
+use crate::{id::Eid, property::QualifiedAttributeName};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -11,10 +11,7 @@ pub struct Document {
     pub authly_document: AuthlyDocument,
 
     #[serde(default)]
-    pub user: Vec<User>,
-
-    #[serde(default)]
-    pub group: Vec<Group>,
+    pub entity: Vec<Entity>,
 
     #[serde(default)]
     pub email: Vec<Email>,
@@ -25,8 +22,8 @@ pub struct Document {
     #[serde(default)]
     pub service: Vec<Service>,
 
-    #[serde(default, rename = "group-membership")]
-    pub group_membership: Vec<GroupMembership>,
+    #[serde(default)]
+    pub members: Vec<Members>,
 
     #[serde(default, rename = "entity-property")]
     pub entity_property: Vec<EntityProperty>,
@@ -50,7 +47,7 @@ pub struct AuthlyDocument {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct User {
+pub struct Entity {
     pub eid: Spanned<Eid>,
     #[serde(default)]
     pub label: Option<Spanned<String>>,
@@ -84,15 +81,8 @@ pub struct PasswordHash {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct Group {
-    pub eid: Spanned<Eid>,
-    pub name: Spanned<String>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct GroupMembership {
-    pub group: Spanned<String>,
+pub struct Members {
+    pub entity: Spanned<String>,
 
     pub members: Vec<Spanned<String>>,
 }
@@ -174,7 +164,7 @@ impl Document {
 }
 
 fn preprocess(mut doc: Document) -> Document {
-    for user in &mut doc.user {
+    for user in &mut doc.entity {
         let label = user
             .label
             .get_or_insert_with(|| Spanned::new(0..0, Uuid::new_v4().to_string()));
@@ -208,11 +198,10 @@ mod tests {
         // BUG: The span is off:
         assert_eq!(&toml[26..61], "83648f-e6ac-4492-87f7-43d5e5805d60\"");
 
-        assert_eq!(document.user[0].eid.span(), 78..86);
+        assert_eq!(document.entity[0].eid.span(), 78..86);
         assert_eq!(&toml[78..86], "\"111111\"");
 
-        assert_eq!(document.user.len(), 2);
-        assert_eq!(document.group.len(), 1);
+        assert_eq!(document.entity.len(), 3);
     }
 
     #[test]
