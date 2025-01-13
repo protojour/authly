@@ -19,8 +19,8 @@ use crate::policy::compiler::PolicyCompiler;
 use crate::policy::PolicyOutcome;
 
 use super::compiled_document::{
-    CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData, CompiledMembers,
-    CompiledProperty, DocumentMeta,
+    CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData,
+    CompiledEntityRelation, CompiledProperty, DocumentMeta,
 };
 
 #[derive(Default)]
@@ -173,22 +173,19 @@ fn process_members(
     comp: &mut CompileCtx,
 ) {
     for members in members_list {
-        let Some(group_eid) = comp.ns_entity_lookup(&members.entity) else {
+        let Some(subject_eid) = comp.ns_entity_lookup(&members.entity) else {
             continue;
         };
 
-        let mut compiled_members = CompiledMembers {
-            parent_eid: group_eid,
-            members: Default::default(),
-        };
-
         for member in &members.members {
-            if let Some(profile_eid) = comp.ns_entity_lookup(member) {
-                compiled_members.members.insert(profile_eid);
+            if let Some(member_eid) = comp.ns_entity_lookup(member) {
+                data.entity_relations.push(CompiledEntityRelation {
+                    subject: subject_eid,
+                    relation: BuiltinID::RelEntityMembership.to_obj_id(),
+                    object: member_eid,
+                });
             };
         }
-
-        data.members_list.push(compiled_members);
     }
 }
 

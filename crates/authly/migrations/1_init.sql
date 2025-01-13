@@ -28,11 +28,11 @@ CREATE TABLE ent_attr (
 
 CREATE TABLE ent_rel (
     aid BLOB NOT NULL,
-    subj_eid BLOB NOT NULL,
-    prop_id BLOB NOT NULL,
-    obj_eid BLOB NOT NULL,
+    rel_id BLOB NOT NULL,
+    subject_eid BLOB NOT NULL,
+    object_eid BLOB NOT NULL,
 
-    PRIMARY KEY (subj_eid, prop_id, obj_eid)
+    PRIMARY KEY (rel_id, subject_eid, object_eid)
 );
 
 CREATE TABLE ent_ident (

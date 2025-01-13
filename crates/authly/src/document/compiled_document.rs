@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, ops::Range};
+use std::ops::Range;
 
 use authly_common::{
     document::{Entity, Service},
@@ -48,7 +48,7 @@ pub struct CompiledDocumentData {
     pub entity_ident: Vec<EntityIdent>,
     pub entity_password: Vec<EntityPassword>,
 
-    pub members_list: Vec<CompiledMembers>,
+    pub entity_relations: Vec<CompiledEntityRelation>,
 
     pub svc_ent_props: Vec<CompiledProperty>,
     pub svc_res_props: Vec<CompiledProperty>,
@@ -77,9 +77,10 @@ pub struct CompiledEntityAttributeAssignment {
 }
 
 #[derive(Debug)]
-pub struct CompiledMembers {
-    pub parent_eid: Eid,
-    pub members: BTreeSet<Eid>,
+pub struct CompiledEntityRelation {
+    pub subject: Eid,
+    pub relation: ObjId,
+    pub object: Eid,
 }
 
 #[derive(Debug)]

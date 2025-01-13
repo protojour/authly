@@ -121,6 +121,8 @@ pub enum BuiltinID {
     AttrAuthlyRoleAuthenticate = 4,
     /// A user role for applying documents
     AttrAuthlyRoleApplyDocument = 5,
+    /// The entity membership relation
+    RelEntityMembership = 6,
 }
 
 impl BuiltinID {
@@ -136,6 +138,7 @@ impl BuiltinID {
             BuiltinID::AttrAuthlyRoleGetAccessToken => Some("get_access_token"),
             BuiltinID::AttrAuthlyRoleAuthenticate => Some("authenticate"),
             BuiltinID::AttrAuthlyRoleApplyDocument => Some("apply_document"),
+            BuiltinID::RelEntityMembership => None,
         }
     }
 

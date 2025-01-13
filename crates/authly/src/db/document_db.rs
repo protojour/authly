@@ -111,6 +111,28 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
         }
     }
 
+    // entity relations
+    {
+        // not sure how to "GC" this?
+        stmts.push((
+            "DELETE FROM ent_rel WHERE aid = $1".into(),
+            params!(aid.as_param()),
+        ));
+
+        for rel in data.entity_relations {
+            stmts.push((
+                "INSERT INTO ent_rel (aid, subject_eid, rel_id, object_eid) VALUES ($1, $2, $3, $4)"
+                    .into(),
+                params!(
+                    aid.as_param(),
+                    rel.subject.as_param(),
+                    rel.relation.as_param(),
+                    rel.object.as_param()
+                ),
+            ));
+        }
+    }
+
     // service attribute assignment
     {
         // not sure how to "GC" this?
