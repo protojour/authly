@@ -37,6 +37,11 @@ async fn test_access_control_basic() {
         label = "kind"
         attributes = ["trousers"]
 
+        [[resource-property]]
+        service = "svc_a"
+        label = "verb"
+        attributes = ["wear"]
+
         [[policy]]
         service = "svc_a"
         label = "allow for legged creatures"
@@ -44,7 +49,7 @@ async fn test_access_control_basic() {
 
         [[policy-binding]]
         service = "svc_a"
-        attributes = ["kind/trousers"]
+        attributes = ["kind/trousers", "verb/wear"]
         policies = ["allow for legged creatures"]
         "#
     })
@@ -83,7 +88,7 @@ async fn test_access_control_basic() {
         );
 
         assert_eq!(
-            Outcome::Allow,
+            Outcome::Deny,
             engine
                 .eval(&AccessControlParams {
                     resource_attrs: props.resource.translate([("kind", "trousers")]),
@@ -91,7 +96,21 @@ async fn test_access_control_basic() {
                     ..Default::default()
                 })
                 .unwrap(),
-            "expected environment triggers policy correctly"
+            "insufficient resource environment denies"
+        );
+
+        assert_eq!(
+            Outcome::Allow,
+            engine
+                .eval(&AccessControlParams {
+                    resource_attrs: props
+                        .resource
+                        .translate([("kind", "trousers"), ("verb", "wear")]),
+                    subject_attrs: props.entity.translate([("trait", "has_legs")]),
+                    ..Default::default()
+                })
+                .unwrap(),
+            "succifient resource environment allows"
         );
     }
 
