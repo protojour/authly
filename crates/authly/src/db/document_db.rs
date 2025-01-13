@@ -237,6 +237,34 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
         }
     }
 
+    // service policy bindings
+    {
+        // not sure how to "GC" this?
+        stmts.push((
+            "DELETE FROM svc_policy_binding WHERE aid = $1".into(),
+            params!(aid.as_param()),
+        ));
+
+        for policy_binding in data.svc_policy_bindings {
+            stmts.push((
+                indoc! {
+                    "
+                    INSERT INTO svc_policy_binding (aid, svc_eid, attr_matcher_pc, policy_ids_pc)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT DO NOTHING
+                    "
+                }
+                .into(),
+                params!(
+                    aid.as_param(),
+                    policy_binding.svc_eid.as_param(),
+                    postcard::to_allocvec(&policy_binding.attr_matcher).unwrap(),
+                    postcard::to_allocvec(&policy_binding.policies).unwrap()
+                ),
+            ));
+        }
+    }
+
     for (stmt, _) in &stmts {
         debug!("{stmt}");
     }

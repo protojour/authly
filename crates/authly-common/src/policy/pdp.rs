@@ -82,6 +82,14 @@ impl PolicyEngine {
         }
     }
 
+    pub fn get_policy_count(&self) -> usize {
+        self.policies.len()
+    }
+
+    pub fn get_trigger_count(&self) -> usize {
+        self.policy_triggers.len()
+    }
+
     pub fn eval(&self, params: &AccessControlParams) -> Result<Outcome, PdpError> {
         let mut eval_ctx = EvalCtx {
             outcomes: vec![],

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use authly_common::{
     policy::{code::to_bytecode, pdp::PolicyEngine},
@@ -18,6 +18,40 @@ use crate::{
 };
 
 use super::{Convert, Db, DbError, DbResult, Row};
+
+#[derive(Debug)]
+pub struct ServiceProperty {
+    pub id: ObjId,
+    pub label: String,
+    pub attributes: Vec<(ObjId, String)>,
+}
+
+pub enum ServicePropertyKind {
+    Entity,
+    Resource,
+}
+
+#[derive(Debug)]
+pub struct ServicePolicy {
+    pub id: ObjId,
+    pub svc_eid: Eid,
+    pub label: String,
+    pub policy: PolicyPostcard,
+}
+
+/// The structure of how a policy in stored in postcard format in the database
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PolicyPostcard {
+    pub outcome: PolicyOutcome,
+    pub expr: Expr,
+}
+
+#[derive(Debug)]
+pub struct ServicePolicyBinding {
+    pub svc_eid: Eid,
+    pub attr_matcher: BTreeSet<ObjId>,
+    pub policies: BTreeSet<ObjId>,
+}
 
 pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Option<String>> {
     let Some(mut row) = deps
@@ -61,18 +95,6 @@ pub async fn find_service_eid_by_k8s_service_account_name(
         };
 
     Ok(Some(Eid::from_row(&mut row, "svc_eid")))
-}
-
-#[derive(Debug)]
-pub struct ServiceProperty {
-    pub id: ObjId,
-    pub label: String,
-    pub attributes: Vec<(ObjId, String)>,
-}
-
-pub enum ServicePropertyKind {
-    Entity,
-    Resource,
 }
 
 pub async fn list_service_properties(
@@ -135,21 +157,6 @@ pub async fn list_service_properties(
     Ok(properties.into_values().collect())
 }
 
-#[derive(Debug)]
-pub struct ServicePolicy {
-    pub id: ObjId,
-    pub svc_eid: Eid,
-    pub label: String,
-    pub policy: PolicyPostcard,
-}
-
-/// The structure of how a policy in stored in postcard format in the database
-#[derive(Serialize, Deserialize, Debug)]
-pub struct PolicyPostcard {
-    pub outcome: PolicyOutcome,
-    pub expr: Expr,
-}
-
 pub async fn list_service_policies(
     deps: &impl Db,
     aid: Eid,
@@ -209,6 +216,30 @@ pub async fn load_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Policy
         let bytecode = to_bytecode(&opcodes);
 
         policy_engine.add_policy(id.value(), bytecode);
+    }
+
+    let binding_rows = deps
+        .query_raw(
+            "SELECT attr_matcher_pc, policy_ids_pc FROM svc_policy_binding WHERE svc_eid = $1"
+                .into(),
+            params!(svc_eid.as_param()),
+        )
+        .await?;
+
+    for mut row in binding_rows {
+        let attr_matcher_pc = row.get_blob("attr_matcher_pc");
+        let policy_ids_pc = row.get_blob("policy_ids_pc");
+
+        let attr_matcher: BTreeSet<u128> = postcard::from_bytes(&attr_matcher_pc).unwrap();
+        let policy_ids: BTreeSet<u128> = postcard::from_bytes(&policy_ids_pc).unwrap();
+
+        if policy_ids.len() > 1 {
+            for policy_id in policy_ids {
+                policy_engine.add_policy_trigger(attr_matcher.clone(), policy_id);
+            }
+        } else if let Some(policy_id) = policy_ids.into_iter().next() {
+            policy_engine.add_policy_trigger(attr_matcher, policy_id);
+        }
     }
 
     Ok(policy_engine)

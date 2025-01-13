@@ -163,7 +163,7 @@ pub struct Policy {
 #[derive(Deserialize)]
 pub struct PolicyBinding {
     pub service: Spanned<String>,
-    pub attributes: Vec<Spanned<String>>,
+    pub attributes: Vec<Spanned<QualifiedAttributeName>>,
     pub policies: Vec<Spanned<String>>,
 }
 

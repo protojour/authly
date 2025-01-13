@@ -102,6 +102,13 @@ CREATE TABLE svc_policy (
     UNIQUE (svc_eid, label)
 );
 
+CREATE TABLE svc_policy_binding (
+    aid BLOB NOT NULL,
+    svc_eid BLOB NOT NULL,
+    attr_matcher_pc BLOB NOT NULL,
+    policy_ids_pc BLOB NOT NULL
+);
+
 CREATE TABLE svc_ext_k8s_service_account (
     aid BLOB NOT NULL,
     svc_eid BLOB NOT NULL,

@@ -5,7 +5,7 @@ use authly_common::{
     BuiltinID, Eid, ObjId,
 };
 
-use crate::{db::service_db::ServicePolicy, policy::error::PolicyCompileErrorKind};
+use crate::{db::service_db, policy::error::PolicyCompileErrorKind};
 
 #[derive(Debug)]
 #[expect(unused)]
@@ -17,6 +17,7 @@ pub enum CompileError {
     UnresolvedService,
     UnresolvedProperty,
     UnresolvedAttribute,
+    UnresolvedPolicy,
     PolicyBodyMissing,
     AmbiguousPolicyOutcome,
     Policy(PolicyCompileErrorKind),
@@ -54,7 +55,8 @@ pub struct CompiledDocumentData {
     pub svc_ent_props: Vec<CompiledProperty>,
     pub svc_res_props: Vec<CompiledProperty>,
 
-    pub svc_policies: Vec<ServicePolicy>,
+    pub svc_policies: Vec<service_db::ServicePolicy>,
+    pub svc_policy_bindings: Vec<service_db::ServicePolicyBinding>,
 }
 
 #[derive(Debug)]

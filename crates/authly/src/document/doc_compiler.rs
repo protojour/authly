@@ -2,15 +2,11 @@ use std::cmp;
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, ops::Range};
 
-use authly_common::{
-    document::{Document, EntityProperty, GroupMembership, Policy, ResourceProperty},
-    BuiltinID, Eid, ObjId, QualifiedAttributeName,
-};
+use authly_common::{document, BuiltinID, Eid, ObjId, QualifiedAttributeName};
 use serde_spanned::Spanned;
 use tracing::debug;
 
-use crate::db::service_db::{self, PolicyPostcard, ServiceProperty};
-use crate::db::service_db::{ServicePolicy, ServicePropertyKind};
+use crate::db::service_db;
 use crate::db::Db;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, EntityIdent, EntityPassword,
@@ -48,9 +44,9 @@ struct CompileCtx {
 
     namespace: Namespace,
 
-    eprop_cache: HashMap<Eid, Vec<ServiceProperty>>,
-    rprop_cache: HashMap<Eid, Vec<ServiceProperty>>,
-    policy_cache: HashMap<Eid, Vec<ServicePolicy>>,
+    eprop_cache: HashMap<Eid, Vec<service_db::ServiceProperty>>,
+    rprop_cache: HashMap<Eid, Vec<service_db::ServiceProperty>>,
+    policy_cache: HashMap<Eid, Vec<service_db::ServicePolicy>>,
 
     errors: Errors,
 }
@@ -61,6 +57,7 @@ pub enum NamespaceEntry {
     Group(Eid),
     Service(Eid),
     PropertyLabel(ObjId),
+    PolicyLabel(ObjId),
 }
 
 #[derive(Default)]
@@ -69,7 +66,7 @@ struct Errors {
 }
 
 pub async fn compile_doc(
-    doc: Document,
+    doc: document::Document,
     meta: DocumentMeta,
     db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
@@ -128,6 +125,7 @@ pub async fn compile_doc(
 
     process_attribute_assignments(&mut data, &mut comp);
     process_policies(doc.policy, &mut data, &mut comp, db).await;
+    process_policy_bindings(doc.policy_binding, &mut data, &mut comp);
 
     if !comp.errors.errors.is_empty() {
         Err(comp.errors.errors)
@@ -172,7 +170,7 @@ fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
 }
 
 fn process_group_membership(
-    memberships: Vec<GroupMembership>,
+    memberships: Vec<document::GroupMembership>,
     data: &mut CompiledDocumentData,
     comp: &mut CompileCtx,
 ) {
@@ -197,8 +195,8 @@ fn process_group_membership(
 }
 
 async fn process_service_properties(
-    entity_properties: Vec<EntityProperty>,
-    resource_properties: Vec<ResourceProperty>,
+    entity_properties: Vec<document::EntityProperty>,
+    resource_properties: Vec<document::ResourceProperty>,
     data: &mut CompiledDocumentData,
     comp: &mut CompileCtx,
     db: &impl Db,
@@ -211,7 +209,7 @@ async fn process_service_properties(
 
             if let Some(compiled_property) = compile_service_property(
                 svc_eid,
-                ServicePropertyKind::Entity,
+                service_db::ServicePropertyKind::Entity,
                 &doc_eprop.label,
                 doc_eprop.attributes,
                 comp,
@@ -231,7 +229,7 @@ async fn process_service_properties(
 
         if let Some(compiled_property) = compile_service_property(
             svc_eid,
-            ServicePropertyKind::Resource,
+            service_db::ServicePropertyKind::Resource,
             &doc_rprop.label,
             doc_rprop.attributes,
             comp,
@@ -246,7 +244,7 @@ async fn process_service_properties(
 
 async fn compile_service_property(
     svc_eid: Eid,
-    property_kind: ServicePropertyKind,
+    property_kind: service_db::ServicePropertyKind,
     doc_property_label: &Spanned<String>,
     doc_attributes: Vec<Spanned<String>>,
     comp: &mut CompileCtx,
@@ -333,7 +331,7 @@ fn process_attribute_assignments(data: &mut CompiledDocumentData, comp: &mut Com
 }
 
 async fn process_policies(
-    policies: Vec<Policy>,
+    policies: Vec<document::Policy>,
     data: &mut CompiledDocumentData,
     comp: &mut CompileCtx,
     db: &impl Db,
@@ -392,17 +390,20 @@ async fn process_policies(
             .flat_map(|c| c.iter())
             .find(|db_policy| &db_policy.label == policy.label.as_ref());
 
-        let policy_postcard = PolicyPostcard { outcome, expr };
+        let policy_postcard = service_db::PolicyPostcard { outcome, expr };
+
+        let namespace_label = policy.label.as_ref().to_string();
+        let label_span = policy.label.span();
 
         let service_policy = if let Some(cached_policy) = cached_policy {
-            ServicePolicy {
+            service_db::ServicePolicy {
                 id: cached_policy.id,
                 svc_eid,
                 label: policy.label.into_inner(),
                 policy: policy_postcard,
             }
         } else {
-            ServicePolicy {
+            service_db::ServicePolicy {
                 id: ObjId::random(),
                 svc_eid,
                 label: policy.label.into_inner(),
@@ -410,7 +411,68 @@ async fn process_policies(
             }
         };
 
+        comp.namespace.table.insert(
+            namespace_label,
+            Spanned::new(label_span, NamespaceEntry::PolicyLabel(service_policy.id)),
+        );
+
         data.svc_policies.push(service_policy);
+    }
+}
+
+fn process_policy_bindings(
+    policy_bindings: Vec<document::PolicyBinding>,
+    data: &mut CompiledDocumentData,
+    comp: &mut CompileCtx,
+) {
+    for binding in policy_bindings {
+        let Some(svc_eid) = data
+            .services
+            .iter()
+            .find(|svc| svc.label.get_ref() == binding.service.as_ref())
+            .map(|svc| *svc.eid.get_ref())
+        else {
+            comp.errors
+                .push(binding.service.span(), CompileError::UnresolvedService);
+            continue;
+        };
+
+        let mut svc_policy_binding = service_db::ServicePolicyBinding {
+            svc_eid,
+            attr_matcher: Default::default(),
+            policies: Default::default(),
+        };
+
+        for spanned_qattr in binding.attributes {
+            let Some(prop_id) = comp.ns_property_lookup(&Spanned::new(
+                spanned_qattr.span(),
+                &spanned_qattr.as_ref().property,
+            )) else {
+                continue;
+            };
+
+            let attr_id =
+                match data.find_attribute_by_label(prop_id, &spanned_qattr.get_ref().attribute) {
+                    Ok(attr_id) => attr_id,
+                    Err(_) => {
+                        comp.errors
+                            .push(spanned_qattr.span(), CompileError::UnresolvedAttribute);
+                        continue;
+                    }
+                };
+
+            svc_policy_binding.attr_matcher.insert(attr_id);
+        }
+
+        for spanned_policy in binding.policies {
+            let Some(policy_id) = comp.ns_policy_lookup(&spanned_policy) else {
+                continue;
+            };
+
+            svc_policy_binding.policies.insert(policy_id);
+        }
+
+        data.svc_policy_bindings.push(svc_policy_binding);
     }
 }
 
@@ -485,6 +547,16 @@ impl CompileCtx {
         }
     }
 
+    fn ns_policy_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<ObjId> {
+        match self.ns_lookup(key, CompileError::UnresolvedProperty)? {
+            NamespaceEntry::PolicyLabel(objid) => Some(*objid),
+            _ => {
+                self.errors.push(key.span(), CompileError::UnresolvedPolicy);
+                None
+            }
+        }
+    }
+
     fn ns_lookup(
         &mut self,
         key: &Spanned<impl AsRef<str>>,
@@ -502,12 +574,12 @@ impl CompileCtx {
     async fn db_service_properties_cached<'s>(
         &'s mut self,
         svc_eid: Eid,
-        property_kind: ServicePropertyKind,
+        property_kind: service_db::ServicePropertyKind,
         db: &impl Db,
-    ) -> Option<&'s Vec<ServiceProperty>> {
+    ) -> Option<&'s Vec<service_db::ServiceProperty>> {
         let cache = match property_kind {
-            ServicePropertyKind::Entity => &mut self.eprop_cache,
-            ServicePropertyKind::Resource => &mut self.rprop_cache,
+            service_db::ServicePropertyKind::Entity => &mut self.eprop_cache,
+            service_db::ServicePropertyKind::Resource => &mut self.rprop_cache,
         };
 
         match cache.entry(svc_eid) {
@@ -533,7 +605,7 @@ impl CompileCtx {
         &'s mut self,
         svc_eid: Eid,
         db: &impl Db,
-    ) -> Option<&'s Vec<ServicePolicy>> {
+    ) -> Option<&'s Vec<service_db::ServicePolicy>> {
         let cache = &mut self.policy_cache;
 
         match cache.entry(svc_eid) {
