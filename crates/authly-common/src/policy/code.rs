@@ -1,5 +1,6 @@
 use int_enum::IntEnum;
 
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum Outcome {
     Allow,
     Deny,
@@ -25,7 +26,7 @@ pub enum OpCode {
 }
 
 #[repr(u8)]
-#[derive(IntEnum)]
+#[derive(IntEnum, Debug)]
 pub enum Bytecode {
     LoadSubjectId = 0,
     LoadSubjectAttrs = 1,

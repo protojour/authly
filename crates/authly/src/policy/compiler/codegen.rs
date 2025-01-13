@@ -63,6 +63,8 @@ impl Codegen {
                         self.ops.push(OpCode::LoadSubjectId(
                             BuiltinID::PropEntity.to_obj_id().value(),
                         ));
+                    } else {
+                        self.ops.push(OpCode::LoadSubjectAttrs);
                     }
                 }
                 Global::Resource => {

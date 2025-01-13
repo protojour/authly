@@ -63,12 +63,10 @@ pub trait Db {
 pub trait Row {
     fn get_int(&mut self, idx: &str) -> i64;
 
-    #[expect(unused)]
     fn get_opt_int(&mut self, idx: &str) -> Option<i64>;
 
     fn get_text(&mut self, idx: &str) -> String;
 
-    #[expect(unused)]
     fn get_opt_text(&mut self, idx: &str) -> Option<String>;
 
     fn get_blob(&mut self, idx: &str) -> Vec<u8>;

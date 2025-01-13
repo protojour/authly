@@ -8,7 +8,6 @@ use authly_common::{
 use crate::{db::service_db, policy::error::PolicyCompileErrorKind};
 
 #[derive(Debug)]
-#[expect(unused)]
 pub enum CompileError {
     NameDefinedMultipleTimes(Range<usize>, String),
     UnresolvedEntity,
@@ -80,7 +79,6 @@ pub struct CompiledEntityAttributeAssignment {
 
 #[derive(Debug)]
 pub struct CompiledGroupMembership {
-    #[expect(unused)]
     pub group_eid: Eid,
     pub members: BTreeSet<Eid>,
 }

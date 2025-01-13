@@ -13,7 +13,10 @@ use crate::{
 };
 
 /// Load documents from file
-pub async fn load_cfg_documents(env_config: &EnvConfig, ctx: &AuthlyCtx) -> anyhow::Result<()> {
+pub(crate) async fn load_cfg_documents(
+    env_config: &EnvConfig,
+    ctx: &AuthlyCtx,
+) -> anyhow::Result<()> {
     let doc_authorities = document_db::get_documents(ctx).await?;
 
     for dir_path in &env_config.document_path {

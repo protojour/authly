@@ -14,6 +14,7 @@ use serde::{
 };
 
 pub mod proto;
+pub mod service;
 
 #[cfg(feature = "access_token")]
 pub mod access_token;

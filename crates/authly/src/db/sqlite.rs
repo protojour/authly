@@ -12,36 +12,6 @@ use rusqlite::{
 
 use super::{Db, DbError, Row};
 
-#[cfg(test)]
-pub async fn test_inmemory_db() -> RwLock<rusqlite::Connection> {
-    use crate::Migrations;
-
-    let mut conn = rusqlite::Connection::open_in_memory().unwrap();
-    sqlite_migrate::<Migrations>(&mut conn).await.unwrap();
-
-    RwLock::new(conn)
-}
-
-#[cfg(test)]
-pub async fn sqlite_migrate<T: rust_embed::RustEmbed>(
-    conn: &mut rusqlite::Connection,
-) -> Result<(), DbError> {
-    let mut files: Vec<_> = T::iter().collect();
-    files.sort();
-
-    let txn = conn.transaction().map_err(DbError::Rusqlite)?;
-
-    for file in files {
-        let migration = T::get(&file).unwrap();
-        txn.execute_batch(str::from_utf8(&migration.data).unwrap())
-            .map_err(DbError::Rusqlite)?;
-    }
-
-    txn.commit().map_err(DbError::Rusqlite)?;
-
-    Ok(())
-}
-
 impl Db for RwLock<rusqlite::Connection> {
     type Row<'a> = RusqliteRow;
 
@@ -78,7 +48,6 @@ impl Db for RwLock<rusqlite::Connection> {
     }
 }
 
-#[cfg(test)]
 pub async fn sqlite_txn<C, Q>(
     conn: &RwLock<rusqlite::Connection>,
     sql: Q,

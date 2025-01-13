@@ -12,7 +12,6 @@ use super::{Convert, Db, DbResult, Literal, Row};
 
 pub struct DocumentAuthority {
     pub aid: Eid,
-    #[expect(unused)]
     pub url: String,
     pub hash: [u8; 32],
 }

@@ -13,7 +13,7 @@ pub enum PdpError {
 }
 
 /// The parameters to an policy-based access control evaluation.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct AccessControlParams {
     pub subject_eids: FnvHashMap<u128, u128>,
     pub subject_attrs: FnvHashSet<u128>,
@@ -24,7 +24,7 @@ pub struct AccessControlParams {
 /// The state of the policy engine.
 ///
 /// Contains compiled policies and their triggers.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct PolicyEngine {
     policies: FnvHashMap<PolicyId, Policy>,
 
@@ -33,6 +33,7 @@ pub struct PolicyEngine {
 }
 
 /// The policy trigger maps a set of attributes to a policy.
+#[derive(Debug)]
 struct PolicyTrigger {
     /// The set of attributes that has to match for this policy to trigger
     pub attr_matcher: BTreeSet<u128>,
@@ -44,11 +45,12 @@ struct PolicyTrigger {
 /// A placeholder for how to refer to a local policy
 type PolicyId = u128;
 
+#[derive(Debug)]
 pub struct Policy {
     bytecode: Vec<u8>,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 enum StackItem<'a> {
     Uint(u64),
     IdSet(&'a FnvHashSet<u128>),
@@ -177,14 +179,20 @@ impl PolicyEngine {
 }
 
 fn eval_policy(mut pc: &[u8], params: &AccessControlParams) -> Result<Outcome, PdpError> {
+    // println!("eval policy");
+
     let mut stack: Vec<StackItem> = Vec::with_capacity(16);
 
     while let Some(code) = pc.first() {
+        // println!("    stack {stack:?}");
+
         pc = &pc[1..];
 
         let Ok(code) = Bytecode::try_from(*code) else {
             return Err(PdpError::Bug);
         };
+
+        // println!("  eval code {code:?}");
 
         match code {
             Bytecode::LoadSubjectId => {
@@ -227,7 +235,13 @@ fn eval_policy(mut pc: &[u8], params: &AccessControlParams) -> Result<Outcome, P
                 let Some(b) = stack.pop() else {
                     return Err(PdpError::Bug);
                 };
-                stack.push(StackItem::Uint(if a == b { 1 } else { 0 }));
+                let is_eq = match (a, b) {
+                    (StackItem::Id(a), StackItem::Id(b)) => a == b,
+                    (StackItem::IdSet(set), StackItem::Id(id)) => set.contains(&id),
+                    (StackItem::Id(id), StackItem::IdSet(set)) => set.contains(&id),
+                    _ => false,
+                };
+                stack.push(StackItem::Uint(if is_eq { 1 } else { 0 }));
             }
             Bytecode::SupersetOf => {
                 let Some(StackItem::IdSet(a)) = stack.pop() else {
@@ -277,7 +291,7 @@ fn eval_policy(mut pc: &[u8], params: &AccessControlParams) -> Result<Outcome, P
                     return Err(PdpError::Bug);
                 };
                 if u > 0 {
-                    return Err(PdpError::Bug);
+                    return Ok(Outcome::Allow);
                 }
             }
             Bytecode::TrueThenDeny => {

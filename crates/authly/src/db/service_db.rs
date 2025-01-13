@@ -2,6 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use authly_common::{
     policy::{code::to_bytecode, pdp::PolicyEngine},
+    service::PropertyMapping,
     ObjId,
 };
 use hiqlite::{params, Param};
@@ -157,6 +158,62 @@ pub async fn list_service_properties(
     Ok(properties.into_values().collect())
 }
 
+pub async fn get_service_property_mapping(
+    deps: &impl Db,
+    svc_eid: Eid,
+    property_kind: ServicePropertyKind,
+) -> DbResult<PropertyMapping> {
+    let rows = match property_kind {
+        ServicePropertyKind::Entity => {
+            deps.query_raw(
+                indoc! {
+                    "
+                    SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
+                    FROM svc_ent_prop p
+                    JOIN svc_ent_attrlabel a ON a.prop_id = p.id
+                    WHERE p.svc_eid = $1
+                    ",
+                }
+                .into(),
+                params!(svc_eid.as_param()),
+            )
+            .await?
+        }
+        ServicePropertyKind::Resource => {
+            deps.query_raw(
+                indoc! {
+                    "
+                    SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
+                    FROM svc_res_prop p
+                    JOIN svc_res_attrlabel a ON a.prop_id = p.id
+                    WHERE p.svc_eid = $1
+                    ",
+                }
+                .into(),
+                params!(svc_eid.as_param()),
+            )
+            .await?
+        }
+    };
+
+    let mut mapping = PropertyMapping::default();
+
+    for mut row in rows {
+        let prop_label = row.get_text("plabel");
+        let attr_label = row.get_text("alabel");
+        let attr_id = ObjId::from_row(&mut row, "attrid");
+
+        mapping
+            .properties
+            .entry(prop_label)
+            .or_default()
+            .attributes
+            .insert(attr_label, attr_id);
+    }
+
+    Ok(mapping)
+}
+
 pub async fn list_service_policies(
     deps: &impl Db,
     aid: Eid,
@@ -230,15 +287,21 @@ pub async fn load_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Policy
         let attr_matcher_pc = row.get_blob("attr_matcher_pc");
         let policy_ids_pc = row.get_blob("policy_ids_pc");
 
-        let attr_matcher: BTreeSet<u128> = postcard::from_bytes(&attr_matcher_pc).unwrap();
-        let policy_ids: BTreeSet<u128> = postcard::from_bytes(&policy_ids_pc).unwrap();
+        let attr_matcher: BTreeSet<ObjId> = postcard::from_bytes(&attr_matcher_pc).unwrap();
+        let policy_ids: BTreeSet<ObjId> = postcard::from_bytes(&policy_ids_pc).unwrap();
 
         if policy_ids.len() > 1 {
             for policy_id in policy_ids {
-                policy_engine.add_policy_trigger(attr_matcher.clone(), policy_id);
+                policy_engine.add_policy_trigger(
+                    attr_matcher.iter().copied().map(|id| id.value()).collect(),
+                    policy_id.value(),
+                );
             }
         } else if let Some(policy_id) = policy_ids.into_iter().next() {
-            policy_engine.add_policy_trigger(attr_matcher, policy_id);
+            policy_engine.add_policy_trigger(
+                attr_matcher.iter().copied().map(|id| id.value()).collect(),
+                policy_id.value(),
+            );
         }
     }
 

@@ -17,16 +17,17 @@ use tower_server::{Scheme, TlsConfigFactory};
 use tracing::info;
 use util::protocol_router::ProtocolRouter;
 
+// These are public for the integration test crate
 pub mod access_token;
 pub mod cert;
+pub mod db;
+pub mod document;
 pub mod mtls;
 pub mod session;
 
 mod access_control;
 mod authority;
 mod broadcast;
-mod db;
-mod document;
 mod env_config;
 mod k8s;
 mod openapi;
@@ -36,7 +37,7 @@ mod util;
 
 #[derive(rust_embed::Embed)]
 #[folder = "migrations"]
-struct Migrations;
+pub struct Migrations;
 
 const HIQLITE_API_PORT: u16 = 10444;
 const HIQLITE_RAFT_PORT: u16 = 10445;
