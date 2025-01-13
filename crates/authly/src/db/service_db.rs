@@ -5,9 +5,9 @@ use hiqlite::{params, Param};
 use indoc::indoc;
 use tracing::warn;
 
-use crate::Eid;
+use crate::{policy::compiler::expr::Expr, Eid};
 
-use super::{Convert, Db, DbResult, Row};
+use super::{Convert, Db, DbError, DbResult, Row};
 
 pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Option<String>> {
     let Some(mut row) = deps
@@ -123,4 +123,47 @@ pub async fn list_service_properties(
     }
 
     Ok(properties.into_values().collect())
+}
+
+#[derive(Debug)]
+pub struct ServicePolicy {
+    pub id: ObjId,
+    pub svc_eid: Eid,
+    pub label: String,
+    pub expr: Expr,
+}
+
+pub async fn list_service_policies(
+    deps: &impl Db,
+    aid: Eid,
+    svc_eid: Eid,
+) -> DbResult<Vec<ServicePolicy>> {
+    let rows = deps
+        .query_raw(
+            "SELECT id, label, expr_pc FROM svc_policy WHERE aid = $1 AND svc_eid = $2".into(),
+            params!(aid.as_param(), svc_eid.as_param()),
+        )
+        .await?;
+
+    let mut policies = Vec::with_capacity(rows.len());
+
+    for mut row in rows {
+        let id = ObjId::from_row(&mut row, "id");
+        let label = row.get_text("label");
+        let expr_postcard = row.get_blob("expr_pc");
+
+        let expr = postcard::from_bytes(&expr_postcard).map_err(|err| {
+            tracing::error!(?err, "policy expr postcard error");
+            DbError::BinaryEncoding
+        })?;
+
+        policies.push(ServicePolicy {
+            id,
+            svc_eid,
+            label,
+            expr,
+        });
+    }
+
+    Ok(policies)
 }

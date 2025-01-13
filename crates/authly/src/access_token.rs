@@ -1,3 +1,11 @@
+//! An access token represents a verified user of services.
+//!
+//! Authly itself is such a service.
+//!
+//! The access token is implemented as a JSON Web Token.
+//! The access token is used directly when doing access control.
+//!
+
 use authly_common::{
     access_token::{Authly, AuthlyAccessTokenClaims},
     ObjId,

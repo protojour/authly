@@ -41,15 +41,17 @@ fn test_env() -> (Namespace, CompiledDocumentData) {
 fn to_expr(src: &str) -> Expr {
     let (namespace, doc_data) = test_env();
     PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
-        .parse_and_check(src)
+        .compile(src)
         .unwrap()
+        .0
 }
 
 fn to_opcodes(src: &str) -> Vec<OpCode> {
     let (namespace, doc_data) = test_env();
     PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
-        .compile_opcodes(src)
+        .compile(src)
         .unwrap()
+        .1
 }
 
 fn subject_entity_equals_svc() -> Expr {

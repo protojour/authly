@@ -47,6 +47,7 @@ openraft = { version = "0.9", default-features = false }
 pem = "3"
 pest = "2"
 pest_derive = "2"
+postcard = { version = "1", default-features = false, features = ["alloc"] }
 rand = "0.8"
 rcgen = { git = "https://github.com/rustls/rcgen.git", branch = "main", features = [
     "x509-parser",

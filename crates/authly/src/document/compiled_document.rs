@@ -5,7 +5,7 @@ use authly_common::{
     BuiltinID, Eid, ObjId,
 };
 
-use crate::policy::error::PolicyCompileErrorKind;
+use crate::{db::service_db::ServicePolicy, policy::error::PolicyCompileErrorKind};
 
 #[derive(Debug)]
 #[expect(unused)]
@@ -53,6 +53,8 @@ pub struct CompiledDocumentData {
 
     pub svc_ent_props: Vec<CompiledProperty>,
     pub svc_res_props: Vec<CompiledProperty>,
+
+    pub svc_policies: Vec<ServicePolicy>,
 }
 
 #[derive(Debug)]

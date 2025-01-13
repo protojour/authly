@@ -26,6 +26,9 @@ pub enum DbError {
 
     #[error("timestamp encoding")]
     Timestamp,
+
+    #[error("binary encoding")]
+    BinaryEncoding,
 }
 
 impl From<hiqlite::Error> for DbError {

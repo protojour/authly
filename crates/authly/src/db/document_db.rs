@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use authly_common::Eid;
 use hiqlite::{params, Param, Params};
+use indoc::indoc;
 use itertools::Itertools;
 use tracing::debug;
 
@@ -182,8 +183,20 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
 
         for rprop in data.svc_res_props {
             stmts.push((
-                "INSERT INTO svc_res_prop (aid, id, svc_eid, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET label = $4".into(),
-                params!(aid.as_param(), rprop.id.as_param(), rprop.svc_eid.as_param(), &rprop.label),
+                indoc! {
+                    "
+                    INSERT INTO svc_res_prop (aid, id, svc_eid, label)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT DO UPDATE SET label = $4
+                    "
+                }
+                .into(),
+                params!(
+                    aid.as_param(),
+                    rprop.id.as_param(),
+                    rprop.svc_eid.as_param(),
+                    &rprop.label
+                ),
             ));
 
             for attr in rprop.attributes {
@@ -192,6 +205,35 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
                     params!(aid.as_param(), attr.id.as_param(), rprop.id.as_param(), attr.label)
                 ));
             }
+        }
+    }
+
+    // service policies
+    {
+        stmts.push(gc(
+            "svc_policy",
+            NotIn("id", data.svc_policies.iter().map(|p| p.id)),
+            aid,
+        ));
+
+        for policy in data.svc_policies {
+            stmts.push((
+                indoc! {
+                    "
+                    INSERT INTO svc_policy (aid, id, svc_eid, label, expr_pc)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT DO UPDATE SET label = $4, expr_pc = $5
+                    "
+                }
+                .into(),
+                params!(
+                    aid.as_param(),
+                    policy.id.as_param(),
+                    policy.svc_eid.as_param(),
+                    policy.label,
+                    postcard::to_allocvec(&policy.expr).unwrap()
+                ),
+            ));
         }
     }
 

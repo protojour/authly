@@ -1,4 +1,4 @@
-use authly_common::policy::code::{to_bytecode, OpCode};
+use authly_common::policy::code::OpCode;
 use expr::Expr;
 use parser::{PolicyParser, Rule};
 use pest::{
@@ -15,8 +15,9 @@ use super::{
     PolicyOutcome,
 };
 
+pub mod expr;
+
 mod codegen;
-pub(super) mod expr;
 mod parse_check;
 mod parser;
 
@@ -49,18 +50,19 @@ impl<'a> PolicyCompiler<'a> {
         }
     }
 
-    pub fn compile(&mut self, input: &str) -> Result<Vec<u8>, Vec<PolicyCompileError>> {
+    /// Compile. Returns expression and resulting opcodes
+    // FIXME: policy is scoped to one service and can't use properties for other services
+    pub fn compile(&mut self, input: &str) -> Result<(Expr, Vec<OpCode>), Vec<PolicyCompileError>> {
         let expr = self.parse_and_check(input)?;
 
-        self.codegen_expr_root(expr);
+        self.codegen_expr_root(&expr);
 
         let ops = std::mem::take(&mut self.ops);
-        let bytecode = to_bytecode(&ops);
 
-        Ok(bytecode)
+        Ok((expr, ops))
     }
 
-    pub fn parse_and_check(&mut self, input: &str) -> Result<Expr, Vec<PolicyCompileError>> {
+    fn parse_and_check(&mut self, input: &str) -> Result<Expr, Vec<PolicyCompileError>> {
         let expr_root_pair = pest_parse_policy_as_expr(input)?;
         let parse_ctx = ParseCtx {
             expr_pratt: PrattParser::<Rule>::new()
@@ -75,21 +77,6 @@ impl<'a> PolicyCompiler<'a> {
             Err(std::mem::take(&mut self.errors))
         } else {
             Ok(expr)
-        }
-    }
-
-    #[cfg(test)]
-    pub(super) fn compile_opcodes(
-        &mut self,
-        input: &str,
-    ) -> Result<Vec<OpCode>, Vec<PolicyCompileError>> {
-        let expr = self.parse_and_check(input)?;
-        self.codegen_expr_root(expr);
-
-        if !self.errors.is_empty() {
-            Err(std::mem::take(&mut self.errors))
-        } else {
-            Ok(std::mem::take(&mut self.ops))
         }
     }
 }

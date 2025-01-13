@@ -92,6 +92,16 @@ CREATE TABLE svc_res_attrlabel (
     UNIQUE (prop_id, label)
 );
 
+CREATE TABLE svc_policy (
+    aid BLOB NOT NULL,
+    id BLOB NOT NULL PRIMARY KEY,
+    svc_eid BLOB NOT NULL,
+    label TEXT NOT NULL,
+    expr_pc BLOB NOT NULL,
+
+    UNIQUE (svc_eid, label)
+);
+
 CREATE TABLE svc_ext_k8s_service_account (
     aid BLOB NOT NULL,
     svc_eid BLOB NOT NULL,

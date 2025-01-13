@@ -8,7 +8,7 @@ use super::{
 };
 
 impl PolicyCompiler<'_> {
-    pub fn codegen_expr_root(&mut self, expr: Expr) {
+    pub fn codegen_expr_root(&mut self, expr: &Expr) {
         self.codegen_expr(expr);
         self.ops.push(match self.outcome {
             PolicyOutcome::Allow => OpCode::TrueThenAllow,
@@ -16,7 +16,7 @@ impl PolicyCompiler<'_> {
         });
     }
 
-    pub fn codegen_expr(&mut self, expr: Expr) {
+    pub fn codegen_expr(&mut self, expr: &Expr) {
         match expr {
             Expr::Equals(lhs, rhs) => {
                 self.codegen_term(lhs);
@@ -31,28 +31,28 @@ impl PolicyCompiler<'_> {
                 self.ops.push(OpCode::IdSetContains);
             }
             Expr::And(lhs, rhs) => {
-                self.codegen_expr(*lhs);
-                self.codegen_expr(*rhs);
+                self.codegen_expr(lhs);
+                self.codegen_expr(rhs);
 
                 // TODO: Make lazy?
                 self.ops.push(OpCode::And);
             }
             Expr::Or(lhs, rhs) => {
-                self.codegen_expr(*lhs);
-                self.codegen_expr(*rhs);
+                self.codegen_expr(lhs);
+                self.codegen_expr(rhs);
 
                 // TODO: Make lazy?
                 self.ops.push(OpCode::Or);
             }
             Expr::Not(expr) => {
-                self.codegen_expr(*expr);
+                self.codegen_expr(expr);
                 self.ops.push(OpCode::Not);
             }
             Expr::Error => {}
         }
     }
 
-    fn codegen_term(&mut self, term: Term) {
+    fn codegen_term(&mut self, term: &Term) {
         match term {
             Term::Label(label) => self.ops.push(OpCode::LoadConstId(label.0)),
             Term::Field(global, label) => match global {

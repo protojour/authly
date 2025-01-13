@@ -1,6 +1,14 @@
-//! Policy expression after name lookups
+//! Policy expression after name lookups.
+//!
+//! The policy expression is stored in serialized form in the database,
+//! so it's to be considered a stable format and requires care when extending.
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+use serde::{Deserialize, Serialize};
+
+/// Policy expression.
+///
+/// NB: The order of enum variants matters for postcard deserialization from DB.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Expr {
     Equals(Term, Term),
     Contains(Term, Term),
@@ -10,7 +18,10 @@ pub enum Expr {
     Error,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+/// Policy term.
+///
+/// NB: The order of enum variants matters for postcard deserialization from DB.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Term {
     Label(Label),
     Field(Global, Label),
@@ -19,10 +30,13 @@ pub enum Term {
 }
 
 /// A label resolved to an ID
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct Label(pub u128);
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+/// Global object.
+///
+/// NB: The order of enum variants matters for postcard deserialization from DB.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Global {
     Subject,
     Resource,

@@ -9,8 +9,8 @@ use authly_common::{
 use serde_spanned::Spanned;
 use tracing::debug;
 
-use crate::db::service_db::ServicePropertyKind;
 use crate::db::service_db::{self, ServiceProperty};
+use crate::db::service_db::{ServicePolicy, ServicePropertyKind};
 use crate::db::Db;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, EntityIdent, EntityPassword,
@@ -50,6 +50,7 @@ struct CompileCtx {
 
     eprop_cache: HashMap<Eid, Vec<ServiceProperty>>,
     rprop_cache: HashMap<Eid, Vec<ServiceProperty>>,
+    policy_cache: HashMap<Eid, Vec<ServicePolicy>>,
 
     errors: Errors,
 }
@@ -77,6 +78,7 @@ pub async fn compile_doc(
         namespace: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
+        policy_cache: Default::default(),
         errors: Default::default(),
     };
     let mut data = CompiledDocumentData {
@@ -125,7 +127,7 @@ pub async fn compile_doc(
     .await;
 
     process_attribute_assignments(&mut data, &mut comp);
-    process_policies(doc.policy, &mut data, &mut comp);
+    process_policies(doc.policy, &mut data, &mut comp, db).await;
 
     if !comp.errors.errors.is_empty() {
         Err(comp.errors.errors)
@@ -330,8 +332,24 @@ fn process_attribute_assignments(data: &mut CompiledDocumentData, comp: &mut Com
     }
 }
 
-fn process_policies(policies: Vec<Policy>, data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
+async fn process_policies(
+    policies: Vec<Policy>,
+    data: &mut CompiledDocumentData,
+    comp: &mut CompileCtx,
+    db: &impl Db,
+) {
     for policy in policies {
+        let Some(svc_eid) = data
+            .services
+            .iter()
+            .find(|svc| svc.label.get_ref() == policy.service.as_ref())
+            .map(|svc| *svc.eid.get_ref())
+        else {
+            comp.errors
+                .push(policy.service.span(), CompileError::UnresolvedService);
+            continue;
+        };
+
         let (src, outcome) = match (policy.allow, policy.deny) {
             (Some(src), None) => (src, PolicyOutcome::Allow),
             (None, Some(src)) => (src, PolicyOutcome::Deny),
@@ -349,23 +367,48 @@ fn process_policies(policies: Vec<Policy>, data: &mut CompiledDocumentData, comp
             }
         };
 
-        let _compiled_policy =
-            match PolicyCompiler::new(&comp.namespace, data, outcome).compile(src.as_ref()) {
-                Ok(compiled_policy) => compiled_policy,
-                Err(errors) => {
-                    for error in errors {
-                        // translate the policy error span into the document
-                        let mut error_span = error.span;
-                        error_span.start += src.span().start;
-                        error_span.end += src.span().end;
+        let mut policy_compiler = PolicyCompiler::new(&comp.namespace, data, outcome);
 
-                        comp.errors
-                            .push(error_span, CompileError::Policy(error.kind));
-                    }
+        let (expr, _bytecode) = match policy_compiler.compile(src.as_ref()) {
+            Ok(compiled_policy) => compiled_policy,
+            Err(errors) => {
+                for error in errors {
+                    // translate the policy error span into the document
+                    let mut error_span = error.span;
+                    error_span.start += src.span().start;
+                    error_span.end += src.span().end;
 
-                    continue;
+                    comp.errors
+                        .push(error_span, CompileError::Policy(error.kind));
                 }
-            };
+
+                continue;
+            }
+        };
+
+        let db_cache = comp.db_service_policies_cached(svc_eid, db).await;
+        let cached_policy = db_cache
+            .iter()
+            .flat_map(|c| c.iter())
+            .find(|db_policy| &db_policy.label == policy.label.as_ref());
+
+        let service_policy = if let Some(cached_policy) = cached_policy {
+            ServicePolicy {
+                id: cached_policy.id,
+                svc_eid,
+                label: policy.label.into_inner(),
+                expr,
+            }
+        } else {
+            ServicePolicy {
+                id: ObjId::random(),
+                svc_eid,
+                label: policy.label.into_inner(),
+                expr,
+            }
+        };
+
+        data.svc_policies.push(service_policy);
     }
 }
 
@@ -478,6 +521,30 @@ impl CompileCtx {
                             return None;
                         }
                     };
+
+                Some(vacant.insert(db_props))
+            }
+        }
+    }
+
+    async fn db_service_policies_cached<'s>(
+        &'s mut self,
+        svc_eid: Eid,
+        db: &impl Db,
+    ) -> Option<&'s Vec<ServicePolicy>> {
+        let cache = &mut self.policy_cache;
+
+        match cache.entry(svc_eid) {
+            Entry::Occupied(occupied) => Some(occupied.into_mut()),
+            Entry::Vacant(vacant) => {
+                let db_props = match service_db::list_service_policies(db, self.aid, svc_eid).await
+                {
+                    Ok(db_props) => db_props,
+                    Err(e) => {
+                        self.errors.push(0..0, CompileError::Db(e.to_string()));
+                        return None;
+                    }
+                };
 
                 Some(vacant.insert(db_props))
             }
