@@ -100,6 +100,19 @@ async fn test_access_control_basic() {
         );
 
         assert_eq!(
+            Outcome::Deny,
+            engine
+                .eval(&AccessControlParams {
+                    resource_attrs: props
+                        .resource
+                        .translate([("kind", "trousers"), ("verb", "wear")]),
+                    ..Default::default()
+                })
+                .unwrap(),
+            "succifient entity environment allows"
+        );
+
+        assert_eq!(
             Outcome::Allow,
             engine
                 .eval(&AccessControlParams {
