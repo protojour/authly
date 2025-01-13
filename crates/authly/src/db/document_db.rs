@@ -220,9 +220,9 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
             stmts.push((
                 indoc! {
                     "
-                    INSERT INTO svc_policy (aid, id, svc_eid, label, expr_pc)
+                    INSERT INTO svc_policy (aid, id, svc_eid, label, policy_pc)
                     VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT DO UPDATE SET label = $4, expr_pc = $5
+                    ON CONFLICT DO UPDATE SET label = $4, policy_pc = $5
                     "
                 }
                 .into(),
@@ -231,7 +231,7 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
                     policy.id.as_param(),
                     policy.svc_eid.as_param(),
                     policy.label,
-                    postcard::to_allocvec(&policy.expr).unwrap()
+                    postcard::to_allocvec(&policy.policy).unwrap()
                 ),
             ));
         }

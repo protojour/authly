@@ -1,4 +1,5 @@
 use authly_common::policy::code::OpCode;
+use codegen::Codegen;
 use expr::Expr;
 use parser::{PolicyParser, Rule};
 use pest::{
@@ -25,7 +26,6 @@ pub struct PolicyCompiler<'a> {
     namespace: &'a Namespace,
     doc_data: &'a CompiledDocumentData,
     outcome: PolicyOutcome,
-    ops: Vec<OpCode>,
 
     errors: Vec<PolicyCompileError>,
 }
@@ -45,9 +45,15 @@ impl<'a> PolicyCompiler<'a> {
             namespace,
             doc_data,
             outcome,
-            ops: vec![],
             errors: vec![],
         }
+    }
+
+    pub fn expr_to_opcodes(expr: &Expr, outcome: PolicyOutcome) -> Vec<OpCode> {
+        let mut codegen = Codegen::default();
+        codegen.codegen_expr_root(expr, outcome);
+
+        codegen.ops
     }
 
     /// Compile. Returns expression and resulting opcodes
@@ -55,11 +61,10 @@ impl<'a> PolicyCompiler<'a> {
     pub fn compile(&mut self, input: &str) -> Result<(Expr, Vec<OpCode>), Vec<PolicyCompileError>> {
         let expr = self.parse_and_check(input)?;
 
-        self.codegen_expr_root(&expr);
+        let mut codegen = Codegen::default();
+        codegen.codegen_expr_root(&expr, self.outcome);
 
-        let ops = std::mem::take(&mut self.ops);
-
-        Ok((expr, ops))
+        Ok((expr, codegen.ops))
     }
 
     fn parse_and_check(&mut self, input: &str) -> Result<Expr, Vec<PolicyCompileError>> {

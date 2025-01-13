@@ -1,9 +1,6 @@
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
-    policy::{
-        code::Outcome,
-        pdp::{PolicyEngine, PolicyEnv},
-    },
+    policy::{code::Outcome, pdp::AccessControlParams},
     proto::service::{
         self as proto,
         authly_service_server::{AuthlyService, AuthlyServiceServer},
@@ -20,7 +17,10 @@ use tracing::warn;
 use crate::{
     access_control::{self, AuthorizedPeerService},
     access_token,
-    db::{entity_db, service_db::find_service_label_by_eid},
+    db::{
+        entity_db,
+        service_db::{self, find_service_label_by_eid},
+    },
     mtls::PeerServiceEID,
     session::{authenticate_session_cookie, find_session_cookie, Session},
     AuthlyCtx,
@@ -114,26 +114,26 @@ impl AuthlyService for AuthlyServiceServerImpl {
         .await?;
         let opt_user_claims = get_access_token_opt(request.metadata(), &self.ctx)?;
 
-        let mut policy_env = PolicyEnv::default();
+        let mut params = AccessControlParams::default();
 
         // svc attributes
         for attr in peer_svc.attributes {
-            policy_env.subject_attrs.insert(attr.value());
+            params.subject_attrs.insert(attr.value());
         }
 
         // FIXME: should support multiple entity IDs in environment?
         if let Some(user_claims) = opt_user_claims {
             // user attributes
             for attr in user_claims.authly.attributes {
-                policy_env.subject_attrs.insert(attr.value());
+                params.subject_attrs.insert(attr.value());
             }
 
-            policy_env.subject_eids.insert(
+            params.subject_eids.insert(
                 BuiltinID::PropEntity.to_obj_id().value(),
                 user_claims.authly.user_eid.value(),
             );
         } else {
-            policy_env.subject_eids.insert(
+            params.subject_eids.insert(
                 BuiltinID::PropEntity.to_obj_id().value(),
                 peer_svc.eid.value(),
             );
@@ -144,16 +144,13 @@ impl AuthlyService for AuthlyServiceServerImpl {
             let obj_id = ObjId::from_bytes(&resource_attr)
                 .ok_or_else(|| tonic::Status::invalid_argument("invalid attribute"))?;
 
-            policy_env.resource_attrs.insert(obj_id.value());
+            params.resource_attrs.insert(obj_id.value());
         }
 
-        // TODO: load triggers and policies
-        let policy_engine = PolicyEngine {
-            attr_triggers: Default::default(),
-            policies: Default::default(),
-        };
+        // TODO: Should definitely cache service policy engine in memory
+        let policy_engine = service_db::load_policy_engine(&self.ctx, peer_svc.eid).await?;
 
-        let outcome = match policy_engine.eval(&policy_env) {
+        let outcome = match policy_engine.eval(&params) {
             Ok(outcome) => {
                 if matches!(outcome, Outcome::Allow) {
                     1

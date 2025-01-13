@@ -97,7 +97,7 @@ CREATE TABLE svc_policy (
     id BLOB NOT NULL PRIMARY KEY,
     svc_eid BLOB NOT NULL,
     label TEXT NOT NULL,
-    expr_pc BLOB NOT NULL,
+    policy_pc BLOB NOT NULL,
 
     UNIQUE (svc_eid, label)
 );

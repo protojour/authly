@@ -1,11 +1,21 @@
 use std::collections::HashMap;
 
-use authly_common::ObjId;
+use authly_common::{
+    policy::{code::to_bytecode, pdp::PolicyEngine},
+    ObjId,
+};
 use hiqlite::{params, Param};
 use indoc::indoc;
+use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::{policy::compiler::expr::Expr, Eid};
+use crate::{
+    policy::{
+        compiler::{expr::Expr, PolicyCompiler},
+        PolicyOutcome,
+    },
+    Eid,
+};
 
 use super::{Convert, Db, DbError, DbResult, Row};
 
@@ -130,6 +140,13 @@ pub struct ServicePolicy {
     pub id: ObjId,
     pub svc_eid: Eid,
     pub label: String,
+    pub policy: PolicyPostcard,
+}
+
+/// The structure of how a policy in stored in postcard format in the database
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PolicyPostcard {
+    pub outcome: PolicyOutcome,
     pub expr: Expr,
 }
 
@@ -140,7 +157,7 @@ pub async fn list_service_policies(
 ) -> DbResult<Vec<ServicePolicy>> {
     let rows = deps
         .query_raw(
-            "SELECT id, label, expr_pc FROM svc_policy WHERE aid = $1 AND svc_eid = $2".into(),
+            "SELECT id, label, policy_pc FROM svc_policy WHERE aid = $1 AND svc_eid = $2".into(),
             params!(aid.as_param(), svc_eid.as_param()),
         )
         .await?;
@@ -150,9 +167,8 @@ pub async fn list_service_policies(
     for mut row in rows {
         let id = ObjId::from_row(&mut row, "id");
         let label = row.get_text("label");
-        let expr_postcard = row.get_blob("expr_pc");
 
-        let expr = postcard::from_bytes(&expr_postcard).map_err(|err| {
+        let policy = postcard::from_bytes(&row.get_blob("policy_pc")).map_err(|err| {
             tracing::error!(?err, "policy expr postcard error");
             DbError::BinaryEncoding
         })?;
@@ -161,9 +177,39 @@ pub async fn list_service_policies(
             id,
             svc_eid,
             label,
-            expr,
+            policy,
         });
     }
 
     Ok(policies)
+}
+
+/// Load the policy engine for a service
+pub async fn load_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<PolicyEngine> {
+    let policy_rows = deps
+        .query_raw(
+            "SELECT id, policy_pc FROM svc_policy WHERE svc_eid = $1".into(),
+            params!(svc_eid.as_param()),
+        )
+        .await?;
+
+    let mut policy_engine = PolicyEngine::default();
+
+    for mut row in policy_rows {
+        let id = ObjId::from_row(&mut row, "id");
+
+        let policy_postcard: PolicyPostcard = postcard::from_bytes(&row.get_blob("policy_pc"))
+            .map_err(|err| {
+                tracing::error!(?err, "policy expr postcard error");
+                DbError::BinaryEncoding
+            })?;
+
+        let opcodes =
+            PolicyCompiler::expr_to_opcodes(&policy_postcard.expr, policy_postcard.outcome);
+        let bytecode = to_bytecode(&opcodes);
+
+        policy_engine.add_policy(id.value(), bytecode);
+    }
+
+    Ok(policy_engine)
 }

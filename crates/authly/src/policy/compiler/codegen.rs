@@ -2,15 +2,17 @@ use authly_common::{policy::code::OpCode, BuiltinID};
 
 use crate::policy::PolicyOutcome;
 
-use super::{
-    expr::{Expr, Global, Term},
-    PolicyCompiler,
-};
+use super::expr::{Expr, Global, Term};
 
-impl PolicyCompiler<'_> {
-    pub fn codegen_expr_root(&mut self, expr: &Expr) {
+#[derive(Default)]
+pub struct Codegen {
+    pub ops: Vec<OpCode>,
+}
+
+impl Codegen {
+    pub fn codegen_expr_root(&mut self, expr: &Expr, outcome: PolicyOutcome) {
         self.codegen_expr(expr);
-        self.ops.push(match self.outcome {
+        self.ops.push(match outcome {
             PolicyOutcome::Allow => OpCode::TrueThenAllow,
             PolicyOutcome::Deny => OpCode::TrueThenDeny,
         });

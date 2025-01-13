@@ -9,7 +9,7 @@ use authly_common::{
 use serde_spanned::Spanned;
 use tracing::debug;
 
-use crate::db::service_db::{self, ServiceProperty};
+use crate::db::service_db::{self, PolicyPostcard, ServiceProperty};
 use crate::db::service_db::{ServicePolicy, ServicePropertyKind};
 use crate::db::Db;
 use crate::document::compiled_document::{
@@ -392,19 +392,21 @@ async fn process_policies(
             .flat_map(|c| c.iter())
             .find(|db_policy| &db_policy.label == policy.label.as_ref());
 
+        let policy_postcard = PolicyPostcard { outcome, expr };
+
         let service_policy = if let Some(cached_policy) = cached_policy {
             ServicePolicy {
                 id: cached_policy.id,
                 svc_eid,
                 label: policy.label.into_inner(),
-                expr,
+                policy: policy_postcard,
             }
         } else {
             ServicePolicy {
                 id: ObjId::random(),
                 svc_eid,
                 label: policy.label.into_inner(),
-                expr,
+                policy: policy_postcard,
             }
         };
 
