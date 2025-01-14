@@ -19,11 +19,11 @@ async fn test_access_control_basic() {
         [authly-document]
         id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 
-        [[service]]
+        [[service-entity]]
         eid = "272878235402143010663560859986869906352"
         label = "svc_a"
 
-        [[service]]
+        [[service-entity]]
         eid = "34343434343434343434343434343434343434"
         label = "svc_b"
 

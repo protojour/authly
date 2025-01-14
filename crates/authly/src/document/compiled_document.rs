@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use authly_common::{
-    document::{Entity, Service},
+    document,
     id::{BuiltinID, Eid, ObjId},
 };
 
@@ -39,8 +39,8 @@ pub struct DocumentMeta {
 
 #[derive(Default, Debug)]
 pub struct CompiledDocumentData {
-    pub users: Vec<Entity>,
-    pub services: Vec<Service>,
+    pub entities: Vec<document::Entity>,
+    pub service_entities: Vec<document::ServiceEntity>,
 
     /// Attributes to set on entities
     pub entity_attribute_assignments: Vec<CompiledEntityAttributeAssignment>,

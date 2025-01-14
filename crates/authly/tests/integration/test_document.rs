@@ -12,7 +12,7 @@ async fn test_store_doc_trivial() {
         [authly-document]
         id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 
-        [[service]]
+        [[service-entity]]
         eid = "272878235402143010663560859986869906352"
         label = "service1"
         attributes = ["authly:role/authenticate", "authly:role/get_access_token"]
@@ -20,7 +20,7 @@ async fn test_store_doc_trivial() {
             { namespace = "authly-test", name = "testservice" },
         ] }
 
-        [[service]]
+        [[service-entity]]
         eid = "5483905438509438509358943058439058595"
         label = "service2"
         "#

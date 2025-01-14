@@ -82,16 +82,19 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
     {
         stmts.push(gc(
             "svc",
-            NotIn("eid", data.services.iter().map(|s| *s.eid.as_ref())),
+            NotIn("eid", data.service_entities.iter().map(|s| *s.eid.as_ref())),
             aid,
         ));
         stmts.push(gc(
             "svc_ext_k8s_service_account",
-            NotIn("svc_eid", data.services.iter().map(|s| *s.eid.as_ref())),
+            NotIn(
+                "svc_eid",
+                data.service_entities.iter().map(|s| *s.eid.as_ref()),
+            ),
             aid,
         ));
 
-        for service in data.services {
+        for service in data.service_entities {
             stmts.push((
                 "INSERT INTO svc (aid, eid, label) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET label = $3"
                     .into(),

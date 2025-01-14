@@ -19,8 +19,8 @@ pub struct Document {
     #[serde(default, rename = "password-hash")]
     pub password_hash: Vec<PasswordHash>,
 
-    #[serde(default)]
-    pub service: Vec<Service>,
+    #[serde(default, rename = "service-entity")]
+    pub service_entity: Vec<ServiceEntity>,
 
     #[serde(default)]
     pub members: Vec<Members>,
@@ -101,7 +101,7 @@ pub struct EntityProperty {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct Service {
+pub struct ServiceEntity {
     pub eid: Spanned<Eid>,
     pub label: Spanned<String>,
 

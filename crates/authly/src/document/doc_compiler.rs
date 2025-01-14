@@ -82,8 +82,8 @@ pub async fn compile_doc(
         errors: Default::default(),
     };
     let mut data = CompiledDocumentData {
-        users: doc.entity,
-        services: doc.service,
+        entities: doc.entity,
+        service_entities: doc.service_entity,
         ..Default::default()
     };
 
@@ -145,7 +145,7 @@ fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
         comp.namespace.insert_builtin_property(builtin_prop);
     }
 
-    for user in &mut data.users {
+    for user in &mut data.entities {
         if let Some(label) = &user.label {
             comp.ns_add(label, NamespaceEntry::Entity(*user.eid.get_ref()));
         }
@@ -159,7 +159,7 @@ fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
         }
     }
 
-    for service in &data.services {
+    for service in &data.service_entities {
         comp.ns_add(
             &service.label,
             NamespaceEntry::Service(*service.eid.get_ref()),
@@ -292,13 +292,13 @@ async fn compile_service_property(
 fn process_attribute_assignments(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
     let mut assignments: Vec<(Eid, Spanned<QualifiedAttributeName>)> = vec![];
 
-    for user in &mut data.users {
+    for user in &mut data.entities {
         for attribute in std::mem::take(&mut user.attributes) {
             assignments.push((*user.eid.get_ref(), attribute));
         }
     }
 
-    for service in &mut data.services {
+    for service in &mut data.service_entities {
         for attribute in std::mem::take(&mut service.attributes) {
             assignments.push((*service.eid.get_ref(), attribute));
         }
@@ -333,7 +333,7 @@ async fn process_policies(
 ) {
     for policy in policies {
         let Some(svc_eid) = data
-            .services
+            .service_entities
             .iter()
             .find(|svc| svc.label.get_ref() == policy.service.as_ref())
             .map(|svc| *svc.eid.get_ref())
@@ -422,7 +422,7 @@ fn process_policy_bindings(
 ) {
     for binding in policy_bindings {
         let Some(svc_eid) = data
-            .services
+            .service_entities
             .iter()
             .find(|svc| svc.label.get_ref() == binding.service.as_ref())
             .map(|svc| *svc.eid.get_ref())
