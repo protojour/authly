@@ -13,14 +13,14 @@ pub struct Document {
     #[serde(default)]
     pub entity: Vec<Entity>,
 
+    #[serde(default, rename = "service-entity")]
+    pub service_entity: Vec<Entity>,
+
     #[serde(default)]
     pub email: Vec<Email>,
 
     #[serde(default, rename = "password-hash")]
     pub password_hash: Vec<PasswordHash>,
-
-    #[serde(default, rename = "service-entity")]
-    pub service_entity: Vec<ServiceEntity>,
 
     #[serde(default)]
     pub members: Vec<Members>,
@@ -63,6 +63,9 @@ pub struct Entity {
 
     #[serde(default, rename = "password-hash")]
     pub password_hash: Vec<String>,
+
+    #[serde(default, rename = "kubernetes-account")]
+    pub kubernetes_account: Option<KubernetesAccount>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -99,29 +102,16 @@ pub struct EntityProperty {
     pub attributes: Vec<Spanned<String>>,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct ServiceEntity {
-    pub eid: Spanned<Eid>,
-    pub label: Spanned<String>,
-
-    #[serde(default)]
-    pub attributes: Vec<Spanned<QualifiedAttributeName>>,
-
-    #[serde(default)]
-    pub kubernetes: ServiceK8sExt,
-}
-
 #[derive(Default, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ServiceK8sExt {
     #[serde(default, rename = "service-account")]
-    pub service_account: Vec<ServiceK8sAccount>,
+    pub service_account: Vec<KubernetesAccount>,
 }
 
 #[derive(Default, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct ServiceK8sAccount {
+pub struct KubernetesAccount {
     pub namespace: String,
     pub name: String,
 }
@@ -198,8 +188,8 @@ mod tests {
         // BUG: The span is off:
         assert_eq!(&toml[26..61], "83648f-e6ac-4492-87f7-43d5e5805d60\"");
 
-        assert_eq!(document.entity[0].eid.span(), 78..86);
-        assert_eq!(&toml[78..86], "\"111111\"");
+        assert_eq!(document.entity[0].eid.span(), 80..88);
+        assert_eq!(&toml[80..88], "\"111111\"");
 
         assert_eq!(document.entity.len(), 3);
     }

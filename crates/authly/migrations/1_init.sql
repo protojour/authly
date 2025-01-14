@@ -26,6 +26,25 @@ CREATE TABLE ent_attr (
     PRIMARY KEY (eid, attrid)
 );
 
+CREATE TABLE ent_text_attr (
+    aid BLOB NOT NULL,
+    eid BLOB NOT NULL,
+    prop_id BLOB NOT NULL,
+    value TEXT NOT NULL,
+
+    PRIMARY KEY (eid, prop_id)
+);
+
+CREATE TABLE ent_ident (
+    aid BLOB NOT NULL,
+    eid BLOB NOT NULL,
+    prop_id BLOB NOT NULL,
+    ident TEXT NOT NULL,
+
+    PRIMARY KEY (eid, prop_id),
+    UNIQUE (prop_id, ident)
+);
+
 CREATE TABLE ent_rel (
     aid BLOB NOT NULL,
     rel_id BLOB NOT NULL,
@@ -33,27 +52,6 @@ CREATE TABLE ent_rel (
     object_eid BLOB NOT NULL,
 
     PRIMARY KEY (rel_id, subject_eid, object_eid)
-);
-
-CREATE TABLE ent_ident (
-    aid BLOB NOT NULL,
-    eid BLOB NOT NULL,
-    kind TEXT NOT NULL,
-    ident TEXT NOT NULL,
-
-    UNIQUE (kind, ident)
-);
-
-CREATE TABLE ent_password (
-    aid BLOB NOT NULL,
-    eid BLOB NOT NULL PRIMARY KEY,
-    hash TEXT NOT NULL
-);
-
-CREATE TABLE svc (
-    aid BLOB NOT NULL,
-    eid BLOB NOT NULL PRIMARY KEY,
-    label TEXT NOT NULL
 );
 
 CREATE TABLE svc_ent_prop (
@@ -107,13 +105,4 @@ CREATE TABLE svc_policy_binding (
     svc_eid BLOB NOT NULL,
     attr_matcher_pc BLOB NOT NULL,
     policy_ids_pc BLOB NOT NULL
-);
-
-CREATE TABLE svc_ext_k8s_service_account (
-    aid BLOB NOT NULL,
-    svc_eid BLOB NOT NULL,
-    namespace TEXT NOT NULL,
-    account_name TEXT NOT NULL,
-
-    UNIQUE (namespace, account_name)
 );

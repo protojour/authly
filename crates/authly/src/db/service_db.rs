@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use authly_common::{
-    id::ObjId,
+    id::{BuiltinID, ObjId},
     policy::{code::to_bytecode, pdp::PolicyEngine},
     service::PropertyMapping,
 };
@@ -18,7 +18,7 @@ use crate::{
     Eid,
 };
 
-use super::{Convert, Db, DbError, DbResult, Row};
+use super::{Convert, Db, DbError, DbResult, Literal, Row};
 
 #[derive(Debug)]
 pub struct ServiceProperty {
@@ -57,7 +57,11 @@ pub struct ServicePolicyBinding {
 pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Option<String>> {
     let Some(mut row) = deps
         .query_raw(
-            "SELECT svc.label FROM svc WHERE eid = $1".into(),
+            format!(
+                "SELECT value FROM ent_text_attr WHERE eid = $1 AND prop_id = {prop_id}",
+                prop_id = BuiltinID::PropLabel.to_obj_id().literal()
+            )
+            .into(),
             params!(eid.as_param()),
         )
         .await
@@ -71,7 +75,7 @@ pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Opt
         return Ok(None);
     };
 
-    Ok(Some(row.get_text("label")))
+    Ok(Some(row.get_text("value")))
 }
 
 pub async fn find_service_eid_by_k8s_service_account_name(
@@ -79,11 +83,13 @@ pub async fn find_service_eid_by_k8s_service_account_name(
     namespace: &str,
     account_name: &str,
 ) -> DbResult<Option<Eid>> {
-    let Some(mut row) =
-        deps
+    let Some(mut row) = deps
         .query_raw(
-            "SELECT svc_eid FROM svc_ext_k8s_service_account WHERE namespace = $1 AND account_name = $2".into(),
-            params!(namespace, account_name),
+            "SELECT eid FROM ent_text_attr WHERE prop_id = $1 AND value = $2".into(),
+            params!(
+                BuiltinID::PropK8sServiceAccount.to_obj_id().as_param(),
+                format!("{namespace}/{account_name}")
+            ),
         )
         .await
         .map_err(|err| {
@@ -91,11 +97,12 @@ pub async fn find_service_eid_by_k8s_service_account_name(
             err
         })?
         .into_iter()
-        .next() else {
-            return Ok(None);
-        };
+        .next()
+    else {
+        return Ok(None);
+    };
 
-    Ok(Some(Eid::from_row(&mut row, "svc_eid")))
+    Ok(Some(Eid::from_row(&mut row, "eid")))
 }
 
 pub async fn list_service_properties(

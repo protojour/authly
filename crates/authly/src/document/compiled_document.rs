@@ -1,9 +1,6 @@
 use std::ops::Range;
 
-use authly_common::{
-    document,
-    id::{BuiltinID, Eid, ObjId},
-};
+use authly_common::id::{BuiltinID, Eid, ObjId};
 
 use crate::{db::service_db, policy::error::PolicyCompileErrorKind};
 
@@ -39,13 +36,11 @@ pub struct DocumentMeta {
 
 #[derive(Default, Debug)]
 pub struct CompiledDocumentData {
-    pub entities: Vec<document::Entity>,
-    pub service_entities: Vec<document::ServiceEntity>,
-
     /// Attributes to set on entities
     pub entity_attribute_assignments: Vec<CompiledEntityAttributeAssignment>,
 
     pub entity_ident: Vec<EntityIdent>,
+    pub entity_text_attrs: Vec<EntityTextAttr>,
     pub entity_password: Vec<EntityPassword>,
 
     pub entity_relations: Vec<CompiledEntityRelation>,
@@ -60,8 +55,15 @@ pub struct CompiledDocumentData {
 #[derive(Debug)]
 pub struct EntityIdent {
     pub eid: Eid,
-    pub kind: String,
+    pub prop_id: ObjId,
     pub ident: String,
+}
+
+#[derive(Debug)]
+pub struct EntityTextAttr {
+    pub eid: Eid,
+    pub prop_id: ObjId,
+    pub value: String,
 }
 
 #[derive(Debug)]

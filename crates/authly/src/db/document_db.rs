@@ -46,7 +46,7 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
         params!(aid.as_param(), meta.url, meta.hash.to_vec()),
     ));
 
-    // entity
+    // entity identifiers and text attributes
     {
         // not sure how to "GC" this?
         stmts.push((
@@ -54,63 +54,29 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
             params!(aid.as_param()),
         ));
 
-        for id in data.entity_ident {
+        for ident in data.entity_ident {
             stmts.push((
-                "INSERT INTO ent_ident (aid, eid, kind, ident) VALUES ($1, $2, $3, $4)".into(),
-                params!(aid.as_param(), id.eid.as_param(), id.kind, id.ident),
-            ));
-        }
-
-        stmts.push(gc(
-            "ent_password",
-            NotIn(
-                "hash",
-                data.entity_password.iter().map(|pw| pw.hash.as_str()),
-            ),
-            aid,
-        ));
-
-        for pw in data.entity_password {
-            stmts.push((
-                "INSERT INTO ent_password (aid, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING".into(),
-                params!(aid.as_param(), pw.eid.as_param(), pw.hash),
-            ));
-        }
-    }
-
-    // service
-    {
-        stmts.push(gc(
-            "svc",
-            NotIn("eid", data.service_entities.iter().map(|s| *s.eid.as_ref())),
-            aid,
-        ));
-        stmts.push(gc(
-            "svc_ext_k8s_service_account",
-            NotIn(
-                "svc_eid",
-                data.service_entities.iter().map(|s| *s.eid.as_ref()),
-            ),
-            aid,
-        ));
-
-        for service in data.service_entities {
-            stmts.push((
-                "INSERT INTO svc (aid, eid, label) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET label = $3"
-                    .into(),
+                "INSERT INTO ent_ident (aid, eid, prop_id, ident) VALUES ($1, $2, $3, $4)".into(),
                 params!(
                     aid.as_param(),
-                    service.eid.as_ref().as_param(),
-                    service.label.as_ref()
+                    ident.eid.as_param(),
+                    ident.prop_id.as_param(),
+                    ident.ident
                 ),
             ));
+        }
 
-            for sa in service.kubernetes.service_account {
-                stmts.push((
-                    "INSERT INTO svc_ext_k8s_service_account (aid, svc_eid, namespace, account_name) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
-                    params!(aid.as_param(), service.eid.as_ref().as_param(), sa.namespace, sa.name),
-                ));
-            }
+        // not sure how to "GC" this?
+        stmts.push((
+            "DELETE FROM ent_text_attr WHERE aid = $1".into(),
+            params!(aid.as_param()),
+        ));
+
+        for text_prop in data.entity_text_attrs {
+            stmts.push((
+                "INSERT INTO ent_text_attr (aid, eid, prop_id, value) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
+                params!(aid.as_param(), text_prop.eid.as_param(), text_prop.prop_id.as_param(), text_prop.value),
+            ));
         }
     }
 

@@ -85,8 +85,10 @@ pub async fn authenticate(
 
     let (ehash, secret) = match body {
         AuthenticateRequest::User { username, password } => {
-            let ehash = entity_db::find_local_authority_entity_password_hash_by_credential_ident(
-                &ctx, "username", &username,
+            let ehash = entity_db::find_local_authority_entity_password_hash_by_entity_ident(
+                &ctx,
+                BuiltinID::PropUsername.to_obj_id(),
+                &username,
             )
             .await?
             .ok_or_else(|| AuthError::UserAuthFailed)?;

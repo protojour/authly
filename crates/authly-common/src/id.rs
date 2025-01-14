@@ -123,6 +123,17 @@ pub enum BuiltinID {
     AttrAuthlyRoleApplyDocument = 5,
     /// The entity membership relation
     RelEntityMembership = 6,
+    /// The username ident property
+    PropUsername = 7,
+    /// The email ident property
+    PropEmail = 8,
+    /// The password_hash text property
+    PropPasswordHash = 9,
+    /// The label text property
+    PropLabel = 10,
+    /// The kubernetes service account name property.
+    /// The value format is `{namespace}/{account_name}`.
+    PropK8sServiceAccount = 11,
 }
 
 impl BuiltinID {
@@ -132,13 +143,18 @@ impl BuiltinID {
 
     pub const fn label(self) -> Option<&'static str> {
         match self {
-            BuiltinID::Authly => None,
-            BuiltinID::PropEntity => Some("entity"),
-            BuiltinID::PropAuthlyRole => Some("authly:role"),
-            BuiltinID::AttrAuthlyRoleGetAccessToken => Some("get_access_token"),
-            BuiltinID::AttrAuthlyRoleAuthenticate => Some("authenticate"),
-            BuiltinID::AttrAuthlyRoleApplyDocument => Some("apply_document"),
-            BuiltinID::RelEntityMembership => None,
+            Self::Authly => None,
+            Self::PropEntity => Some("entity"),
+            Self::PropAuthlyRole => Some("authly:role"),
+            Self::AttrAuthlyRoleGetAccessToken => Some("get_access_token"),
+            Self::AttrAuthlyRoleAuthenticate => Some("authenticate"),
+            Self::AttrAuthlyRoleApplyDocument => Some("apply_document"),
+            Self::PropUsername => None,
+            Self::PropEmail => None,
+            Self::RelEntityMembership => None,
+            Self::PropPasswordHash => None,
+            Self::PropLabel => None,
+            Self::PropK8sServiceAccount => None,
         }
     }
 

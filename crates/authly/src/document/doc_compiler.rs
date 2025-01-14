@@ -1,5 +1,5 @@
-use std::cmp;
 use std::collections::hash_map::Entry;
+use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
 
 use authly_common::{
@@ -13,7 +13,7 @@ use tracing::debug;
 use crate::db::service_db;
 use crate::db::Db;
 use crate::document::compiled_document::{
-    CompiledEntityAttributeAssignment, EntityIdent, EntityPassword,
+    CompiledEntityAttributeAssignment, EntityIdent, EntityTextAttr,
 };
 use crate::policy::compiler::PolicyCompiler;
 use crate::policy::PolicyOutcome;
@@ -69,7 +69,7 @@ struct Errors {
 }
 
 pub async fn compile_doc(
-    doc: document::Document,
+    mut doc: document::Document,
     meta: DocumentMeta,
     db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
@@ -82,50 +82,80 @@ pub async fn compile_doc(
         errors: Default::default(),
     };
     let mut data = CompiledDocumentData {
-        entities: doc.entity,
-        service_entities: doc.service_entity,
+        // entities: doc.entity,
+        // service_entities: doc.service_entity,
         ..Default::default()
     };
 
-    seed_namespace(&mut data, &mut comp);
+    seed_namespace(&doc, &mut comp);
 
     debug!("namespace: {:#?}", comp.namespace.table);
 
-    for email in doc.email {
+    for entity in &mut doc.entity {
+        if let Some(username) = entity.username.take() {
+            data.entity_ident.push(EntityIdent {
+                eid: *entity.eid.as_ref(),
+                prop_id: BuiltinID::PropUsername.to_obj_id(),
+                ident: username.into_inner(),
+            });
+        }
+    }
+
+    for entity in &mut doc.service_entity {
+        let eid = *entity.eid.as_ref();
+        if let Some(label) = &entity.label {
+            data.entity_text_attrs.push(EntityTextAttr {
+                eid,
+                prop_id: BuiltinID::PropLabel.to_obj_id(),
+                value: label.as_ref().to_string(),
+            });
+        }
+
+        if let Some(k8s) = mem::take(&mut entity.kubernetes_account) {
+            data.entity_text_attrs.push(EntityTextAttr {
+                eid,
+                prop_id: BuiltinID::PropK8sServiceAccount.to_obj_id(),
+                value: format!("{}/{}", k8s.namespace, k8s.name),
+            });
+        }
+    }
+
+    for email in mem::take(&mut doc.email) {
         let Some(eid) = comp.ns_entity_lookup(&email.entity) else {
             continue;
         };
 
         data.entity_ident.push(EntityIdent {
             eid,
-            kind: "email".to_string(),
+            prop_id: BuiltinID::PropEmail.to_obj_id(),
             ident: email.value.into_inner(),
         });
     }
 
-    for hash in doc.password_hash {
+    for hash in mem::take(&mut doc.password_hash) {
         let Some(eid) = comp.ns_entity_lookup(&hash.entity) else {
             continue;
         };
 
-        data.entity_password.push(EntityPassword {
+        data.entity_text_attrs.push(EntityTextAttr {
             eid,
-            hash: hash.hash,
+            prop_id: BuiltinID::PropPasswordHash.to_obj_id(),
+            value: hash.hash,
         });
     }
 
-    process_members(doc.members, &mut data, &mut comp);
+    process_members(mem::take(&mut doc.members), &mut data, &mut comp);
 
     process_service_properties(
-        doc.entity_property,
-        doc.resource_property,
+        mem::take(&mut doc.entity_property),
+        mem::take(&mut doc.resource_property),
         &mut data,
         &mut comp,
         db,
     )
     .await;
 
-    process_attribute_assignments(&mut data, &mut comp);
+    process_attribute_assignments(&mut doc, &mut data, &mut comp);
     process_policies(doc.policy, &mut data, &mut comp, db).await;
     process_policy_bindings(doc.policy_binding, &mut data, &mut comp);
 
@@ -140,30 +170,21 @@ pub async fn compile_doc(
     }
 }
 
-fn seed_namespace(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
+fn seed_namespace(doc: &document::Document, comp: &mut CompileCtx) {
     for builtin_prop in [BuiltinID::PropEntity, BuiltinID::PropAuthlyRole] {
         comp.namespace.insert_builtin_property(builtin_prop);
     }
 
-    for user in &mut data.entities {
-        if let Some(label) = &user.label {
-            comp.ns_add(label, NamespaceEntry::Entity(*user.eid.get_ref()));
-        }
-
-        if let Some(username) = user.username.take() {
-            data.entity_ident.push(EntityIdent {
-                eid: *user.eid.as_ref(),
-                kind: "username".to_string(),
-                ident: username.into_inner(),
-            });
+    for entity in &doc.entity {
+        if let Some(label) = &entity.label {
+            comp.ns_add(label, NamespaceEntry::Entity(*entity.eid.get_ref()));
         }
     }
 
-    for service in &data.service_entities {
-        comp.ns_add(
-            &service.label,
-            NamespaceEntry::Service(*service.eid.get_ref()),
-        );
+    for entity in &doc.service_entity {
+        if let Some(label) = &entity.label {
+            comp.ns_add(label, NamespaceEntry::Service(*entity.eid.get_ref()));
+        }
     }
 }
 
@@ -289,18 +310,22 @@ async fn compile_service_property(
 }
 
 /// Assign attributes to entities
-fn process_attribute_assignments(data: &mut CompiledDocumentData, comp: &mut CompileCtx) {
+fn process_attribute_assignments(
+    doc: &mut document::Document,
+    data: &mut CompiledDocumentData,
+    comp: &mut CompileCtx,
+) {
     let mut assignments: Vec<(Eid, Spanned<QualifiedAttributeName>)> = vec![];
 
-    for user in &mut data.entities {
-        for attribute in std::mem::take(&mut user.attributes) {
-            assignments.push((*user.eid.get_ref(), attribute));
+    for entity in &mut doc.entity {
+        for attribute in std::mem::take(&mut entity.attributes) {
+            assignments.push((*entity.eid.get_ref(), attribute));
         }
     }
 
-    for service in &mut data.service_entities {
-        for attribute in std::mem::take(&mut service.attributes) {
-            assignments.push((*service.eid.get_ref(), attribute));
+    for entity in &mut doc.service_entity {
+        for attribute in std::mem::take(&mut entity.attributes) {
+            assignments.push((*entity.eid.get_ref(), attribute));
         }
     }
 
@@ -332,14 +357,7 @@ async fn process_policies(
     db: &impl Db,
 ) {
     for policy in policies {
-        let Some(svc_eid) = data
-            .service_entities
-            .iter()
-            .find(|svc| svc.label.get_ref() == policy.service.as_ref())
-            .map(|svc| *svc.eid.get_ref())
-        else {
-            comp.errors
-                .push(policy.service.span(), CompileError::UnresolvedService);
+        let Some(svc_eid) = comp.ns_service_lookup(&policy.service) else {
             continue;
         };
 
@@ -421,14 +439,7 @@ fn process_policy_bindings(
     comp: &mut CompileCtx,
 ) {
     for binding in policy_bindings {
-        let Some(svc_eid) = data
-            .service_entities
-            .iter()
-            .find(|svc| svc.label.get_ref() == binding.service.as_ref())
-            .map(|svc| *svc.eid.get_ref())
-        else {
-            comp.errors
-                .push(binding.service.span(), CompileError::UnresolvedService);
+        let Some(svc_eid) = comp.ns_service_lookup(&binding.service) else {
             continue;
         };
 

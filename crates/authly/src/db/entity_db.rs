@@ -1,7 +1,8 @@
 use argon2::{password_hash::SaltString, Argon2};
-use authly_common::id::{Eid, ObjId};
+use authly_common::id::{BuiltinID, Eid, ObjId};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
+use indoc::indoc;
 
 use super::{Convert, Db, DbResult, Row};
 
@@ -22,25 +23,36 @@ pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<
         .collect())
 }
 
-pub async fn find_local_authority_entity_password_hash_by_credential_ident(
+pub async fn find_local_authority_entity_password_hash_by_entity_ident(
     deps: &impl Db,
-    ident_kind: &str,
+    ident_prop_id: ObjId,
     ident: &str,
 ) -> DbResult<Option<EntityPasswordHash>> {
     let (eid, hash): (Eid, String) = {
-        let Some(mut row) =
-            deps
+        let Some(mut row) = deps
             .query_raw(
-                "SELECT p.eid, p.hash FROM ent_ident i JOIN ent_password p ON i.eid = p.eid WHERE i.kind = $1 AND i.ident = $2".into(),
-                params!(ident_kind, ident),
+                indoc! {
+                    "
+                    SELECT ta.eid, ta.value FROM ent_text_attr ta
+                    JOIN ent_ident i ON ta.eid = i.eid
+                    WHERE i.prop_id = $1 AND i.ident = $2 AND ta.prop_id = $3
+                    ",
+                }
+                .into(),
+                params!(
+                    ident_prop_id.as_param(),
+                    ident,
+                    BuiltinID::PropPasswordHash.to_obj_id().as_param()
+                ),
             )
             .await?
             .into_iter()
-            .next() else {
-                return Ok(None);
-            };
+            .next()
+        else {
+            return Ok(None);
+        };
 
-        (Eid::from_row(&mut row, "eid"), row.get_text("hash"))
+        (Eid::from_row(&mut row, "eid"), row.get_text("value"))
     };
 
     Ok(Some(EntityPasswordHash {
