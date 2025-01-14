@@ -1,35 +1,40 @@
 # generate files necessary for running authly locally
 generate-testdata:
     #!/usr/bin/env bash
-    if ! test -f test/cluster.crt; then
-        cargo run -p authly issue-cluster-key --out-path test
+    if ! test -f .local/cluster.crt; then
+        mkdir .local
+        cargo run -p authly issue-cluster-key --out-path .local
 
         AUTHLY_DOCUMENT_PATH="[examples/]" \
-        AUTHLY_DATA_DIR=./test/.data \
-        AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
-        AUTHLY_CLUSTER_KEY_FILE=./test/cluster.key \
-            cargo run -p authly issue-service-identity --eid 272878235402143010663560859986869906352 --out test/testservice-identity.pem
+        AUTHLY_DATA_DIR=./.local/data \
+        AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
+        AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
+            cargo run -p authly issue-service-identity --eid 272878235402143010663560859986869906352 --out .local/testservice-identity.pem
     fi
 
 # run debug version on localhost. Necessary for running end-to-end tests.
 rundev: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
-    AUTHLY_DATA_DIR=./test/.data \
-    AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
-    AUTHLY_CLUSTER_KEY_FILE=./test/cluster.key \
-    AUTHLY_EXPORT_LOCAL_CA=./test/exported-local-ca.pem \
+    AUTHLY_DATA_DIR=./.local/data \
+    AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
+    AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
+    AUTHLY_EXPORT_LOCAL_CA=./.local/exported-local-ca.pem \
         cargo run -p authly serve
 
 # run release version on localhost
 runrelease: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
-    AUTHLY_DATA_DIR=./test/.data \
-    AUTHLY_CLUSTER_CERT_FILE=./test/cluster.crt \
-    AUTHLY_CLUSTER_KEY_FILE=./test/cluster.key \
-    AUTHLY_EXPORT_LOCAL_CA=./test/exported-local-ca.pem \
+    AUTHLY_DATA_DIR=./.local/data \
+    AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
+    AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
+    AUTHLY_EXPORT_LOCAL_CA=./.local/exported-local-ca.pem \
         cargo run --release -p authly serve
+
+# clean up data files used for local run
+cleanlocal:
+    -rm -r ./.local
 
 # default target
 target := "x86_64-unknown-linux-musl"
@@ -60,8 +65,8 @@ testservice:
 
 # deploy local development version of authly to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
 k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
-    kubectl apply -f test/k8s/authly.yaml
-    kubectl apply -f test/k8s/testservice.yaml
+    kubectl apply -f testfiles/k8s/authly.yaml
+    kubectl apply -f testfiles/k8s/testservice.yaml
 
     kubectl delete pods --namespace=authly-test -l 'app=authly'
     kubectl delete pods --namespace=authly-test -l 'app=testservice'
