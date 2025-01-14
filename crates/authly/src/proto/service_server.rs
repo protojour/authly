@@ -1,7 +1,7 @@
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
     id::{BuiltinID, ObjId},
-    policy::{code::Outcome, pdp::AccessControlParams},
+    policy::{code::Outcome, engine::AccessControlParams},
     proto::service::{
         self as proto,
         authly_service_server::{AuthlyService, AuthlyServiceServer},
@@ -89,7 +89,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
 
                 Result::<_, tonic::Status>::Ok(proto::AccessToken {
                     token,
-                    user_eid: session.eid.value().to_string(),
+                    entity_id: session.eid.value().to_string(),
                 })
             },
         );
@@ -124,13 +124,13 @@ impl AuthlyService for AuthlyServiceServerImpl {
         // FIXME: should support multiple entity IDs in environment?
         if let Some(user_claims) = opt_user_claims {
             // user attributes
-            for attr in user_claims.authly.attributes {
+            for attr in user_claims.authly.entity_attributes {
                 params.subject_attrs.insert(attr.value());
             }
 
             params.subject_eids.insert(
                 BuiltinID::PropEntity.to_obj_id().value(),
-                user_claims.authly.user_eid.value(),
+                user_claims.authly.entity_id.value(),
             );
         } else {
             params.subject_eids.insert(

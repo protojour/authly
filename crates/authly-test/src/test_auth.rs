@@ -74,8 +74,8 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
 
     println!("get_access_token took {elapsed:?}");
 
-    assert_eq!(access_token.claims.authly.user_eid, Eid::new(111111));
-    assert!(access_token.claims.authly.attributes.is_empty());
+    assert_eq!(access_token.claims.authly.entity_id, Eid::new(111111));
+    assert!(access_token.claims.authly.entity_attributes.is_empty());
 
     let outcome = authly_client
         .remote_access_control([], Some(&access_token.token))

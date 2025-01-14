@@ -13,8 +13,8 @@ doctest = false
 
 [dependencies]
 authly.path = "../authly"
-authly-client.path = "../authly-client"
-authly-common.path = "../authly-common"
+authly-client.workspace = true
+authly-common.workspace = true
 anyhow = "1"
 axum = "0.7"
 cookie = "0.18"

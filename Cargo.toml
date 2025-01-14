@@ -1,8 +1,6 @@
 [workspace]
 members = [
     "crates/authly",
-    "crates/authly-client",
-    "crates/authly-common",
     "crates/authly-test",
     "crates/authly-testservice",
 ]
@@ -15,3 +13,7 @@ edition = "2021"
 license = "Apache-2.0"
 repository = "https://gitlab.com/protojour/memoriam/domain-engine"
 rust-version = "1.83"
+
+[workspace.dependencies]
+authly-common = { git = "https://github.com/protojour/authly-lib.git" }
+authly-client = { git = "https://github.com/protojour/authly-lib.git" }

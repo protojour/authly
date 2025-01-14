@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use authly_common::{
     id::{BuiltinID, ObjId},
-    policy::{code::to_bytecode, pdp::PolicyEngine},
+    policy::{code::to_bytecode, engine::PolicyEngine},
     service::PropertyMapping,
 };
 use hiqlite::{params, Param};
@@ -210,12 +210,7 @@ pub async fn get_service_property_mapping(
         let attr_label = row.get_text("alabel");
         let attr_id = ObjId::from_row(&mut row, "attrid");
 
-        mapping
-            .properties
-            .entry(prop_label)
-            .or_default()
-            .attributes
-            .insert(attr_label, attr_id);
+        mapping.add(prop_label, attr_label, attr_id);
     }
 
     Ok(mapping)

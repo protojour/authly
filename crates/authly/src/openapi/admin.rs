@@ -45,7 +45,7 @@ impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for AdminAu
 
         let user_token = VerifiedAccessToken::from_request_parts(parts, ctx).await?;
 
-        if !R::verify_roles(&user_token.claims.authly.attributes) {
+        if !R::verify_roles(&user_token.claims.authly.entity_attributes) {
             return Err((StatusCode::FORBIDDEN, "unprivileged user"));
         }
 
@@ -68,8 +68,8 @@ pub async fn post_document(
 
     let meta = DocumentMeta {
         url: format!(
-            "admin://user/?user_eid={}",
-            auth.user_claims.authly.user_eid.value()
+            "admin://user/?entity_id={}",
+            auth.user_claims.authly.entity_id.value()
         ),
         hash: {
             let mut hasher = sha2::Sha256::new();

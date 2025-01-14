@@ -46,8 +46,8 @@ pub fn create_access_token(
         iat: now.unix_timestamp(),
         exp: expiration.unix_timestamp(),
         authly: Authly {
-            user_eid: session.eid,
-            attributes: user_attributes,
+            entity_id: session.eid,
+            entity_attributes: user_attributes,
         },
     };
     let encoding_key =

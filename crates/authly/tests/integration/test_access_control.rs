@@ -2,7 +2,7 @@ use authly::db::service_db;
 use authly_common::{
     document::Document,
     id::Eid,
-    policy::{code::Outcome, pdp::AccessControlParams},
+    policy::{code::Outcome, engine::AccessControlParams},
 };
 use indoc::indoc;
 
