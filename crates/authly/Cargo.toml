@@ -34,7 +34,7 @@ figment = { version = "0.10", features = ["env"] }
 fnv = "1"
 hexhex = "1"
 http = "1"
-hiqlite = { git = "https://github.com/audunhalland/hiqlite.git", branch = "listen_notify_local", default-features = false, features = [
+hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = false, features = [
     "auto-heal",
     "listen_notify_local",
     "sqlite",

@@ -1634,7 +1634,7 @@ dependencies = [
 [[package]]
 name = "hiqlite"
 version = "0.4.0"
-source = "git+https://github.com/audunhalland/hiqlite.git?branch=listen_notify_local#f0b786f1497819f79441f67e7b919c1234cc88ef"
+source = "git+https://github.com/sebadob/hiqlite.git#7f22a5821eaaa80e61345552fedb7bde8591967f"
 dependencies = [
  "axum",
  "axum-server",
