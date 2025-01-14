@@ -9,7 +9,7 @@ generate-testdata:
         AUTHLY_DATA_DIR=./.local/data \
         AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
         AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
-            cargo run -p authly issue-service-identity --eid 272878235402143010663560859986869906352 --out .local/testservice-identity.pem
+            cargo run -p authly issue-service-identity --eid f3e799137c034e1eb4cd3e4f65705932 --out .local/testservice-identity.pem
     fi
 
 # run debug version on localhost. Necessary for running end-to-end tests.

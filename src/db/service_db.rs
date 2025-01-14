@@ -274,7 +274,7 @@ pub async fn load_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Policy
             PolicyCompiler::expr_to_opcodes(&policy_postcard.expr, policy_postcard.outcome);
         let bytecode = to_bytecode(&opcodes);
 
-        policy_engine.add_policy(id.value(), bytecode);
+        policy_engine.add_policy(id, bytecode);
     }
 
     let binding_rows = deps
@@ -295,15 +295,13 @@ pub async fn load_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Policy
         if policy_ids.len() > 1 {
             for policy_id in policy_ids {
                 policy_engine.add_policy_trigger(
-                    attr_matcher.iter().copied().map(|id| id.value()).collect(),
-                    policy_id.value(),
+                    attr_matcher.iter().map(ObjId::to_any).collect(),
+                    policy_id,
                 );
             }
         } else if let Some(policy_id) = policy_ids.into_iter().next() {
-            policy_engine.add_policy_trigger(
-                attr_matcher.iter().copied().map(|id| id.value()).collect(),
-                policy_id.value(),
-            );
+            policy_engine
+                .add_policy_trigger(attr_matcher.iter().map(ObjId::to_any).collect(), policy_id);
         }
     }
 

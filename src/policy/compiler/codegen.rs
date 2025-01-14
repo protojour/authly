@@ -1,4 +1,7 @@
-use authly_common::{id::BuiltinID, policy::code::OpCode};
+use authly_common::{
+    id::{AnyId, BuiltinID},
+    policy::code::OpCode,
+};
 
 use crate::policy::PolicyOutcome;
 
@@ -56,12 +59,14 @@ impl Codegen {
 
     fn codegen_term(&mut self, term: &Term) {
         match term {
-            Term::Label(label) => self.ops.push(OpCode::LoadConstId(label.0)),
+            Term::Label(label) => self
+                .ops
+                .push(OpCode::LoadConstId(AnyId::from(label.0).to_uint())),
             Term::Field(global, label) => match global {
                 Global::Subject => {
-                    if label.0 == BuiltinID::PropEntity.to_obj_id().value() {
+                    if label.0 == BuiltinID::PropEntity.to_obj_id().to_bytes() {
                         self.ops.push(OpCode::LoadSubjectId(
-                            BuiltinID::PropEntity.to_obj_id().value(),
+                            BuiltinID::PropEntity.to_obj_id().to_uint(),
                         ));
                     } else {
                         self.ops.push(OpCode::LoadSubjectAttrs);
@@ -71,7 +76,9 @@ impl Codegen {
                     self.ops.push(OpCode::LoadResourceAttrs);
                 }
             },
-            Term::Attr(_prop, attr) => self.ops.push(OpCode::LoadConstId(attr.0)),
+            Term::Attr(_prop, attr) => self
+                .ops
+                .push(OpCode::LoadConstId(AnyId::from(attr.0).to_uint())),
             Term::Error => {}
         }
     }

@@ -74,7 +74,7 @@ pub async fn compile_doc(
     db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
-        aid: Eid::new(doc.authly_document.id.get_ref().as_u128()),
+        aid: Eid::from_uint(doc.authly_document.id.get_ref().as_u128()),
         namespace: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),

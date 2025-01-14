@@ -2,7 +2,7 @@
 id = "d783648f-e6ac-4492-87f7-43d5e5805d60"
 
 [[entity]]
-eid = "111111"
+eid = "0fbcd73e1a884424a1615c3c3fdeebec"
 label = "me"
 email = ["me@mail.com"]
 username = "testuser"
@@ -11,11 +11,11 @@ password-hash = [
 ]
 
 [[entity]]
-eid = "222222"
+eid = "81dc1da0fa644142bad35043a9c3b025"
 label = "us"
 
 [[entity]]
-eid = "333333"
+eid = "96bf83f88cbf455fa356553f7fca1b9e"
 label = "you"
 
 [[members]]

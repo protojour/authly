@@ -121,20 +121,21 @@ async fn csr_handler(
         return Err(CsrError::ServiceAccountNotFound);
     };
 
-    let signed_client_cert =
-        tokio::task::spawn_blocking(move || -> Result<Cert<_>, CsrError> {
-            let service_public_key = SubjectPublicKeyInfo::from_der(&body)
-                .map_err(|_err| CsrError::InvalidPublicKey(eid))?;
+    let signed_client_cert = tokio::task::spawn_blocking(move || -> Result<Cert<_>, CsrError> {
+        let service_public_key = SubjectPublicKeyInfo::from_der(&body)
+            .map_err(|_err| CsrError::InvalidPublicKey(eid))?;
 
-            Ok(state.ctx.dynamic_config.local_ca.sign(
-                service_public_key.client_cert(&eid.value().to_string(), CERT_VALIDITY_PERIOD),
-            ))
-        })
-        .await
-        .map_err(|err| {
-            error!(?err, "signer join error");
-            CsrError::Internal
-        })??;
+        Ok(state
+            .ctx
+            .dynamic_config
+            .local_ca
+            .sign(service_public_key.client_cert(&eid.to_string(), CERT_VALIDITY_PERIOD)))
+    })
+    .await
+    .map_err(|err| {
+        error!(?err, "signer join error");
+        CsrError::Internal
+    })??;
 
     info!(?eid, "authenticated");
 

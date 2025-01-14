@@ -1,15 +1,16 @@
 use authly::db::service_db;
 use authly_common::{
     document::Document,
-    id::Eid,
+    id::{AnyId, Eid},
     policy::{code::Outcome, engine::AccessControlParams},
 };
+use hexhex::hex_literal;
 use indoc::indoc;
 
 use crate::{compile_and_apply_doc, new_inmemory_db, ServiceProperties};
 
-const SVC_A: Eid = Eid::new(272878235402143010663560859986869906352);
-const SVC_B: Eid = Eid::new(34343434343434343434343434343434343434);
+const SVC_A: Eid = Eid::from_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
+const SVC_B: Eid = Eid::from_array(hex_literal!("015362d6655447c6b7f44865bd111c70"));
 
 #[tokio::test]
 async fn test_access_control_basic() {
@@ -20,11 +21,11 @@ async fn test_access_control_basic() {
         id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 
         [[service-entity]]
-        eid = "272878235402143010663560859986869906352"
+        eid = "e5462a0d22b54d9f9ca37bd96e9b9d8b"
         label = "svc_a"
 
         [[service-entity]]
-        eid = "34343434343434343434343434343434343434"
+        eid = "015362d6655447c6b7f44865bd111c70"
         label = "svc_b"
 
         [[entity-property]]
@@ -80,7 +81,7 @@ async fn test_access_control_basic() {
             Outcome::Deny,
             engine
                 .eval(&AccessControlParams {
-                    resource_attrs: FromIterator::from_iter([42]),
+                    resource_attrs: FromIterator::from_iter([AnyId::from_uint(42)]),
                     ..Default::default()
                 })
                 .unwrap(),

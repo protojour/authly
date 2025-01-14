@@ -69,7 +69,7 @@ pub async fn post_document(
     let meta = DocumentMeta {
         url: format!(
             "admin://user/?entity_id={}",
-            auth.user_claims.authly.entity_id.value()
+            auth.user_claims.authly.entity_id
         ),
         hash: {
             let mut hasher = sha2::Sha256::new();

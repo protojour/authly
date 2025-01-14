@@ -21,10 +21,10 @@ async fn main() {
         .await
         .unwrap();
 
-    let eid = client.eid().await.unwrap();
+    let entity_id = client.entity_id().await.unwrap();
     let label = client.label().await.unwrap();
 
-    info!("client running, eid={eid} label={label}");
+    info!("client running, entity_id={entity_id} label={label}");
 
     tokio::time::sleep(Duration::from_secs(1000000000000)).await;
 }

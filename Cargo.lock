@@ -345,9 +345,10 @@ dependencies = [
 [[package]]
 name = "authly-client"
 version = "0.0.1"
-source = "git+https://github.com/protojour/authly-lib.git#e7b15881a6aabca2a651a646c9f75ae2dc3d7154"
+source = "git+https://github.com/protojour/authly-lib.git#db6731d86c5c4cd6a5100f0c2428f554582a4185"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "authly-common",
  "fnv",
  "http",
@@ -364,11 +365,12 @@ dependencies = [
 [[package]]
 name = "authly-common"
 version = "0.0.1"
-source = "git+https://github.com/protojour/authly-lib.git#e7b15881a6aabca2a651a646c9f75ae2dc3d7154"
+source = "git+https://github.com/protojour/authly-lib.git#db6731d86c5c4cd6a5100f0c2428f554582a4185"
 dependencies = [
  "anyhow",
  "byteorder",
  "fnv",
+ "hexhex",
  "int-enum",
  "prost",
  "rand",
@@ -393,6 +395,7 @@ dependencies = [
  "authly-common",
  "axum",
  "cookie",
+ "hexhex",
  "hyper",
  "rcgen 0.13.2 (git+https://github.com/rustls/rcgen.git?branch=main)",
  "reqwest",
@@ -615,7 +618,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "lazy_static",
  "lazycell",
  "log",
@@ -2097,24 +2100,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -2869,7 +2854,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0f3e5beed80eb580c68e2c600937ac2c4eedabdfd5ef1e5b7ea4f3fba84497b"
 dependencies = [
  "heck",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -2889,7 +2874,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.96",

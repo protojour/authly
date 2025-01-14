@@ -52,7 +52,7 @@ pub(crate) async fn load_cfg_documents(
                 },
             };
 
-            let aid = Eid::new(document.authly_document.id.get_ref().as_u128());
+            let aid = Eid::from_uint(document.authly_document.id.get_ref().as_u128());
 
             if should_process(aid, &meta, &doc_authorities) {
                 info!(?path, "load");

@@ -10,10 +10,10 @@ mod test_tls;
 fn testservice_web_client() -> anyhow::Result<reqwest::Client> {
     let client = reqwest::Client::builder()
         .add_root_certificate(reqwest::tls::Certificate::from_pem(&std::fs::read(
-            "../../test/exported-local-ca.pem",
+            "../../.local/exported-local-ca.pem",
         )?)?)
         .identity(reqwest::Identity::from_pem(&std::fs::read(
-            "../../test/testservice-identity.pem",
+            "../../.local/testservice-identity.pem",
         )?)?)
         .build()?;
 
@@ -23,9 +23,9 @@ fn testservice_web_client() -> anyhow::Result<reqwest::Client> {
 async fn testservice_authly_client() -> anyhow::Result<authly_client::Client> {
     Ok(authly_client::Client::builder()
         .with_url("https://localhost:10443")
-        .with_authly_local_ca_pem(std::fs::read("../../test/exported-local-ca.pem")?)?
+        .with_authly_local_ca_pem(std::fs::read("../../.local/exported-local-ca.pem")?)?
         .with_identity(authly_client::identity::Identity::from_multi_pem(
-            std::fs::read("../../test/testservice-identity.pem")?,
+            std::fs::read("../../.local/testservice-identity.pem")?,
         )?)
         .connect()
         .await?)

@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use authly_common::id::Eid;
 use cookie::Cookie;
+use hexhex::hex_literal;
 use hyper::header::SET_COOKIE;
 use reqwest::{ClientBuilder, Identity};
 use serde_json::{json, Value};
@@ -74,11 +75,16 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
 
     println!("get_access_token took {elapsed:?}");
 
-    assert_eq!(access_token.claims.authly.entity_id, Eid::new(111111));
+    assert_eq!(
+        access_token.claims.authly.entity_id,
+        hex_literal!("0fbcd73e1a884424a1615c3c3fdeebec").into()
+    );
     assert!(access_token.claims.authly.entity_attributes.is_empty());
 
     let outcome = authly_client
-        .remote_access_control([], Some(&access_token.token))
+        .access_control_request()
+        .access_token(access_token.clone())
+        .send()
         .await
         .unwrap();
 

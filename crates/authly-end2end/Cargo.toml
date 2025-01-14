@@ -14,6 +14,7 @@ authly-common.workspace = true
 anyhow = "1"
 axum = "0.7"
 cookie = "0.18"
+hexhex = "1"
 hyper = "1"
 reqwest = { version = "0.12", default-features = false, features = [
     "http2",

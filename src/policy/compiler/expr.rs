@@ -31,7 +31,7 @@ pub enum Term {
 
 /// A label resolved to an ID
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
-pub struct Label(pub u128);
+pub struct Label(pub [u8; 16]);
 
 /// Global object.
 ///

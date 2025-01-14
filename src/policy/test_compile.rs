@@ -14,9 +14,9 @@ use crate::document::{
 
 use super::PolicyOutcome;
 
-const SVC: Eid = Eid::new(42);
-const ROLE: ObjId = ObjId::new(1337);
-const ROLE_ROOT: ObjId = ObjId::new(1338);
+const SVC: Eid = Eid::from_uint(42);
+const ROLE: ObjId = ObjId::from_uint(1337);
+const ROLE_ROOT: ObjId = ObjId::from_uint(1338);
 
 fn test_env() -> (Namespace, CompiledDocumentData) {
     let namespace = Namespace::from_iter([
@@ -61,9 +61,9 @@ fn subject_entity_equals_svc() -> Expr {
     Expr::Equals(
         Term::Field(
             Global::Subject,
-            Label(BuiltinID::PropEntity.to_obj_id().value()),
+            Label(BuiltinID::PropEntity.to_obj_id().to_bytes()),
         ),
-        Term::Label(Label(SVC.value())),
+        Term::Label(Label(SVC.to_bytes())),
     )
 }
 
@@ -79,8 +79,8 @@ fn test_expr_equals() {
 fn test_expr_field_attribute() {
     assert_eq!(
         Expr::Contains(
-            Term::Field(Global::Subject, Label(ROLE.value())),
-            Term::Attr(Label(ROLE.value()), Label(ROLE_ROOT.value()))
+            Term::Field(Global::Subject, Label(ROLE.to_bytes())),
+            Term::Attr(Label(ROLE.to_bytes()), Label(ROLE_ROOT.to_bytes()))
         ),
         to_expr("Subject.role contains role/root")
     );
@@ -131,15 +131,15 @@ fn test_expr_logical_paren() {
 fn test_opcodes() {
     assert_eq!(
         vec![
-            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().value()),
-            OpCode::LoadConstId(SVC.value()),
+            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().to_uint()),
+            OpCode::LoadConstId(SVC.to_uint()),
             OpCode::IsEq,
-            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().value()),
-            OpCode::LoadConstId(SVC.value()),
+            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().to_uint()),
+            OpCode::LoadConstId(SVC.to_uint()),
             OpCode::IsEq,
             OpCode::And,
-            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().value()),
-            OpCode::LoadConstId(SVC.value()),
+            OpCode::LoadSubjectId(BuiltinID::PropEntity.to_obj_id().to_uint()),
+            OpCode::LoadConstId(SVC.to_uint()),
             OpCode::IsEq,
             OpCode::Or,
             OpCode::TrueThenAllow,

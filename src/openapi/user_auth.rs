@@ -61,7 +61,7 @@ pub enum AuthenticateRequest {
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticateResponse {
     token: Vec<u8>,
-    entity_id: u128,
+    entity_id: Eid,
     authenticated: bool,
     mfa_needed: u64,
     mfa_done: Vec<String>,
@@ -104,7 +104,7 @@ pub async fn authenticate(
         CookieJar::new().add(new_session_cookie(&session)),
         Json(AuthenticateResponse {
             token: session.token.0,
-            entity_id: eid.value(),
+            entity_id: eid,
             authenticated: true,
             mfa_needed: 0,
             mfa_done: vec![],

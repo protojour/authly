@@ -21,10 +21,10 @@ pub fn authly_benchmark(c: &mut Criterion) {
     };
     let session = Session {
         token: SessionToken::new_random(),
-        eid: Eid::new(1337),
+        eid: Eid::random(),
         expires_at: OffsetDateTime::now_utc() + Duration::days(42),
     };
-    let user_attributes = FnvHashSet::from_iter([ObjId::new(42), ObjId::new(1337)]);
+    let user_attributes = FnvHashSet::from_iter([ObjId::random(), ObjId::random()]);
 
     c.bench_function("generate_access_token", |b| {
         b.iter(|| {

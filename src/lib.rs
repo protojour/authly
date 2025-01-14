@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use anyhow::anyhow;
 use authly_common::id::Eid;
@@ -119,12 +119,12 @@ pub async fn serve() -> anyhow::Result<()> {
 
 pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow::Result<()> {
     let Init { ctx, .. } = initialize().await?;
-    let eid = Eid::new(eid.parse()?);
+    let eid = Eid::from_str(&eid).map_err(|_| anyhow!("invalid entity id"))?;
 
     let pem = ctx
         .dynamic_config
         .local_ca
-        .sign(KeyPair::generate()?.client_cert(&eid.value().to_string(), Duration::days(7)))
+        .sign(KeyPair::generate()?.client_cert(&eid.to_string(), Duration::days(7)))
         .certificate_and_key_pem();
 
     if let Some(out_path) = out {

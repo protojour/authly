@@ -1,5 +1,6 @@
 use authly_common::id::Eid;
 use hyper::body::Incoming;
+use tracing::warn;
 use x509_parser::prelude::{FromDer, X509Certificate};
 
 #[derive(Clone)]
@@ -41,9 +42,10 @@ impl tower_server::tls::TlsConnectionMiddleware for MTLSMiddleware {
             return;
         };
         if let Some(peer_subject_common_name) = &data.peer_subject_common_name {
-            if let Ok(parsed) = peer_subject_common_name.parse() {
-                req.extensions_mut()
-                    .insert(PeerServiceEID(Eid::new(parsed)));
+            if let Ok(entity_id) = peer_subject_common_name.parse() {
+                req.extensions_mut().insert(PeerServiceEID(entity_id));
+            } else {
+                warn!("failed to parse common name: `{peer_subject_common_name}`");
             }
         }
     }

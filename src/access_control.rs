@@ -14,6 +14,7 @@ pub enum SvcAccessControlError {
 pub struct AuthorizedPeerService {
     pub eid: Eid,
 
+    #[expect(unused)]
     pub attributes: FnvHashSet<ObjId>,
 }
 

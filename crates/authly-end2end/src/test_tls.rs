@@ -130,7 +130,8 @@ async fn test_tls_invalid_host_cert() {
 async fn test_mtls_verified() {
     let ca = Cert::new_authly_ca();
     let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
-    let client_cert = ca.sign(new_key_pair().client_cert("1337", Duration::hours(1)));
+    let client_cert =
+        ca.sign(new_key_pair().client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
@@ -150,7 +151,10 @@ async fn test_mtls_verified() {
         .await
         .unwrap();
 
-    assert_eq!(text_response, "it works: peer_service_eid=1337");
+    assert_eq!(
+        text_response,
+        "it works: peer_service_eid=cf2e74c3f26240908e1b4e8817bfde7c"
+    );
 
     cancel.cancel();
 }
@@ -235,7 +239,7 @@ async fn test_handler(
     peer_service_eid: Option<Extension<PeerServiceEID>>,
 ) -> axum::response::Response {
     if let Some(Extension(PeerServiceEID(eid))) = peer_service_eid {
-        format!("it works: peer_service_eid={}", eid.value()).into_response()
+        format!("it works: peer_service_eid={}", eid).into_response()
     } else {
         "it works: no client auth".into_response()
     }
