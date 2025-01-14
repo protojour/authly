@@ -1,18 +1,14 @@
 [package]
-name = "authly-test"
-version.workspace = true
-authors.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
-rust-version.workspace = true
+name = "authly-end2end"
+version = "0.0.0"
+edition = "2021"
 publish = false
 
 [lib]
 doctest = false
 
 [dependencies]
-authly.path = "../authly"
+authly.path = "../../"
 authly-client.workspace = true
 authly-common.workspace = true
 anyhow = "1"

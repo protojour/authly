@@ -384,8 +384,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "authly-test"
-version = "0.1.0"
+name = "authly-end2end"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "authly",
@@ -409,7 +409,7 @@ dependencies = [
 
 [[package]]
 name = "authly-testservice"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "authly-client",
  "tokio",
