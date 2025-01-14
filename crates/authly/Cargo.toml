@@ -11,6 +11,11 @@ publish = false
 [lib]
 doctest = false
 
+[[bin]]
+name = "authly"
+path = "src/main.rs"
+test = false
+
 [dependencies]
 authly-common = { path = "../authly-common", features = [
     "document",

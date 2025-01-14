@@ -383,17 +383,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "authly-pip"
-version = "0.1.0"
-dependencies = [
- "authly-common",
- "bit-set",
- "rand",
- "tracing",
- "unsigned-varint",
-]
-
-[[package]]
 name = "authly-test"
 version = "0.1.0"
 dependencies = [
