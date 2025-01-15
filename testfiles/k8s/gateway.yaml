@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway
+  labels:
+    app: gateway
+  namespace: authly-test
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: read-gateway-api
+rules:
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources:
+  - gatewayclasses
+  - gateways
+  - httproutes
+  - referencegrants
+  - grpcroutes
+  verbs: ["list", "watch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: read-gateway-api-binding
+subjects:
+- kind: ServiceAccount
+  namespace: authly-test
+  name: gateway
+roleRef:
+  kind: ClusterRole
+  name: read-gateway-api
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: memoriam-gateway
+spec:
+  controllerName: "situ.net/memoriam-gateway"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  namespace: authly-test
+  name: memoriam-gateway
+spec:
+  gatewayClassName: memoriam-gateway
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# Routing from the gateway into authly
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  namespace: authly-test
+  name: authly-routing
+spec:
+  parentRefs:
+    - name: memoriam-gateway
+  rules:
+    - matches:
+        - path:
+            value: /authly/api/auth
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /api/auth
+      backendRefs:
+        - name: authly
+          port: 443
+    - matches:
+        - path:
+            value: /authly/web/auth
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /web/auth
+      backendRefs:
+        - name: authly
+          port: 443
+    - matches:
+        - path:
+            value: /authly
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: authly.id
+            kind: Service
+            name: authn
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: authly
+          port: 443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: authly-test
+  name: gateway
+spec:
+  # Setting up the gateway at loadbalancer:
+  type: LoadBalancer
+  selector:
+    app: gateway
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: authly-test
+  labels:
+    app: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      serviceAccountName: gateway
+      enableServiceLinks: false
+      containers:
+      - name: testservice
+        image: situ/memoriam:dev
+        command: ["/memoriam", "gateway"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        volumeMounts:
+          - name: authly-ca
+            mountPath: /etc/authly
+      volumes:
+        - name: authly-ca
+          configMap:
+            name: authly-local-ca.crt
