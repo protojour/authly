@@ -77,8 +77,8 @@ k8s-test-setup:
 
     kubectl create secret tls authly-cluster-key \
         -n authly-test \
-        --cert=test/cluster.crt \
-        --key=test/cluster.key \
+        --cert=.local/cluster.crt \
+        --key=.local/cluster.key \
         -o yaml \
         --dry-run=client \
         | kubectl apply -f -
