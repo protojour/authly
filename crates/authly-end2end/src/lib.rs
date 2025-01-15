@@ -3,7 +3,7 @@
 use hyper::header::SET_COOKIE;
 use reqwest::Identity;
 
-mod test_auth;
+mod test_auth_access_control;
 mod test_service;
 mod test_tls;
 
@@ -33,4 +33,12 @@ async fn testservice_authly_client() -> anyhow::Result<authly_client::Client> {
 
 fn reqwest_cookie(response: &reqwest::Response) {
     let cookie = response.headers().get_all(SET_COOKIE);
+}
+
+fn is_allowed(outcome: bool) -> bool {
+    outcome
+}
+
+fn is_denied(outcome: bool) -> bool {
+    !outcome
 }

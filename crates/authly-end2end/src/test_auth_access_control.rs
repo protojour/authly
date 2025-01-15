@@ -10,7 +10,7 @@ use reqwest::{ClientBuilder, Identity};
 use serde_json::{json, Value};
 use tracing::info;
 
-use crate::{testservice_authly_client, testservice_web_client};
+use crate::{is_allowed, is_denied, testservice_authly_client, testservice_web_client};
 
 #[tokio::test]
 async fn user_auth_ok() -> anyhow::Result<()> {
@@ -79,16 +79,55 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
         access_token.claims.authly.entity_id,
         hex_literal!("0fbcd73e1a884424a1615c3c3fdeebec").into()
     );
-    assert!(access_token.claims.authly.entity_attributes.is_empty());
+    assert_eq!(1, access_token.claims.authly.entity_attributes.len());
 
-    let outcome = authly_client
-        .access_control_request()
-        .access_token(access_token.clone())
-        .send()
-        .await
-        .unwrap();
+    // bad access control request (without resource attributes)
+    {
+        let outcome = authly_client
+            .access_control_request()
+            .access_token(access_token.clone())
+            .send()
+            .await
+            .unwrap();
 
-    assert!(!outcome);
+        assert!(is_denied(outcome));
+    }
+
+    // access control request with unknown resource attribute fails
+    {
+        let Err(authly_client::Error::InvalidPropertyAttributeLabel) = authly_client
+            .access_control_request()
+            .resource_attribute("bogus", "pomp")
+        else {
+            panic!("incorrect error");
+        };
+    }
+
+    // the testuser has role/ui:user so it may read ontology
+    {
+        let outcome = authly_client
+            .access_control_request()
+            .resource_attribute("ontology:action", "read")?
+            .access_token(access_token.clone())
+            .send()
+            .await
+            .unwrap();
+
+        assert!(is_allowed(outcome));
+    }
+
+    // the testuser is not role/ui:admin so it may not deploy ontology
+    {
+        let outcome = authly_client
+            .access_control_request()
+            .resource_attribute("ontology:action", "deploy")?
+            .access_token(access_token.clone())
+            .send()
+            .await
+            .unwrap();
+
+        assert!(is_denied(outcome));
+    }
 
     Ok(())
 }

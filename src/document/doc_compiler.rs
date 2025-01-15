@@ -159,6 +159,14 @@ pub async fn compile_doc(
     process_policies(doc.policy, &mut data, &mut comp, db).await;
     process_policy_bindings(doc.policy_binding, &mut data, &mut comp);
 
+    process_entity_attribute_bindings(
+        mem::take(&mut doc.entity_attribute_binding),
+        &mut data,
+        &mut comp,
+        db,
+    )
+    .await;
+
     if !comp.errors.errors.is_empty() {
         Err(comp.errors.errors)
     } else {
@@ -206,6 +214,58 @@ fn process_members(
                     object: member_eid,
                 });
             };
+        }
+    }
+}
+
+async fn process_entity_attribute_bindings(
+    bindings: Vec<document::EntityAttributeBinding>,
+    data: &mut CompiledDocumentData,
+    comp: &mut CompileCtx,
+    // TODO: Use the database
+    _db: &impl Db,
+) {
+    for binding in bindings {
+        let eid = match (binding.eid, binding.label) {
+            (Some(eid), None) => eid.into_inner(),
+            (None, Some(label)) => {
+                let Some(eid) = comp.ns_entity_lookup(&label) else {
+                    continue;
+                };
+                eid
+            }
+            _ => {
+                if let Some(first_attr) = binding.attributes.first() {
+                    comp.errors
+                        .push(first_attr.span(), CompileError::UnresolvedEntity);
+                }
+
+                continue;
+            }
+        };
+
+        // TODO: Somehow check eid exists?
+
+        for spanned_qattr in binding.attributes {
+            let Some(prop_id) = comp.ns_property_lookup(&Spanned::new(
+                spanned_qattr.span(),
+                &spanned_qattr.as_ref().property,
+            )) else {
+                continue;
+            };
+
+            let attrid =
+                match data.find_attribute_by_label(prop_id, &spanned_qattr.get_ref().attribute) {
+                    Ok(attr_id) => attr_id,
+                    Err(_) => {
+                        comp.errors
+                            .push(spanned_qattr.span(), CompileError::UnresolvedAttribute);
+                        continue;
+                    }
+                };
+
+            data.entity_attribute_assignments
+                .push(CompiledEntityAttributeAssignment { eid, attrid });
         }
     }
 }
