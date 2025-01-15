@@ -146,6 +146,8 @@ async fn initialize() -> anyhow::Result<Init> {
     let node_config = hiqlite_node_config(&env_config);
     let hql = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
 
+    hql.wait_until_healthy_db().await;
+
     hql.migrate::<Migrations>().await.map_err(|err| {
         tracing::error!(?err, "failed to migrate");
         err

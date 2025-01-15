@@ -90,7 +90,7 @@ async fn handle_msg(BroadcastMsg { kind, meta }: BroadcastMsg, ctx: &AuthlyCtx) 
         BroadcastMsgKind::AuthorityChanged { aid } => {
             let metrics = ctx.metrics_db().await;
 
-            if meta.last_log_index < metrics.last_log_index {
+            if meta.last_log_index > metrics.last_log_index {
                 error!(
                     ?aid,
                     ?metrics,
