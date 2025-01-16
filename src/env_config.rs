@@ -34,6 +34,10 @@ pub struct EnvConfig {
     pub cluster_raft_nodes: Option<Vec<SocketAddr>>,
 
     pub export_local_ca: Option<PathBuf>,
+
+    /// A plain http (no https) debug port for serving /web/ endpoints, intended for development.
+    #[cfg(feature = "dev")]
+    pub debug_web_port: Option<u16>,
 }
 
 impl EnvConfig {
@@ -72,6 +76,9 @@ impl Default for EnvConfig {
             k8s_replicas: None,
             k8s_auth_hostname: None,
             k8s_auth_server_port: None,
+
+            #[cfg(feature = "dev")]
+            debug_web_port: None,
         }
     }
 }

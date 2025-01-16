@@ -9,8 +9,10 @@ generate-testdata:
         AUTHLY_DATA_DIR=./.local/data \
         AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
         AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
-            cargo run -p authly issue-service-identity --eid f3e799137c034e1eb4cd3e4f65705932 --out .local/testservice-identity.pem
+            cargo run -p authly --features dev issue-service-identity --eid f3e799137c034e1eb4cd3e4f65705932 --out .local/testservice-identity.pem
     fi
+
+debug_web_port := "12345"
 
 # run debug version on localhost. Necessary for running end-to-end tests.
 rundev: generate-testdata
@@ -20,7 +22,8 @@ rundev: generate-testdata
     AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
     AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
     AUTHLY_EXPORT_LOCAL_CA=./.local/exported-local-ca.pem \
-        cargo run -p authly serve
+    AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
+        cargo run -p authly --features dev serve
 
 # run release version on localhost
 runrelease: generate-testdata
@@ -69,9 +72,10 @@ k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
     kubectl apply -f testfiles/k8s/testservice.yaml
     kubectl apply -f testfiles/k8s/gateway.yaml
 
-    kubectl delete pods --namespace=authly-test -l 'app=authly'
-    kubectl delete pods --namespace=authly-test -l 'app=testservice'
-    kubectl delete pods --namespace=authly-test -l 'app=gateway'
+    kubectl delete pods --namespace=authly-test -l 'app=authly' &
+    kubectl delete pods --namespace=authly-test -l 'app=testservice' &
+    kubectl delete pods --namespace=authly-test -l 'app=gateway' &
+    wait
 
 # rebuild authly and restart its kubernetes pods
 k8s-test-refresh-authly: dev-image

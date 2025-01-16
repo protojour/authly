@@ -6,7 +6,6 @@ use cert::{Cert, MakeSigningRequest};
 use db::config_db;
 use document::load::load_cfg_documents;
 pub use env_config::EnvConfig;
-use openapi::router::openapi_router;
 use openraft::RaftMetrics;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
@@ -16,7 +15,6 @@ use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
 use tracing::info;
 use util::protocol_router::ProtocolRouter;
-use webauth::webauth_router;
 
 // These are public for the integration test crate
 pub mod access_token;
@@ -96,11 +94,12 @@ pub async fn serve() -> anyhow::Result<()> {
         .bind()
         .await?;
 
-    let router = axum::Router::new()
-        .nest("/api", openapi_router(ctx.clone()))
-        .nest("/web/auth", webauth_router(ctx.clone()));
-
     let cancel = ctx.cancel.clone();
+
+    let router = axum::Router::new()
+        .merge(openapi::router::router())
+        .merge(webauth::router())
+        .with_state(ctx.clone());
 
     tokio::spawn(
         server.serve(
@@ -108,7 +107,8 @@ pub async fn serve() -> anyhow::Result<()> {
                 .with_grpc({
                     let mut grpc_routes = tonic::service::RoutesBuilder::default();
                     grpc_routes.add_service(
-                        proto::service_server::AuthlyServiceServerImpl::from(ctx).into_service(),
+                        proto::service_server::AuthlyServiceServerImpl::from(ctx.clone())
+                            .into_service(),
                     );
                     grpc_routes.routes().into_axum_router()
                 })
@@ -116,6 +116,17 @@ pub async fn serve() -> anyhow::Result<()> {
                 .into_service(),
         ),
     );
+
+    #[cfg(feature = "dev")]
+    if let Some(debug_web_port) = env_config.debug_web_port {
+        tokio::spawn(
+            tower_server::Builder::new(format!("0.0.0.0:{debug_web_port}").parse()?)
+                .with_scheme(Scheme::Http)
+                .bind()
+                .await?
+                .serve(webauth::router().with_state(ctx.clone())),
+        );
+    }
 
     cancel.cancelled().await;
 
