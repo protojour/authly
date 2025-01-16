@@ -118,6 +118,8 @@ pub async fn compile_doc(
                 value: format!("{}/{}", k8s.namespace, k8s.name),
             });
         }
+
+        data.service_ids.insert(eid);
     }
 
     for email in mem::take(&mut doc.email) {

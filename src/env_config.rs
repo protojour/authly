@@ -14,12 +14,14 @@ pub struct EnvConfig {
     /// A list of paths to scan for documents during startup.
     pub document_path: Vec<PathBuf>,
 
+    /// Configuration directory
+    pub etc_dir: PathBuf,
+
+    /// Database directory
     pub data_dir: PathBuf,
 
     pub node_id: Option<u64>,
 
-    pub cluster_cert_file: PathBuf,
-    pub cluster_key_file: PathBuf,
     pub cluster_raft_secret: String,
     pub cluster_api_secret: String,
 
@@ -33,7 +35,8 @@ pub struct EnvConfig {
     pub cluster_api_nodes: Option<Vec<SocketAddr>>,
     pub cluster_raft_nodes: Option<Vec<SocketAddr>>,
 
-    pub export_local_ca: Option<PathBuf>,
+    /// Whether to export certificates and identities to AUTHLY_ETC_DIR
+    pub export_tls_to_etc: bool,
 
     /// A plain http (no https) debug port for serving /web/ endpoints, intended for development.
     #[cfg(feature = "dev")]
@@ -47,6 +50,14 @@ impl EnvConfig {
             .extract()
             .unwrap()
     }
+
+    pub fn cluster_key_path(&self) -> PathBuf {
+        self.etc_dir.join("cluster/tls.key")
+    }
+
+    pub fn cluster_cert_path(&self) -> PathBuf {
+        self.etc_dir.join("cluster/tls.crt")
+    }
 }
 
 impl Default for EnvConfig {
@@ -56,13 +67,9 @@ impl Default for EnvConfig {
 
             document_path: vec![PathBuf::from("/etc/authly/documents")],
 
+            etc_dir: PathBuf::from("/etc/authly"),
             data_dir: PathBuf::from("/var/lib/authly/data"),
             node_id: None,
-
-            export_local_ca: None,
-
-            cluster_cert_file: PathBuf::from("/etc/authly/cluster/tls.crt"),
-            cluster_key_file: PathBuf::from("/etc/authly/cluster/tls.key"),
 
             cluster_raft_secret: "superultramegasecret1".to_string(),
             cluster_api_secret: "superultramegasecret2".to_string(),
@@ -76,6 +83,8 @@ impl Default for EnvConfig {
             k8s_replicas: None,
             k8s_auth_hostname: None,
             k8s_auth_server_port: None,
+
+            export_tls_to_etc: false,
 
             #[cfg(feature = "dev")]
             debug_web_port: None,

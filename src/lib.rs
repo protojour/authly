@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use authly_common::id::Eid;
@@ -10,7 +10,6 @@ use openraft::RaftMetrics;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
 use serde::{Deserialize, Serialize};
-use time::Duration;
 use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
 use tracing::info;
@@ -48,6 +47,14 @@ struct AuthlyCtx {
     hql: hiqlite::Client,
     dynamic_config: Arc<DynamicConfig>,
     cancel: CancellationToken,
+    etc_dir: PathBuf,
+    export_tls_to_etc: bool,
+}
+
+#[derive(Clone, Copy)]
+enum RunMode {
+    Serve,
+    Configure,
 }
 
 impl AuthlyCtx {
@@ -70,7 +77,7 @@ pub struct Init {
 }
 
 pub async fn serve() -> anyhow::Result<()> {
-    let Init { ctx, env_config } = initialize().await?;
+    let Init { ctx, env_config } = initialize(RunMode::Serve).await?;
 
     info!(
         "local CA:\n{}",
@@ -133,21 +140,8 @@ pub async fn serve() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn issue_service_identity(eid: String, out: Option<PathBuf>) -> anyhow::Result<()> {
-    let Init { ctx, .. } = initialize().await?;
-    let eid = Eid::from_str(&eid).map_err(|_| anyhow!("invalid entity id"))?;
-
-    let pem = ctx
-        .dynamic_config
-        .local_ca
-        .sign(KeyPair::generate()?.client_cert(&eid.to_string(), Duration::days(7)))
-        .certificate_and_key_pem();
-
-    if let Some(out_path) = out {
-        std::fs::write(out_path, pem)?;
-    } else {
-        println!("{pem}");
-    }
+pub async fn configure() -> anyhow::Result<()> {
+    initialize(RunMode::Configure).await?;
 
     Ok(())
 }
@@ -157,7 +151,7 @@ enum CacheEntry {
     DummyForNow,
 }
 
-async fn initialize() -> anyhow::Result<Init> {
+async fn initialize(run_mode: RunMode) -> anyhow::Result<Init> {
     let env_config = EnvConfig::load();
     let node_config = hiqlite_node_config(&env_config);
     let hql = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
@@ -174,12 +168,19 @@ async fn initialize() -> anyhow::Result<Init> {
         hql,
         dynamic_config: Arc::new(dynamic_config),
         cancel: termination_signal(),
+        etc_dir: env_config.etc_dir.clone(),
+        export_tls_to_etc: match run_mode {
+            RunMode::Serve => false,
+            RunMode::Configure => env_config.export_tls_to_etc,
+        },
     };
 
     if ctx.hql.is_leader_db().await {
-        if let Some(export_path) = &env_config.export_local_ca {
+        if env_config.export_tls_to_etc {
+            std::fs::create_dir_all(env_config.etc_dir.join("local"))?;
+
             std::fs::write(
-                export_path,
+                env_config.etc_dir.join("local/ca.crt"),
                 ctx.dynamic_config.local_ca.certificate_pem().as_bytes(),
             )?;
         }
@@ -224,13 +225,13 @@ fn main_service_rustls(
 fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
     let cluster_tls_config = hiqlite::ServerTlsConfig {
         key: env_config
-            .cluster_key_file
+            .cluster_key_path()
             .to_str()
             .unwrap()
             .to_string()
             .into(),
         cert: env_config
-            .cluster_cert_file
+            .cluster_cert_path()
             .to_str()
             .unwrap()
             .to_string()

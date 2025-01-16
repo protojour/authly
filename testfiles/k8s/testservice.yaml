@@ -34,7 +34,7 @@ spec:
         - containerPort: 80
         volumeMounts:
           - name: authly-ca
-            mountPath: /etc/authly
+            mountPath: /etc/authly/local
       volumes:
         - name: authly-ca
           configMap:

@@ -1,6 +1,4 @@
-use std::path::PathBuf;
-
-use authly::{cert::MakeSigningRequest, issue_service_identity, serve};
+use authly::{cert::MakeSigningRequest, configure, serve, EnvConfig};
 use clap::{Parser, Subcommand};
 use rcgen::KeyPair;
 use time::Duration;
@@ -20,18 +18,12 @@ struct Cli {
 enum Command {
     /// Run Authly in server/cluster mode
     Serve,
-    /// Issue mTLS credentials for a service
-    IssueServiceIdentity {
-        #[clap(long)]
-        eid: String,
 
-        #[clap(long)]
-        out: Option<PathBuf>,
-    },
-    IssueClusterKey {
-        #[clap(long)]
-        out_path: PathBuf,
-    },
+    /// Import documents and do general configuration, then exit
+    Configure,
+
+    /// Issue a cluster key. Exports to `$AUTHLY_ETC_DIR/cluster/`.
+    IssueClusterKey,
 }
 
 #[tokio::main]
@@ -46,15 +38,16 @@ async fn main() -> anyhow::Result<()> {
 
     match Cli::parse().command {
         Some(Command::Serve) => serve().await?,
-        Some(Command::IssueServiceIdentity { eid, out }) => {
-            issue_service_identity(eid, out).await?
-        }
-        Some(Command::IssueClusterKey { out_path }) => {
+        Some(Command::Configure) => configure().await?,
+        Some(Command::IssueClusterKey) => {
+            let env_config = EnvConfig::load();
             let req = KeyPair::generate()?.server_cert("*.authly-cluster", Duration::days(10000));
             let certificate = req.params.self_signed(&req.key)?;
 
-            std::fs::write(out_path.join("cluster.key"), req.key.serialize_pem())?;
-            std::fs::write(out_path.join("cluster.crt"), certificate.pem())?;
+            std::fs::create_dir_all(env_config.cluster_cert_path().parent().unwrap())?;
+
+            std::fs::write(env_config.cluster_key_path(), req.key.serialize_pem())?;
+            std::fs::write(env_config.cluster_cert_path(), certificate.pem())?;
         }
         None => {}
     }

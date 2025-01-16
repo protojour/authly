@@ -3,13 +3,14 @@ generate-testdata:
     #!/usr/bin/env bash
     if ! test -f .local/cluster.crt; then
         mkdir .local
-        cargo run -p authly issue-cluster-key --out-path .local
+        AUTHLY_ETC_DIR=.local/etc \
+            cargo run -p authly issue-cluster-key
 
         AUTHLY_DOCUMENT_PATH="[examples/]" \
-        AUTHLY_DATA_DIR=./.local/data \
-        AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
-        AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
-            cargo run -p authly --features dev issue-service-identity --eid f3e799137c034e1eb4cd3e4f65705932 --out .local/testservice-identity.pem
+        AUTHLY_DATA_DIR=.local/data \
+        AUTHLY_ETC_DIR=.local/etc \
+        AUTHLY_EXPORT_TLS_TO_ETC=true \
+            cargo run -p authly --features dev configure
     fi
 
 debug_web_port := "12345"
@@ -18,10 +19,8 @@ debug_web_port := "12345"
 rundev: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
-    AUTHLY_DATA_DIR=./.local/data \
-    AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
-    AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
-    AUTHLY_EXPORT_LOCAL_CA=./.local/exported-local-ca.pem \
+    AUTHLY_DATA_DIR=.local/data \
+    AUTHLY_ETC_DIR=.local/etc \
     AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
         cargo run -p authly --features dev serve
 
@@ -29,15 +28,13 @@ rundev: generate-testdata
 runrelease: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
-    AUTHLY_DATA_DIR=./.local/data \
-    AUTHLY_CLUSTER_CERT_FILE=./.local/cluster.crt \
-    AUTHLY_CLUSTER_KEY_FILE=./.local/cluster.key \
-    AUTHLY_EXPORT_LOCAL_CA=./.local/exported-local-ca.pem \
+    AUTHLY_DATA_DIR=.local/data \
+    AUTHLY_ETC_DIR=.local/etc \
         cargo run --release -p authly serve
 
 # clean up data files used for local run
 cleanlocal:
-    -rm -r ./.local
+    -rm -r .local
 
 # default target
 target := "x86_64-unknown-linux-musl"
@@ -87,8 +84,8 @@ k8s-test-setup:
 
     kubectl create secret tls authly-cluster-key \
         -n authly-test \
-        --cert=.local/cluster.crt \
-        --key=.local/cluster.key \
+        --cert=.local/etc/cluster/tls.crt \
+        --key=.local/etc/cluster/tls.key \
         -o yaml \
         --dry-run=client \
         | kubectl apply -f -

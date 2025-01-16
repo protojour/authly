@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{collections::BTreeSet, ops::Range};
 
 use authly_common::id::{BuiltinID, Eid, ObjId};
 
@@ -42,6 +42,8 @@ pub struct CompiledDocumentData {
     pub entity_ident: Vec<EntityIdent>,
     pub entity_text_attrs: Vec<EntityTextAttr>,
     pub entity_password: Vec<EntityPassword>,
+
+    pub service_ids: BTreeSet<Eid>,
 
     pub entity_relations: Vec<CompiledEntityRelation>,
 
