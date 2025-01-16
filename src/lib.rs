@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tower_server::{Scheme, TlsConfigFactory};
 use tracing::info;
 use util::protocol_router::ProtocolRouter;
+use webauth::webauth_router;
 
 // These are public for the integration test crate
 pub mod access_token;
@@ -34,6 +35,7 @@ mod openapi;
 mod policy;
 mod proto;
 mod util;
+mod webauth;
 
 #[derive(rust_embed::Embed)]
 #[folder = "migrations"]
@@ -94,7 +96,10 @@ pub async fn serve() -> anyhow::Result<()> {
         .bind()
         .await?;
 
-    let openapi_router = openapi_router(ctx.clone());
+    let router = axum::Router::new()
+        .nest("/api", openapi_router(ctx.clone()))
+        .nest("/web/auth", webauth_router(ctx.clone()));
+
     let cancel = ctx.cancel.clone();
 
     tokio::spawn(
@@ -107,7 +112,7 @@ pub async fn serve() -> anyhow::Result<()> {
                     );
                     grpc_routes.routes().into_axum_router()
                 })
-                .or_default(openapi_router)
+                .or_default(router)
                 .into_service(),
         ),
     );

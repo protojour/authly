@@ -73,6 +73,10 @@ k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
     kubectl delete pods --namespace=authly-test -l 'app=testservice'
     kubectl delete pods --namespace=authly-test -l 'app=gateway'
 
+# rebuild authly and restart its kubernetes pods
+k8s-test-refresh-authly: dev-image
+    kubectl delete pods --namespace=authly-test -l 'app=authly'
+
 # create the authly-test namespace and create basic configmaps and secrets
 k8s-test-setup:
     -kubectl create namespace authly-test

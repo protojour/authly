@@ -6,15 +6,15 @@ use authly_common::id::Eid;
 use cookie::Cookie;
 use hexhex::hex_literal;
 use hyper::header::SET_COOKIE;
-use reqwest::{ClientBuilder, Identity};
+use reqwest::Identity;
 use serde_json::{json, Value};
 use tracing::info;
 
-use crate::{is_allowed, is_denied, testservice_authly_client, testservice_web_client};
+use crate::{is_allowed, is_denied, ConnectionBuilder};
 
 #[tokio::test]
 async fn user_auth_ok() -> anyhow::Result<()> {
-    let web_client = testservice_web_client().unwrap();
+    let web_client = ConnectionBuilder::for_testservice()?.http_client()?;
 
     let response: Value = web_client
         .post("https://localhost:10443/api/auth/authenticate")
@@ -39,8 +39,9 @@ async fn user_auth_ok() -> anyhow::Result<()> {
 async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let web_client = testservice_web_client().unwrap();
-    let authly_client = testservice_authly_client().await.unwrap();
+    let conn_builder = ConnectionBuilder::for_testservice()?;
+    let web_client = conn_builder.http_client()?;
+    let authly_client = conn_builder.service_client().await?;
 
     let response = web_client
         .post("https://localhost:10443/api/auth/authenticate")

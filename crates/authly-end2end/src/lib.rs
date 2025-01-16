@@ -7,28 +7,34 @@ mod test_auth_access_control;
 mod test_service;
 mod test_tls;
 
-fn testservice_web_client() -> anyhow::Result<reqwest::Client> {
-    let client = reqwest::Client::builder()
-        .add_root_certificate(reqwest::tls::Certificate::from_pem(&std::fs::read(
-            "../../.local/exported-local-ca.pem",
-        )?)?)
-        .identity(reqwest::Identity::from_pem(&std::fs::read(
-            "../../.local/testservice-identity.pem",
-        )?)?)
-        .build()?;
+struct ConnectionBuilder(authly_client::ClientBuilder);
 
-    Ok(client)
-}
+impl ConnectionBuilder {
+    fn for_testservice() -> anyhow::Result<Self> {
+        Ok(Self(
+            authly_client::Client::builder()
+                .with_url("https://localhost:10443")
+                .with_authly_local_ca_pem(std::fs::read("../../.local/exported-local-ca.pem")?)?
+                .with_identity(authly_client::identity::Identity::from_pem(std::fs::read(
+                    "../../.local/testservice-identity.pem",
+                )?)?),
+        ))
+    }
 
-async fn testservice_authly_client() -> anyhow::Result<authly_client::Client> {
-    Ok(authly_client::Client::builder()
-        .with_url("https://localhost:10443")
-        .with_authly_local_ca_pem(std::fs::read("../../.local/exported-local-ca.pem")?)?
-        .with_identity(authly_client::identity::Identity::from_multi_pem(
-            std::fs::read("../../.local/testservice-identity.pem")?,
-        )?)
-        .connect()
-        .await?)
+    /// Make a http client
+    fn http_client(&self) -> anyhow::Result<reqwest::Client> {
+        Ok(reqwest::Client::builder()
+            .add_root_certificate(reqwest::tls::Certificate::from_pem(
+                &self.0.get_local_ca_pem()?,
+            )?)
+            .identity(reqwest::Identity::from_pem(&self.0.get_identity_pem()?)?)
+            .build()?)
+    }
+
+    /// Make a authly-service client
+    async fn service_client(self) -> anyhow::Result<authly_client::Client> {
+        Ok(self.0.connect().await?)
+    }
 }
 
 fn reqwest_cookie(response: &reqwest::Response) {

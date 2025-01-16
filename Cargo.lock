@@ -344,8 +344,8 @@ dependencies = [
 
 [[package]]
 name = "authly-client"
-version = "0.0.1"
-source = "git+https://github.com/protojour/authly-lib.git#5bb5bfec211f7a9a24edc3f87459c257cbba2aec"
+version = "0.0.2"
+source = "git+https://github.com/protojour/authly-lib.git#2214ae09722bb1f698071a83ff1ac2aaabe08100"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -356,6 +356,8 @@ dependencies = [
  "pem",
  "rcgen 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
+ "rustls-pemfile",
+ "rustls-pki-types",
  "thiserror 2.0.11",
  "tonic",
  "tracing",
@@ -364,8 +366,8 @@ dependencies = [
 
 [[package]]
 name = "authly-common"
-version = "0.0.1"
-source = "git+https://github.com/protojour/authly-lib.git#5bb5bfec211f7a9a24edc3f87459c257cbba2aec"
+version = "0.0.2"
+source = "git+https://github.com/protojour/authly-lib.git#2214ae09722bb1f698071a83ff1ac2aaabe08100"
 dependencies = [
  "anyhow",
  "byteorder",
