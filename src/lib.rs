@@ -51,12 +51,6 @@ struct AuthlyCtx {
     export_tls_to_etc: bool,
 }
 
-#[derive(Clone, Copy)]
-enum RunMode {
-    Serve,
-    Configure,
-}
-
 impl AuthlyCtx {
     /// Get local database raft metrics. This is synchronous and never fails.
     async fn metrics_db(&self) -> RaftMetrics<u64, hiqlite::Node> {
@@ -77,7 +71,7 @@ pub struct Init {
 }
 
 pub async fn serve() -> anyhow::Result<()> {
-    let Init { ctx, env_config } = initialize(RunMode::Serve).await?;
+    let Init { ctx, env_config } = initialize().await?;
 
     info!(
         "local CA:\n{}",
@@ -141,7 +135,7 @@ pub async fn serve() -> anyhow::Result<()> {
 }
 
 pub async fn configure() -> anyhow::Result<()> {
-    initialize(RunMode::Configure).await?;
+    initialize().await?;
 
     Ok(())
 }
@@ -151,7 +145,7 @@ enum CacheEntry {
     DummyForNow,
 }
 
-async fn initialize(run_mode: RunMode) -> anyhow::Result<Init> {
+async fn initialize() -> anyhow::Result<Init> {
     let env_config = EnvConfig::load();
     let node_config = hiqlite_node_config(&env_config);
     let hql = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
@@ -169,10 +163,7 @@ async fn initialize(run_mode: RunMode) -> anyhow::Result<Init> {
         dynamic_config: Arc::new(dynamic_config),
         cancel: termination_signal(),
         etc_dir: env_config.etc_dir.clone(),
-        export_tls_to_etc: match run_mode {
-            RunMode::Serve => false,
-            RunMode::Configure => env_config.export_tls_to_etc,
-        },
+        export_tls_to_etc: env_config.export_tls_to_etc,
     };
 
     if ctx.hql.is_leader_db().await {
