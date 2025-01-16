@@ -4,7 +4,7 @@ generate-testdata:
     if ! test -f .local/cluster.crt; then
         mkdir .local
         AUTHLY_ETC_DIR=.local/etc \
-            cargo run -p authly issue-cluster-key
+            cargo run -p authly --features dev issue-cluster-key
 
         AUTHLY_DOCUMENT_PATH="[examples/]" \
         AUTHLY_DATA_DIR=.local/data \
@@ -96,3 +96,6 @@ k8s-test-setup:
         -o yaml \
         --dry-run=client \
         | kubectl apply -f -
+
+docker-test: generate-testdata dev-image testservice
+    RUST_PROFILE=debug docker compose -f testfiles/docker/docker-compose.yml up

@@ -1,0 +1,32 @@
+services:
+
+  authly:
+    image: situ/authly:dev
+    environment:
+      AUTHLY_HOSTNAME: authly
+      AUTHLY_K8S: 'false'
+      AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
+      AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
+      AUTHLY_EXPORT_TLS_TO_ETC: 'true'
+    ports:
+      - 10443:10443
+    volumes:
+      - authly-data:/var/lib/authly/data
+      - authly-local-ca:/etc/authly/local
+      - testservice-identity:/etc/authly/service/f3e799137c034e1eb4cd3e4f65705932
+      - ../../.local/etc/cluster:/etc/authly/cluster:ro
+      - ../../examples:/etc/authly/documents:ro
+    command: serve
+
+  testservice:
+    image: situ/authly-testservice:dev
+    environment:
+      AUTHLY_URL: https://authly:10443
+    volumes:
+      - authly-local-ca:/etc/authly/local:ro
+      - testservice-identity:/etc/authly/identity:ro
+
+volumes:
+  authly-data:
+  authly-local-ca:
+  testservice-identity:
