@@ -1,17 +1,15 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: testservice
-  labels:
-    app: authly
   namespace: authly-test
+  name: testservice
 automountServiceAccountToken: true
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: testservice
   namespace: authly-test
+  name: testservice
   labels:
     app: testservice
 spec:

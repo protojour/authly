@@ -67,11 +67,11 @@ testservice:
 k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
     kubectl apply -f testfiles/k8s/authly.yaml
     kubectl apply -f testfiles/k8s/testservice.yaml
-    kubectl apply -f testfiles/k8s/gateway.yaml
+    kubectl apply -f testfiles/k8s/arx.yaml
 
     kubectl delete pods --namespace=authly-test -l 'app=authly' &
     kubectl delete pods --namespace=authly-test -l 'app=testservice' &
-    kubectl delete pods --namespace=authly-test -l 'app=gateway' &
+    kubectl delete pods --namespace=authly-test -l 'app=arx' &
     wait
 
 # rebuild authly and restart its kubernetes pods

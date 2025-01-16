@@ -1,10 +1,8 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: gateway
-  labels:
-    app: gateway
   namespace: authly-test
+  name: arx
 automountServiceAccountToken: true
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -28,7 +26,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   namespace: authly-test
-  name: gateway
+  name: arx
 roleRef:
   kind: ClusterRole
   name: read-gateway-api
@@ -37,17 +35,17 @@ roleRef:
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  name: memoriam-gateway
+  name: arx
 spec:
-  controllerName: "situ.net/memoriam-gateway"
+  controllerName: "situ.net/arx"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   namespace: authly-test
-  name: memoriam-gateway
+  name: arx
 spec:
-  gatewayClassName: memoriam-gateway
+  gatewayClassName: arx
   listeners:
   - name: http
     protocol: HTTP
@@ -56,7 +54,7 @@ spec:
       namespaces:
         from: All
 ---
-# Routing from the gateway into authly
+# Routing from Arx into authly
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -64,7 +62,7 @@ metadata:
   name: authly-routing
 spec:
   parentRefs:
-    - name: memoriam-gateway
+    - name: arx
   rules:
     - matches:
         - path:
@@ -112,12 +110,12 @@ apiVersion: v1
 kind: Service
 metadata:
   namespace: authly-test
-  name: gateway
+  name: arx
 spec:
   # Setting up the gateway at loadbalancer:
   type: LoadBalancer
   selector:
-    app: gateway
+    app: arx
   ports:
   - name: http
     protocol: TCP
@@ -131,26 +129,25 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gateway
+  name: arx
   namespace: authly-test
   labels:
-    app: gateway
+    app: arx
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: gateway
+      app: arx
   template:
     metadata:
       labels:
-        app: gateway
+        app: arx
     spec:
-      serviceAccountName: gateway
+      serviceAccountName: arx
       enableServiceLinks: false
       containers:
-      - name: testservice
-        image: situ/memoriam:dev
-        command: ["/memoriam", "gateway"]
+      - name: arx
+        image: protojour/arx:dev
         imagePullPolicy: Always
         ports:
         - containerPort: 80
