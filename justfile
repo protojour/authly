@@ -59,15 +59,16 @@ dev-image: musl
     docker build . -t situ/authly:dev --platform linux/amd64 --build-arg RUST_PROFILE=debug
 
 # build situ/authly-testservice:dev image
-testservice:
+testservice-image:
     cross build -p authly-testservice --target x86_64-unknown-linux-musl --target-dir target-musl
     docker build . -f testservice.Dockerfile -t situ/authly-testservice:dev
 
 # deploy local development version of authly to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
-k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
+k8s-test-deploy: generate-testdata dev-image testservice-image k8s-test-setup
     kubectl apply -f testfiles/k8s/authly.yaml
     kubectl apply -f testfiles/k8s/testservice.yaml
     kubectl apply -f testfiles/k8s/arx.yaml
+    kubectl apply -f testfiles/k8s/routing.yaml
 
     kubectl delete pods --namespace=authly-test -l 'app=authly' &
     kubectl delete pods --namespace=authly-test -l 'app=testservice' &
@@ -77,6 +78,10 @@ k8s-test-deploy: generate-testdata dev-image testservice k8s-test-setup
 # rebuild authly and restart its kubernetes pods
 k8s-test-refresh-authly: dev-image
     kubectl delete pods --namespace=authly-test -l 'app=authly'
+
+# rebuild testservice and restart its kubernetes pods
+k8s-test-refresh-testservice: testservice-image
+    kubectl delete pods --namespace=authly-test -l 'app=testservice'
 
 # create the authly-test namespace and create basic configmaps and secrets
 k8s-test-setup:
@@ -97,5 +102,5 @@ k8s-test-setup:
         --dry-run=client \
         | kubectl apply -f -
 
-docker-test: generate-testdata dev-image testservice
+docker-test: generate-testdata dev-image testservice-image
     RUST_PROFILE=debug docker compose -f testfiles/docker/docker-compose.yml up

@@ -1,0 +1,74 @@
+# Authly routes
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  namespace: authly-test
+  name: authly-routing
+spec:
+  parentRefs:
+    - name: arx
+  rules:
+    - matches:
+        - path:
+            value: /authly/api/auth
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /api/auth
+      backendRefs:
+        - name: authly
+          port: 443
+    - matches:
+        - path:
+            value: /authly/web/auth
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /web/auth
+      backendRefs:
+        - name: authly
+          port: 443
+    - matches:
+        - path:
+            value: /authly
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: authly.id
+            kind: Service
+            name: authn
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: authly
+          port: 443
+---
+# Testservice routes
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  namespace: authly-test
+  name: testservice-routing
+spec:
+  parentRefs:
+    - name: arx
+  rules:
+    - matches:
+        - path:
+            value: /testservice
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: testservice
+          port: 3000

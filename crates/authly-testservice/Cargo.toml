@@ -6,6 +6,10 @@ publish = false
 
 [dependencies]
 authly-client.workspace = true
+axum = "0.7"
+axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+indoc = "2"
+maud = { version = "0.26", features = ["axum"] }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
@@ -13,5 +17,3 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
     "fmt",
     "ansi",
 ] }
-
-[dev-dependencies]
