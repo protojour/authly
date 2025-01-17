@@ -422,7 +422,9 @@ dependencies = [
  "axum-extra",
  "indoc",
  "maud",
+ "rustls",
  "tokio",
+ "tower-server",
  "tracing",
  "tracing-subscriber",
 ]
@@ -4252,9 +4254,9 @@ checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
 
 [[package]]
 name = "tower-server"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5c46aab21b563f007040bf280756082c1283f71120c66abb2cd75139ec20dd1"
+checksum = "cfe4087adf6781d6674c12cf5ed6d5965f5c24820b2fd2595ff36a51d33f49b1"
 dependencies = [
  "anyhow",
  "futures-util",

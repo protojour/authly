@@ -161,7 +161,7 @@ async fn initialize() -> anyhow::Result<Init> {
     let ctx = AuthlyCtx {
         hql,
         dynamic_config: Arc::new(dynamic_config),
-        cancel: termination_signal(),
+        cancel: tower_server::signal::termination_signal(),
         etc_dir: env_config.etc_dir.clone(),
         export_tls_to_etc: env_config.export_tls_to_etc,
     };
@@ -332,29 +332,4 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
         secret_raft: env_config.cluster_raft_secret.clone(),
         secret_api: env_config.cluster_api_secret.clone(),
     }
-}
-
-fn termination_signal() -> CancellationToken {
-    let cancel = CancellationToken::new();
-    tokio::spawn({
-        let cancel = cancel.clone();
-        async move {
-            let terminate = async {
-                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                    .expect("failed to install signal handler")
-                    .recv()
-                    .await;
-            };
-            tokio::select! {
-                _ = tokio::signal::ctrl_c() => {
-                    cancel.cancel();
-                }
-                _ = terminate => {
-                    cancel.cancel();
-                }
-            }
-        }
-    });
-
-    cancel
 }

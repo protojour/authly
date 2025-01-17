@@ -64,6 +64,13 @@ spec:
         - path:
             value: /testservice
       filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: authly.id
+            kind: Service
+            # Opportunistic authentication means that sessionless requests are sent to the backend,
+            # without access token.
+            name: authn-opportunistic
         - type: URLRewrite
           urlRewrite:
             path:

@@ -21,6 +21,8 @@ struct Ctx {
 
 #[tokio::main]
 async fn main() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     tracing_subscriber::fmt()
         .with_target(true)
         .with_level(true)
@@ -51,8 +53,13 @@ async fn main() {
 
     let ctx = Ctx { client };
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app(ctx)).await.unwrap();
+    tower_server::Builder::new("0.0.0.0:3000".parse().unwrap())
+        .with_cancellation_token(tower_server::signal::termination_signal())
+        .bind()
+        .await
+        .unwrap()
+        .serve(app(ctx))
+        .await;
 }
 
 fn app(ctx: Ctx) -> axum::Router {

@@ -33,7 +33,7 @@ pub fn new_session_cookie(session: &Session) -> Cookie<'static> {
         format!("{}", hexhex::hex(&session.token.0)),
     );
     cookie.set_path("/");
-    cookie.set_secure(true);
+    // cookie.set_secure(true);
     cookie.set_http_only(true);
     cookie.set_expires(Expiration::DateTime(session.expires_at));
     cookie.set_same_site(SameSite::Strict);

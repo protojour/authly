@@ -26,7 +26,7 @@ pub async fn index(
             display: grid;
             align-items: center;
             justify-content: center;
-            grid-template-columns: minmanx(auto, 960px);
+            grid-template-columns: minmax(auto, 960px);
         }
         main {
             display: grid;
