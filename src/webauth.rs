@@ -17,6 +17,19 @@ pub async fn index(
     State(_ctx): State<AuthlyCtx>,
     ForwardedPrefix(prefix): ForwardedPrefix,
 ) -> Markup {
+    let js = indoc! {
+        r#"
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            if (evt.detail.pathInfo.requestPath.endsWith('/api/auth/authenticate')) {
+                // redirect back to requesting app.
+                const next = new URLSearchParams(window.location.search).get('next');
+                if (next) {
+                    window.location.href = next;
+                }
+            }
+        });
+        "#
+    };
     let css = indoc! {
         r#"
         #root {
@@ -59,6 +72,8 @@ pub async fn index(
                     }
                 }
             }
+
+            script { (PreEscaped(js)) }
         }
     }
 }

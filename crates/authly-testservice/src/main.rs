@@ -94,19 +94,21 @@ impl IntoResponse for Error {
 }
 
 async fn index(ctx: HtmlCtx) -> Markup {
-    let js_error_handler = indoc! {
+    let has_user_session = ctx.access_token.is_some();
+    let js = indoc! {
         r#"
         document.body.addEventListener('htmx:responseError', function(evt) {
             if (evt.detail.xhr.status == 401) {
-                // login handler
+                // redirect to login
                 const next = encodeURIComponent(document.location.href);
-                window.location.href = `/authly/web/auth/?next=${next}/`;
+                window.location.href = `/authly/web/auth/?next=${next}`;
             } else {
                 console.log('unhandled response error');
             }
         });
         "#,
     };
+
     html! {
         (DOCTYPE)
         html {
@@ -124,13 +126,18 @@ async fn index(ctx: HtmlCtx) -> Markup {
                     h1 { "Authly Testservice" }
                     p {
                         "This is the web interface of " code { "authly-testservice" } ". "
+                        @if has_user_session {
+                            "User session is active."
+                        } @else {
+                            "No user session available."
+                        }
                     }
 
                     div id="tabs" hx-get={(ctx.prefix)"/tab/service"} hx-trigger="load delay:100ms" hx-target="#tabs" hx-swap="innerHTML";
                 }
             }
 
-            script { (PreEscaped(js_error_handler)) }
+            script { (PreEscaped(js)) }
         }
     }
 }
@@ -146,9 +153,17 @@ async fn tab_service(ctx: HtmlCtx) -> Result<Markup, Error> {
         (render_nav_tab_list(0, &ctx))
 
         div id="tab-content" role="tabpanel" class="tab-content" {
-            p {
-                "The Authly Entity ID of this service is " code { (entity_id) } ". "
-                "The Authly label is " code { (label) } ". "
+            table {
+                tbody {
+                    tr {
+                        th { "Service Entity ID " }
+                        td { code { (entity_id) } }
+                    }
+                    tr {
+                        th { "Authly label" }
+                        td { code { (label) } }
+                    }
+                }
             }
         }
     })
@@ -163,8 +178,13 @@ async fn tab_user(ctx: HtmlCtx) -> Result<Markup, Error> {
         (render_nav_tab_list(1, &ctx))
 
         div id="tab-content" role="tabpanel" class="tab-content" {
-            p {
-                "The Authly Entity ID of the user is " code { (access_token.claims.authly.entity_id) } ". "
+            table {
+                tbody {
+                    tr {
+                        th { "User Entity ID " }
+                        td { code { (access_token.claims.authly.entity_id) } }
+                    }
+                }
             }
         }
     })
@@ -206,9 +226,9 @@ impl axum::extract::FromRequestParts<Ctx> for HtmlCtx {
         let client = ctx.client.clone();
 
         let opt_authorization = parts
-            .extract::<Option<TypedHeader<Authorization<Bearer>>>>()
+            .extract::<TypedHeader<Authorization<Bearer>>>()
             .await
-            .map_err(|_| Error::UserNotAuthenticated)?;
+            .ok();
 
         let access_token = match (&client, opt_authorization) {
             (Some(client), Some(authorization)) => {
