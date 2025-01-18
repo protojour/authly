@@ -30,18 +30,17 @@ anyhow = "1"
 argon2 = "0.5"
 axum = { version = "0.7", features = ["macros"] }
 axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
-bit-set = "0.8"
 clap = { version = "4", features = ["derive"] }
 cookie = "0.18"
 figment = { version = "0.10", features = ["env"] }
 fnv = "1"
 hexhex = "1"
-http = "1"
 hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = false, features = [
     "auto-heal",
     "listen_notify_local",
     "sqlite",
 ] }
+http = "1"
 indoc = "2"
 itertools = "0.14"
 hostname = "0.4"
@@ -66,10 +65,10 @@ reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "rustls-tls",
 ] }
+rusqlite = "0.32"
 rust-embed = { version = "8", features = ["debug-embed"] }
 rustls = "0.23"
 rustls-pemfile = "2"
-rusqlite = "0.32"
 sha2 = "0.10"
 serde = "1"
 serde_json = "1"
