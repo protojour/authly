@@ -20,13 +20,13 @@ pub mod access_token;
 pub mod cert;
 pub mod db;
 pub mod document;
+pub mod env_config;
 pub mod mtls;
 pub mod session;
 
 mod access_control;
 mod authority;
 mod broadcast;
-mod env_config;
 mod k8s;
 mod openapi;
 mod policy;
@@ -216,13 +216,15 @@ fn main_service_rustls(
 fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
     let cluster_tls_config = hiqlite::ServerTlsConfig {
         key: env_config
-            .cluster_key_path()
+            .cluster_tls_path()
+            .key_path()
             .to_str()
             .unwrap()
             .to_string()
             .into(),
         cert: env_config
-            .cluster_cert_path()
+            .cluster_tls_path()
+            .cert_path()
             .to_str()
             .unwrap()
             .to_string()
@@ -256,10 +258,7 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
 
     let hiqlite_nodes: Vec<hiqlite::Node> = if env_config.k8s {
         let statefulset = env_config.k8s_statefulset.as_deref().unwrap_or("authly");
-        let headless_svc = env_config
-            .k8s_headless_svc
-            .as_deref()
-            .unwrap_or("authly-headless");
+        let headless_svc = env_config.k8s_headless_svc.as_str();
         let replica_count = env_config.k8s_replicas;
 
         (0..replica_count)

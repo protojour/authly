@@ -27,7 +27,7 @@ pub struct EnvConfig {
 
     pub k8s: bool,
     pub k8s_statefulset: Option<String>,
-    pub k8s_headless_svc: Option<String>,
+    pub k8s_headless_svc: String,
     pub k8s_replicas: u64,
     pub k8s_auth_hostname: Option<String>,
     pub k8s_auth_server_port: Option<u16>,
@@ -51,19 +51,15 @@ impl EnvConfig {
             .unwrap()
     }
 
-    pub fn cluster_key_path(&self) -> PathBuf {
-        self.etc_dir.join("cluster/tls.key")
-    }
-
-    pub fn cluster_cert_path(&self) -> PathBuf {
-        self.etc_dir.join("cluster/tls.crt")
+    pub fn cluster_tls_path(&self) -> ClusterTlsPath {
+        ClusterTlsPath(self.etc_dir.join("cluster"))
     }
 }
 
 impl Default for EnvConfig {
     fn default() -> Self {
         Self {
-            hostname: "authly-local".to_string(),
+            hostname: "authly".to_string(),
 
             document_path: vec![PathBuf::from("/etc/authly/documents")],
 
@@ -79,7 +75,7 @@ impl Default for EnvConfig {
 
             k8s: false,
             k8s_statefulset: Some("authly".to_string()),
-            k8s_headless_svc: Some("authly-cluster".to_string()),
+            k8s_headless_svc: "authly-cluster".to_string(),
             k8s_replicas: 1,
             k8s_auth_hostname: None,
             k8s_auth_server_port: None,
@@ -89,5 +85,17 @@ impl Default for EnvConfig {
             #[cfg(feature = "dev")]
             debug_web_port: None,
         }
+    }
+}
+
+pub struct ClusterTlsPath(pub PathBuf);
+
+impl ClusterTlsPath {
+    pub fn key_path(&self) -> PathBuf {
+        self.0.join("tls.key")
+    }
+
+    pub fn cert_path(&self) -> PathBuf {
+        self.0.join("tls.crt")
     }
 }

@@ -4,6 +4,8 @@ generate-testdata:
     if ! test -f .local/cluster.crt; then
         mkdir .local
         AUTHLY_ETC_DIR=.local/etc \
+        AUTHLY_HOSTNAME=localhost \
+        AUTHLY_K8S=true \
             cargo run -p authly --features dev issue-cluster-key
 
         AUTHLY_DOCUMENT_PATH="[examples/]" \
@@ -89,8 +91,8 @@ k8s-test-setup:
 
     kubectl create secret tls authly-cluster-key \
         -n authly-test \
-        --cert=.local/etc/cluster/tls.crt \
-        --key=.local/etc/cluster/tls.key \
+        --cert=.local/etc/cluster-k8s/tls.crt \
+        --key=.local/etc/cluster-k8s/tls.key \
         -o yaml \
         --dry-run=client \
         | kubectl apply -f -

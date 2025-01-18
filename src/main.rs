@@ -1,4 +1,6 @@
-use authly::{cert::MakeSigningRequest, configure, serve, EnvConfig};
+use std::env;
+
+use authly::{cert::MakeSigningRequest, configure, env_config::ClusterTlsPath, serve, EnvConfig};
 use clap::{Parser, Subcommand};
 use rcgen::KeyPair;
 use time::Duration;
@@ -41,16 +43,30 @@ async fn main() -> anyhow::Result<()> {
         Some(Command::Configure) => configure().await?,
         Some(Command::IssueClusterKey) => {
             let env_config = EnvConfig::load();
-            let req = KeyPair::generate()?.server_cert("*.authly-cluster", Duration::days(10000));
-            let certificate = req.params.self_signed(&req.key)?;
 
-            std::fs::create_dir_all(env_config.cluster_cert_path().parent().unwrap())?;
+            issue_cluster_key(&env_config.hostname, env_config.cluster_tls_path())?;
 
-            std::fs::write(env_config.cluster_key_path(), req.key.serialize_pem())?;
-            std::fs::write(env_config.cluster_cert_path(), certificate.pem())?;
+            if env_config.k8s {
+                issue_cluster_key(
+                    &format!("*.{host}", host = &env_config.k8s_headless_svc),
+                    ClusterTlsPath(env_config.etc_dir.join("cluster-k8s")),
+                )?;
+            }
         }
         None => {}
     }
+
+    Ok(())
+}
+
+fn issue_cluster_key(common_name: &str, tls_path: ClusterTlsPath) -> anyhow::Result<()> {
+    let req = KeyPair::generate()?.server_cert(common_name, Duration::days(10000));
+    let certificate = req.params.self_signed(&req.key)?;
+
+    std::fs::create_dir_all(&tls_path.0)?;
+
+    std::fs::write(tls_path.key_path(), req.key.serialize_pem())?;
+    std::fs::write(tls_path.cert_path(), certificate.pem())?;
 
     Ok(())
 }
