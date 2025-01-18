@@ -1,3 +1,4 @@
+# The authly-test service account:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -5,6 +6,8 @@ metadata:
   name: authly
 automountServiceAccountToken: true
 ---
+
+# The kubernetes roles given to authly:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -15,6 +18,8 @@ rules:
   resources: ["configmaps"]
   verbs: ["get", "watch", "list", "create", "patch", "update"]
 ---
+
+# Binds `authly-role` to `authly`:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -28,6 +33,8 @@ roleRef:
   name: authly-role
   apiGroup: rbac.authorization.k8s.io
 ---
+
+# Basic configuration environment variables:
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -36,12 +43,11 @@ metadata:
 data:
   AUTHLY_HOSTNAME: authly
   AUTHLY_K8S: 'true'
-  AUTHLY_K8S_STATEFULSET: authly
-  AUTHLY_K8S_HEADLESS_SVC: authly-cluster
-  AUTHLY_K8S_REPLICAS: '1'
   AUTHLY_K8S_AUTH_HOSTNAME: authly-k8s
   AUTHLY_K8S_AUTH_SERVER_PORT: '10446'
 ---
+
+# Secrets for the Authly cluster:
 apiVersion: v1
 kind: Secret
 metadata:
@@ -51,6 +57,8 @@ stringData:
   AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
   AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
 ---
+
+# The Authly API service:
 apiVersion: v1
 kind: Service
 metadata:
@@ -65,6 +73,8 @@ spec:
     port: 443
     targetPort: 10443
 ---
+
+# The Authly service for k8s authentication:
 apiVersion: v1
 kind: Service
 metadata:
@@ -79,6 +89,9 @@ spec:
     port: 443
     targetPort: 10446
 ---
+
+# The Authly cluster headless service.
+# Only used for Authly pods talking to themselves and other authly pods part of the same Authly cluster:
 apiVersion: v1
 kind: Service
 metadata:
@@ -98,6 +111,39 @@ spec:
       port: 10445
       targetPort: 10445
 ---
+
+# The Authly network policy:
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authly-network-policy
+  namespace: authly-test
+spec:
+  podSelector:
+    matchLabels:
+      app: authly
+  policyTypes:
+  - Ingress
+  ingress:
+  # Open up 10443 (API port) and 10446 (k8s auth port) to every pod:
+  - ports:
+    - protocol: TCP
+      port: 10443
+    - protocol: TCP
+      port: 10446
+  # Open up the cluster ports to the Authly pod only:
+  - ports:
+    - protocol: TCP
+      port: 10444
+    - protocol: TCP
+      port: 10445
+    from:
+    - podSelector:
+        matchLabels:
+          app: authly
+---
+
+# The Authly StatefulSet, which ultimately deploys:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

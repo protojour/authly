@@ -28,7 +28,7 @@ pub struct EnvConfig {
     pub k8s: bool,
     pub k8s_statefulset: Option<String>,
     pub k8s_headless_svc: Option<String>,
-    pub k8s_replicas: Option<u64>,
+    pub k8s_replicas: u64,
     pub k8s_auth_hostname: Option<String>,
     pub k8s_auth_server_port: Option<u16>,
 
@@ -78,9 +78,9 @@ impl Default for EnvConfig {
             cluster_api_nodes: None,
 
             k8s: false,
-            k8s_statefulset: None,
-            k8s_headless_svc: None,
-            k8s_replicas: None,
+            k8s_statefulset: Some("authly".to_string()),
+            k8s_headless_svc: Some("authly-cluster".to_string()),
+            k8s_replicas: 1,
             k8s_auth_hostname: None,
             k8s_auth_server_port: None,
 

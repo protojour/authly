@@ -260,7 +260,7 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
             .k8s_headless_svc
             .as_deref()
             .unwrap_or("authly-headless");
-        let replica_count = env_config.k8s_replicas.unwrap_or(1);
+        let replica_count = env_config.k8s_replicas;
 
         (0..replica_count)
             .map(|idx| hiqlite::Node {
