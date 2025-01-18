@@ -279,15 +279,12 @@ impl axum::extract::FromRequestParts<Ctx> for HtmlCtx {
             _ => None,
         };
 
-        let prefix = if let Some(prefix) = parts.headers.get("x-forwarded-prefix") {
-            if let Ok(prefix) = prefix.to_str() {
-                prefix.to_string()
-            } else {
-                "".to_string()
-            }
-        } else {
-            "".to_string()
-        };
+        let prefix = parts
+            .headers
+            .get("x-forwarded-prefix")
+            .and_then(|prefix| prefix.to_str().ok())
+            .map(ToString::to_string)
+            .unwrap_or_default();
 
         Ok(Self {
             client,
