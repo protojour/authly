@@ -9,7 +9,7 @@ services:
       AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
       AUTHLY_EXPORT_TLS_TO_ETC: 'true'
     ports:
-      - 10443:10443
+      - 1443:443
     volumes:
       - authly-data:/var/lib/authly/data
       - authly-local-ca:/etc/authly/local
@@ -20,8 +20,6 @@ services:
 
   testservice:
     image: situ/authly-testservice:dev
-    environment:
-      AUTHLY_URL: https://authly:10443
     volumes:
       - authly-local-ca:/etc/authly/local:ro
       - testservice-identity:/etc/authly/identity:ro

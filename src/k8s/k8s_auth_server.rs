@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use authly_common::id::Eid;
@@ -49,12 +52,13 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
     let jwt_verifier = fetch_k8s_jwk_jwt_verifier().await?;
     let rustls_config_factory = rustls_server_config(env_config, &ctx.dynamic_config)?;
 
-    let server = tower_server::Builder::new(format!("0.0.0.0:{port}").parse()?)
-        .with_scheme(tower_server::Scheme::Https)
-        .with_tls_config(rustls_config_factory)
-        .with_cancellation_token(ctx.cancel.clone())
-        .bind()
-        .await?;
+    let server =
+        tower_server::Builder::new(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), port))
+            .with_scheme(tower_server::Scheme::Https)
+            .with_tls_config(rustls_config_factory)
+            .with_cancellation_token(ctx.cancel.clone())
+            .bind()
+            .await?;
 
     tokio::spawn(
         server.serve(

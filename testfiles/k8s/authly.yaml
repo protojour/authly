@@ -41,10 +41,9 @@ metadata:
   namespace: authly-test
   name: authly-config
 data:
-  AUTHLY_HOSTNAME: authly
   AUTHLY_K8S: 'true'
   AUTHLY_K8S_AUTH_HOSTNAME: authly-k8s
-  AUTHLY_K8S_AUTH_SERVER_PORT: '10446'
+  AUTHLY_K8S_AUTH_SERVER_PORT: '2443'
 ---
 
 # Secrets for the Authly cluster:
@@ -71,7 +70,7 @@ spec:
   - name: api
     protocol: TCP
     port: 443
-    targetPort: 10443
+    targetPort: 443
 ---
 
 # The Authly service for k8s authentication:
@@ -87,7 +86,7 @@ spec:
   - name: k8s-auth-api
     protocol: TCP
     port: 443
-    targetPort: 10446
+    targetPort: 2443
 ---
 
 # The Authly cluster headless service.
@@ -104,12 +103,12 @@ spec:
   ports:
     - name: cluster-api
       protocol: TCP
-      port: 10444
-      targetPort: 10444
+      port: 7855
+      targetPort: 7855
     - name: cluster-raft
       protocol: TCP
-      port: 10445
-      targetPort: 10445
+      port: 7856
+      targetPort: 7856
 ---
 
 # The Authly network policy:
@@ -125,18 +124,18 @@ spec:
   policyTypes:
   - Ingress
   ingress:
-  # Open up 10443 (API port) and 10446 (k8s auth port) to every pod:
+  # Open up 443 (authly server port) and 2443 (authly k8s auth port) to every pod:
   - ports:
     - protocol: TCP
-      port: 10443
+      port: 443
     - protocol: TCP
-      port: 10446
+      port: 2443
   # Open up the cluster ports to the Authly pod only:
   - ports:
     - protocol: TCP
-      port: 10444
+      port: 7855
     - protocol: TCP
-      port: 10445
+      port: 7856
     from:
     - podSelector:
         matchLabels:
@@ -171,10 +170,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
           ports:
-            - containerPort: 10443
-            - containerPort: 10444
-            - containerPort: 10445
-            - containerPort: 10446
+            - containerPort: 443
+            - containerPort: 2443
+            - containerPort: 7855
+            - containerPort: 7856
           # livenessProbe:
           #   httpGet:
           #     scheme: HTTP

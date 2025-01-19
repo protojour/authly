@@ -13,7 +13,7 @@ impl ConnectionBuilder {
     fn for_testservice() -> anyhow::Result<Self> {
         Ok(Self(
             authly_client::Client::builder()
-                .with_url("https://localhost:10443")
+                .with_url("https://localhost:1443")
                 .with_authly_local_ca_pem(std::fs::read("../../.local/etc/local/ca.crt")?)?
                 .with_identity(authly_client::identity::Identity::from_pem(std::fs::read(
                     "../../.local/etc/service/f3e799137c034e1eb4cd3e4f65705932/identity.pem",

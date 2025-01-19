@@ -17,7 +17,7 @@ async fn user_auth_ok() -> anyhow::Result<()> {
     let web_client = ConnectionBuilder::for_testservice()?.http_client()?;
 
     let response: Value = web_client
-        .post("https://localhost:10443/api/auth/authenticate")
+        .post("https://localhost:1443/api/auth/authenticate")
         .json(&json!({
             "username": "testuser",
             "password": "secret",
@@ -44,7 +44,7 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     let authly_client = conn_builder.service_client().await?;
 
     let response = web_client
-        .post("https://localhost:10443/api/auth/authenticate")
+        .post("https://localhost:1443/api/auth/authenticate")
         .json(&json!({
             "username": "testuser",
             "password": "secret",

@@ -21,6 +21,7 @@ debug_web_port := "12345"
 rundev: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
+    AUTHLY_SERVER_PORT=1443 \
     AUTHLY_DATA_DIR=.local/data \
     AUTHLY_ETC_DIR=.local/etc \
     AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
@@ -30,6 +31,7 @@ rundev: generate-testdata
 runrelease: generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
+    AUTHLY_SERVER_PORT=1443 \
     AUTHLY_DATA_DIR=.local/data \
     AUTHLY_ETC_DIR=.local/etc \
         cargo run --release -p authly serve

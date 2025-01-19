@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use authly_common::id::Eid;
@@ -38,8 +42,8 @@ mod webauth;
 #[folder = "migrations"]
 pub struct Migrations;
 
-const HIQLITE_API_PORT: u16 = 10444;
-const HIQLITE_RAFT_PORT: u16 = 10445;
+const HIQLITE_API_PORT: u16 = 7855;
+const HIQLITE_RAFT_PORT: u16 = 7856;
 
 #[derive(Clone)]
 struct AuthlyCtx {
@@ -87,13 +91,16 @@ pub async fn serve() -> anyhow::Result<()> {
     }
 
     let rustls_config = main_service_rustls(&env_config, &ctx.dynamic_config)?;
-    let server = tower_server::Builder::new("0.0.0.0:10443".parse()?)
-        .with_scheme(Scheme::Https)
-        .with_tls_config(rustls_config)
-        .with_tls_connection_middleware(mtls::MTLSMiddleware)
-        .with_cancellation_token(ctx.cancel.clone())
-        .bind()
-        .await?;
+    let server = tower_server::Builder::new(SocketAddr::new(
+        Ipv4Addr::new(0, 0, 0, 0).into(),
+        env_config.server_port,
+    ))
+    .with_scheme(Scheme::Https)
+    .with_tls_config(rustls_config)
+    .with_tls_connection_middleware(mtls::MTLSMiddleware)
+    .with_cancellation_token(ctx.cancel.clone())
+    .bind()
+    .await?;
 
     let cancel = ctx.cancel.clone();
 

@@ -11,6 +11,9 @@ pub struct EnvConfig {
     /// The hostname against which to generate server certificates
     pub hostname: String,
 
+    /// The port on which to run the API/web server
+    pub server_port: u16,
+
     /// A list of paths to scan for documents during startup.
     pub document_path: Vec<PathBuf>,
 
@@ -60,6 +63,7 @@ impl Default for EnvConfig {
     fn default() -> Self {
         Self {
             hostname: "authly".to_string(),
+            server_port: 443,
 
             document_path: vec![PathBuf::from("/etc/authly/documents")],
 
