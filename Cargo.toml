@@ -58,7 +58,7 @@ pest = "2"
 pest_derive = "2"
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 rand = "0.8"
-rcgen = { git = "https://github.com/rustls/rcgen.git", branch = "main", features = [
+rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params", features = [
     "x509-parser",
 ] }
 reqwest = { version = "0.12", default-features = false, features = [

@@ -1,6 +1,8 @@
 use std::env;
 use std::sync::Arc;
 
+use authly_common::id::Eid;
+use authly_common::mtls_server::PeerServiceEntity;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::RequestPartsExt;
@@ -11,6 +13,11 @@ use axum_extra::TypedHeader;
 use indoc::indoc;
 use maud::{html, DOCTYPE};
 use maud::{Markup, PreEscaped};
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::CertificateDer;
+use rustls::server::WebPkiClientVerifier;
+use rustls::RootCertStore;
+use tower_server::Scheme;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
@@ -32,34 +39,66 @@ async fn main() {
     info!("HELLO");
 
     // DISABLE_AUTHLY is nice when only working on the HTML
-    let client = if env::var("DISABLE_AUTHLY").is_err() {
-        let client = authly_client::Client::builder()
+    if env::var("DISABLE_AUTHLY").is_err() {
+        let client_builder = authly_client::Client::builder()
             .from_environment()
-            .await
-            .unwrap()
-            .connect()
             .await
             .unwrap();
 
+        let mut root_cert_store = RootCertStore::empty();
+        root_cert_store
+            .add(
+                CertificateDer::from_pem_slice(client_builder.get_local_ca_pem().unwrap().as_ref())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let client = client_builder.connect().await.unwrap();
         let entity_id = client.entity_id().await.unwrap();
         let label = client.label().await.unwrap();
 
-        info!("client running, entity_id={entity_id} label={label}");
+        info!("client running, entity_id={entity_id} label={label}, binding server to port 443");
 
-        Some(client)
+        let (cert, private_key) = client
+            .generate_server_tls_params("testservice")
+            .await
+            .unwrap();
+
+        let mut rustls_config = rustls::server::ServerConfig::builder()
+            .with_client_cert_verifier(
+                WebPkiClientVerifier::builder(root_cert_store.into())
+                    .build()
+                    .unwrap(),
+            )
+            .with_single_cert(vec![cert], private_key)
+            .unwrap();
+        rustls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        let rustls_config = Arc::new(rustls_config);
+        let rustls_config: tower_server::TlsConfigFactory = Arc::new(move || rustls_config.clone());
+
+        tower_server::Builder::new("0.0.0.0:443".parse().unwrap())
+            .with_cancellation_token(tower_server::signal::termination_signal())
+            .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
+            .with_scheme(Scheme::Https)
+            .with_tls_config(rustls_config)
+            .bind()
+            .await
+            .unwrap()
+            .serve(app(Ctx {
+                client: Some(client),
+            }))
+            .await;
     } else {
-        None
+        info!("authly disabled, binding server to port 3000");
+
+        tower_server::Builder::new("0.0.0.0:3000".parse().unwrap())
+            .with_cancellation_token(tower_server::signal::termination_signal())
+            .bind()
+            .await
+            .unwrap()
+            .serve(app(Ctx { client: None }))
+            .await;
     };
-
-    let ctx = Ctx { client };
-
-    tower_server::Builder::new("0.0.0.0:3000".parse().unwrap())
-        .with_cancellation_token(tower_server::signal::termination_signal())
-        .bind()
-        .await
-        .unwrap()
-        .serve(app(ctx))
-        .await;
 }
 
 fn app(ctx: Ctx) -> axum::Router {
@@ -185,6 +224,25 @@ async fn tab_service(ctx: HtmlCtx) -> Result<Markup, Error> {
                 }
             }
 
+            h4 { "Mesh" }
+            table {
+                tbody {
+                    tr {
+                        th { "Peer Service Entity ID" }
+                        td {
+                            code {
+                                @match ctx.peer_service_entity {
+                                    Some(peer_service_entity) => {
+                                        (peer_service_entity)
+                                    }
+                                    None => { "N/A" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             h4 { "Resource properties" }
             table {
                 thead {
@@ -256,6 +314,7 @@ fn render_nav_tab_list(selected: usize, ctx: &HtmlCtx) -> Markup {
 
 struct HtmlCtx {
     client: Option<authly_client::Client>,
+    peer_service_entity: Option<Eid>,
     access_token: Option<Arc<authly_client::AccessToken>>,
     prefix: String,
 }
@@ -266,6 +325,11 @@ impl axum::extract::FromRequestParts<Ctx> for HtmlCtx {
 
     async fn from_request_parts(parts: &mut Parts, ctx: &Ctx) -> Result<Self, Self::Rejection> {
         let client = ctx.client.clone();
+
+        let peer_service_entity = parts
+            .extensions
+            .get::<PeerServiceEntity>()
+            .map(|peer_service| peer_service.0);
 
         let opt_authorization = parts
             .extract::<TypedHeader<Authorization<Bearer>>>()
@@ -288,6 +352,7 @@ impl axum::extract::FromRequestParts<Ctx> for HtmlCtx {
 
         Ok(Self {
             client,
+            peer_service_entity,
             access_token,
             prefix,
         })

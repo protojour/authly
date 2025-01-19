@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 authly-client.workspace = true
+authly-common = { workspace = true, features = ["mtls_server"] }
 axum = "0.7"
 axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
 indoc = "2"

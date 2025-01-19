@@ -211,7 +211,7 @@ fn main_service_rustls(
 
     let mut config = rustls::server::ServerConfig::builder()
         .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store.into()).build()?)
-        .with_single_cert(vec![server_cert.der.clone()], server_private_key_der)?;
+        .with_single_cert(vec![server_cert.der], server_private_key_der)?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     let config = Arc::new(config);

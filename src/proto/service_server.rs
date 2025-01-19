@@ -9,6 +9,8 @@ use authly_common::{
     },
 };
 use http::header::{AUTHORIZATION, COOKIE};
+use rcgen::CertificateSigningRequestParams;
+use rustls::pki_types::CertificateSigningRequestDer;
 use tonic::{
     metadata::{Ascii, MetadataMap},
     Request, Response,
@@ -134,7 +136,6 @@ impl AuthlyService for AuthlyServiceServerImpl {
         Ok(Response::new(response))
     }
 
-    /// TODO: Should support
     async fn access_control(
         &self,
         request: Request<proto::AccessControlRequest>,
@@ -205,6 +206,34 @@ impl AuthlyService for AuthlyServiceServerImpl {
         };
 
         Ok(Response::new(proto::AccessControlResponse { outcome }))
+    }
+
+    async fn sign_certificate(
+        &self,
+        request: Request<proto::CertificateSigningRequest>,
+    ) -> tonic::Result<Response<proto::Certificate>> {
+        let _peer_svc_eid = svc_mtls_auth_trivial(request.extensions())?;
+
+        let csr_params = CertificateSigningRequestParams::from_der(
+            &CertificateSigningRequestDer::from(request.into_inner().der),
+        )
+        .map_err(|_err| tonic::Status::invalid_argument("invalid Certificate Signing Request"))?;
+
+        // TODO: If a server certificate: Somehow verify that the peer service does not lie about its hostname/common name?
+        // Authly would have to know its hostname in that case, if it's not the same as the service label.
+
+        let local_ca = &self.ctx.dynamic_config.local_ca;
+
+        let certificate = csr_params
+            .signed_by(&local_ca.params, &local_ca.key)
+            .map_err(|err| {
+                warn!(?err, "unable to sign service certificate");
+                tonic::Status::invalid_argument("Certificate signing problem")
+            })?;
+
+        Ok(Response::new(proto::Certificate {
+            der: certificate.der().to_vec(),
+        }))
     }
 }
 

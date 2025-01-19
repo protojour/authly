@@ -78,4 +78,4 @@ spec:
               replacePrefixMatch: /
       backendRefs:
         - name: testservice
-          port: 3000
+          port: 443

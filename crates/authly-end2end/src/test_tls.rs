@@ -5,11 +5,12 @@ use authly_common::mtls_server::PeerServiceEntity;
 use axum::{response::IntoResponse, Extension};
 use hyper::body::Incoming;
 use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose,
-    IsCa, KeyPair, KeyUsagePurpose, PrintableString, PublicKeyData, SubjectPublicKeyInfo,
+    BasicConstraints, Certificate, CertificateParams, CertificateSigningRequest,
+    CertificateSigningRequestParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, KeyPair,
+    KeyUsagePurpose, PrintableString, PublicKeyData, SubjectPublicKeyInfo,
 };
 use rustls::{
-    pki_types::{CertificateDer, PrivateKeyDer},
+    pki_types::{CertificateDer, CertificateSigningRequestDer, PrivateKeyDer},
     server::WebPkiClientVerifier,
     RootCertStore,
 };
@@ -128,6 +129,64 @@ async fn test_tls_invalid_host_cert() {
 async fn test_mtls_verified() {
     let ca = Cert::new_authly_ca();
     let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+    let client_cert =
+        ca.sign(new_key_pair().client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)));
+
+    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
+    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+
+    let text_response = reqwest::ClientBuilder::new()
+        .add_root_certificate((&ca).into())
+        .identity((&client_cert).into())
+        .build()
+        .unwrap()
+        .get(format!("https://localhost:{server_port}/test"))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        text_response,
+        "it works: peer_service_eid=cf2e74c3f26240908e1b4e8817bfde7c"
+    );
+
+    cancel.cancel();
+}
+
+#[tokio::test]
+async fn test_mtls_server_cert_through_csr() {
+    let ca = Cert::new_authly_ca();
+
+    let server_cert = {
+        let req = KeyPair::generate()
+            .unwrap()
+            .server_cert_csr("localhost", Duration::days(1));
+
+        let csr_der = req
+            .params
+            .serialize_request(&req.key)
+            .unwrap()
+            .der()
+            .to_vec();
+
+        let csr_params =
+            CertificateSigningRequestParams::from_der(&CertificateSigningRequestDer::from(csr_der))
+                .unwrap();
+        let signed_cert = csr_params.signed_by(&ca.params, &ca.key).unwrap();
+
+        Cert {
+            params: signed_cert.params().clone(),
+            der: signed_cert.der().clone(),
+            key: req.key,
+        }
+    };
+
+    // let server_cert = ca.sign(new_key_pair().server_cert_csr("localhost", Duration::hours(1)));
     let client_cert =
         ca.sign(new_key_pair().client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)));
 

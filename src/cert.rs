@@ -94,6 +94,23 @@ pub trait MakeSigningRequest: Sized {
         SigningRequest { params, key: self }
     }
 
+    fn server_cert_csr(self, common_name: &str, not_after: Duration) -> SigningRequest<Self> {
+        let mut params = CertificateParams::new(vec![common_name.to_string()])
+            .expect("we know the name is valid");
+        params
+            .distinguished_name
+            .push(DnType::CommonName, common_name);
+        params.use_authority_key_identifier_extension = false;
+        params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+        params
+            .extended_key_usages
+            .push(ExtendedKeyUsagePurpose::ServerAuth);
+        params.not_before = past(Duration::days(1));
+        params.not_after = future(not_after);
+
+        SigningRequest { params, key: self }
+    }
+
     fn client_cert(self, common_name: &str, not_after: Duration) -> SigningRequest<Self> {
         let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
         params
