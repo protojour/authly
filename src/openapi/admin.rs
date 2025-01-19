@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use authly_common::{access_token::AuthlyAccessTokenClaims, document::Document};
+use authly_common::{
+    access_token::AuthlyAccessTokenClaims, document::Document, mtls_server::PeerServiceEntity,
+};
 use axum::{
     extract::State,
     response::{IntoResponse, Response},
@@ -14,7 +16,6 @@ use crate::{
     access_token::VerifiedAccessToken,
     authority,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
-    mtls::PeerServiceEID,
     AuthlyCtx,
 };
 
@@ -34,7 +35,7 @@ impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for AdminAu
         ctx: &AuthlyCtx,
     ) -> Result<Self, Self::Rejection> {
         let Extension(peer_svc_eid) = parts
-            .extract::<Extension<PeerServiceEID>>()
+            .extract::<Extension<PeerServiceEntity>>()
             .await
             .map_err(|_| (StatusCode::UNAUTHORIZED, "invalid client"))?;
 

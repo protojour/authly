@@ -1,5 +1,5 @@
 use argon2::Argon2;
-use authly_common::id::BuiltinID;
+use authly_common::{id::BuiltinID, mtls_server::PeerServiceEntity};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,6 @@ use crate::{
         entity_db::{self, EntityPasswordHash},
         session_db, DbError,
     },
-    mtls::PeerServiceEID,
     session::{new_session_cookie, Session, SessionToken, SESSION_TTL},
     AuthlyCtx, Eid,
 };
@@ -74,7 +73,7 @@ pub struct AuthenticateResponse {
 
 pub async fn authenticate(
     State(ctx): State<AuthlyCtx>,
-    Extension(PeerServiceEID(peer_svc_eid)): Extension<PeerServiceEID>,
+    Extension(PeerServiceEntity(peer_svc_eid)): Extension<PeerServiceEntity>,
     Json(body): Json<AuthenticateRequest>,
 ) -> Result<axum::response::Response, AuthError> {
     authorize_peer_service(peer_svc_eid, &[BuiltinID::AttrAuthlyRoleAuthenticate], &ctx).await?;

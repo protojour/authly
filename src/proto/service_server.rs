@@ -1,6 +1,7 @@
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
     id::{BuiltinID, Eid, Id128},
+    mtls_server::PeerServiceEntity,
     policy::{code::Outcome, engine::AccessControlParams},
     proto::service::{
         self as proto,
@@ -21,7 +22,6 @@ use crate::{
         entity_db,
         service_db::{self, find_service_label_by_eid, ServicePropertyKind},
     },
-    mtls::PeerServiceEID,
     session::{authenticate_session_cookie, find_session_cookie, Session},
     AuthlyCtx,
 };
@@ -211,7 +211,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
 /// Just extract the peer entity id without checking any required roles
 fn svc_mtls_auth_trivial(extensions: &tonic::Extensions) -> tonic::Result<Eid> {
     let peer_svc_eid = extensions
-        .get::<PeerServiceEID>()
+        .get::<PeerServiceEntity>()
         .ok_or_else(|| tonic::Status::unauthenticated("invalid service identity"))?;
 
     Ok(peer_svc_eid.0)
@@ -224,7 +224,7 @@ async fn svc_mtls_auth(
     ctx: &AuthlyCtx,
 ) -> tonic::Result<AuthorizedPeerService> {
     let peer_svc_eid = extensions
-        .get::<PeerServiceEID>()
+        .get::<PeerServiceEntity>()
         .ok_or_else(|| tonic::Status::unauthenticated("invalid service identity"))?;
 
     let authorized = access_control::authorize_peer_service(peer_svc_eid.0, required_roles, ctx)

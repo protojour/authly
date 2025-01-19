@@ -345,7 +345,7 @@ dependencies = [
 [[package]]
 name = "authly-client"
 version = "0.0.2"
-source = "git+https://github.com/protojour/authly-lib.git#43d569d021238f401ed62a3faa1237e08e323074"
+source = "git+https://github.com/protojour/authly-lib.git#a88063ab57deae7f4c97d17ebea4be5636c9296a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -367,24 +367,29 @@ dependencies = [
 [[package]]
 name = "authly-common"
 version = "0.0.2"
-source = "git+https://github.com/protojour/authly-lib.git#43d569d021238f401ed62a3faa1237e08e323074"
+source = "git+https://github.com/protojour/authly-lib.git#a88063ab57deae7f4c97d17ebea4be5636c9296a"
 dependencies = [
  "anyhow",
  "byteorder",
  "fnv",
  "hexhex",
+ "http",
+ "hyper",
  "int-enum",
  "prost",
  "rand",
+ "rustls",
  "serde",
  "serde_spanned",
  "thiserror 2.0.11",
  "toml",
  "tonic",
  "tonic-build",
+ "tower-server",
  "tracing",
  "unsigned-varint",
  "uuid",
+ "x509-parser",
 ]
 
 [[package]]
@@ -4238,9 +4243,9 @@ checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
 
 [[package]]
 name = "tower-server"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfe4087adf6781d6674c12cf5ed6d5965f5c24820b2fd2595ff36a51d33f49b1"
+checksum = "866d16a05d00287c19a6ddef5cf948bd81bb21ac98a497d32d868e5440e2fad3"
 dependencies = [
  "anyhow",
  "futures-util",

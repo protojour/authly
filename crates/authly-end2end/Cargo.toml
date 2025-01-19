@@ -10,7 +10,7 @@ doctest = false
 [dependencies]
 authly.path = "../../"
 authly-client.workspace = true
-authly-common.workspace = true
+authly-common = { workspace = true, features = ["mtls_server"] }
 anyhow = "1"
 axum = "0.7"
 cookie = "0.18"

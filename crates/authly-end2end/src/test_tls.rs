@@ -1,9 +1,7 @@
 use std::{error::Error, sync::Arc};
 
-use authly::{
-    cert::{Cert, MakeSigningRequest},
-    mtls::PeerServiceEID,
-};
+use authly::cert::{Cert, MakeSigningRequest};
+use authly_common::mtls_server::PeerServiceEntity;
 use axum::{response::IntoResponse, Extension};
 use hyper::body::Incoming;
 use rcgen::{
@@ -221,7 +219,7 @@ async fn spawn_server(rustls_config_factory: TlsConfigFactory) -> (u16, Cancella
     let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
         .with_scheme(tower_server::Scheme::Https)
         .with_tls_config(rustls_config_factory)
-        .with_tls_connection_middleware(authly::mtls::MTLSMiddleware)
+        .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
         .with_cancellation_token(cancel.clone())
         .bind()
         .await
@@ -236,9 +234,9 @@ async fn spawn_server(rustls_config_factory: TlsConfigFactory) -> (u16, Cancella
 }
 
 async fn test_handler(
-    peer_service_eid: Option<Extension<PeerServiceEID>>,
+    peer_service_eid: Option<Extension<PeerServiceEntity>>,
 ) -> axum::response::Response {
-    if let Some(Extension(PeerServiceEID(eid))) = peer_service_eid {
+    if let Some(Extension(PeerServiceEntity(eid))) = peer_service_eid {
         format!("it works: peer_service_eid={}", eid).into_response()
     } else {
         "it works: no client auth".into_response()

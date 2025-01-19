@@ -21,8 +21,9 @@ dev = []
 
 [dependencies]
 authly-common = { workspace = true, features = [
-    "document",
     "access_token",
+    "document",
+    "mtls_server",
     "tonic_server",
 ] }
 

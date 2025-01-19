@@ -25,7 +25,6 @@ pub mod cert;
 pub mod db;
 pub mod document;
 pub mod env_config;
-pub mod mtls;
 pub mod session;
 
 mod access_control;
@@ -97,7 +96,7 @@ pub async fn serve() -> anyhow::Result<()> {
     ))
     .with_scheme(Scheme::Https)
     .with_tls_config(rustls_config)
-    .with_tls_connection_middleware(mtls::MTLSMiddleware)
+    .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
     .with_cancellation_token(ctx.cancel.clone())
     .bind()
     .await?;
