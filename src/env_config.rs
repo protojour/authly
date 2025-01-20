@@ -6,6 +6,10 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Configuration values always read from the environment.
+///
+/// These values are closely tied to the platform Authly runs on,
+/// and are not runtime-configurable.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EnvConfig {
     /// The hostname against which to generate server certificates
@@ -23,8 +27,9 @@ pub struct EnvConfig {
     /// Database directory
     pub data_dir: PathBuf,
 
-    pub node_id: Option<u64>,
-
+    pub cluster_node_id: Option<u64>,
+    pub cluster_api_nodes: Option<Vec<SocketAddr>>,
+    pub cluster_raft_nodes: Option<Vec<SocketAddr>>,
     pub cluster_raft_secret: String,
     pub cluster_api_secret: String,
 
@@ -34,9 +39,6 @@ pub struct EnvConfig {
     pub k8s_replicas: u64,
     pub k8s_auth_hostname: Option<String>,
     pub k8s_auth_server_port: Option<u16>,
-
-    pub cluster_api_nodes: Option<Vec<SocketAddr>>,
-    pub cluster_raft_nodes: Option<Vec<SocketAddr>>,
 
     /// Whether to export certificates and identities to AUTHLY_ETC_DIR
     pub export_tls_to_etc: bool,
@@ -69,13 +71,12 @@ impl Default for EnvConfig {
 
             etc_dir: PathBuf::from("/etc/authly"),
             data_dir: PathBuf::from("/var/lib/authly/data"),
-            node_id: None,
 
-            cluster_raft_secret: "superultramegasecret1".to_string(),
-            cluster_api_secret: "superultramegasecret2".to_string(),
-
+            cluster_node_id: None,
             cluster_raft_nodes: None,
             cluster_api_nodes: None,
+            cluster_raft_secret: "superultramegasecret1".to_string(),
+            cluster_api_secret: "superultramegasecret2".to_string(),
 
             k8s: false,
             k8s_statefulset: Some("authly".to_string()),

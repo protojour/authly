@@ -16,8 +16,7 @@ use jsonwebtoken::{
     DecodingKey, TokenData, Validation,
 };
 use rcgen::{KeyPair, SubjectPublicKeyInfo};
-use rustls::pki_types::PrivateKeyDer;
-use tower_server::TlsConfigFactory;
+use rustls::{pki_types::PrivateKeyDer, ServerConfig};
 use tracing::{error, info};
 
 use crate::{
@@ -56,7 +55,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
         tower_server::Builder::new(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), port))
             .with_scheme(tower_server::Scheme::Https)
             .with_tls_config(rustls_config_factory)
-            .with_cancellation_token(ctx.cancel.clone())
+            .with_graceful_shutdown(ctx.cancel.clone())
             .bind()
             .await?;
 
@@ -235,7 +234,7 @@ async fn fetch_k8s_jwk_jwt_verifier() -> anyhow::Result<JwtVerifier> {
 fn rustls_server_config(
     env_config: &EnvConfig,
     dynamic_config: &DynamicConfig,
-) -> anyhow::Result<TlsConfigFactory> {
+) -> anyhow::Result<ServerConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let hostname = env_config
@@ -255,9 +254,8 @@ fn rustls_server_config(
         .with_single_cert(vec![server_cert.der.clone()], server_private_key_der)?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    let config = Arc::new(config);
 
-    Ok(Arc::new(move || config.clone()))
+    Ok(config)
 }
 
 #[test]

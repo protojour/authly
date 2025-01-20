@@ -73,11 +73,9 @@ async fn main() {
             .with_single_cert(vec![cert], private_key)
             .unwrap();
         rustls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-        let rustls_config = Arc::new(rustls_config);
-        let rustls_config: tower_server::TlsConfigFactory = Arc::new(move || rustls_config.clone());
 
         tower_server::Builder::new("0.0.0.0:443".parse().unwrap())
-            .with_cancellation_token(tower_server::signal::termination_signal())
+            .with_graceful_shutdown(tower_server::signal::termination_signal())
             .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
             .with_scheme(Scheme::Https)
             .with_tls_config(rustls_config)
@@ -92,7 +90,7 @@ async fn main() {
         info!("authly disabled, binding server to port 3000");
 
         tower_server::Builder::new("0.0.0.0:3000".parse().unwrap())
-            .with_cancellation_token(tower_server::signal::termination_signal())
+            .with_graceful_shutdown(tower_server::signal::termination_signal())
             .bind()
             .await
             .unwrap()

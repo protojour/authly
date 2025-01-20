@@ -46,6 +46,21 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
         params!(aid.as_param(), meta.url, meta.hash.to_vec()),
     ));
 
+    // local settings
+    {
+        stmts.push((
+            "DELETE FROM local_setting WHERE aid = $1".into(),
+            params!(aid.as_param()),
+        ));
+
+        for (setting, value) in data.settings {
+            stmts.push((
+                "INSERT INTO local_setting (aid, setting, value) VALUES ($1, $2, $3)".into(),
+                params!(aid.as_param(), setting as i64, value),
+            ));
+        }
+    }
+
     // entity identifiers and text attributes
     {
         // not sure how to "GC" this?

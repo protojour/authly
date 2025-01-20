@@ -12,6 +12,12 @@ CREATE TABLE authority (
     hash BLOB
 );
 
+CREATE TABLE local_setting (
+    aid BLOB NOT NULL,
+    setting INTEGER NOT NULL,
+    value TEXT NOT NULL
+);
+
 CREATE TABLE session (
     token BLOB NOT NULL PRIMARY KEY,
     eid BLOB NOT NULL,

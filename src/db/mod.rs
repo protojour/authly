@@ -12,6 +12,7 @@ pub mod document_db;
 pub mod entity_db;
 pub mod service_db;
 pub mod session_db;
+pub mod settings_db;
 pub mod sqlite;
 
 const LOG_QUERIES: bool = false;

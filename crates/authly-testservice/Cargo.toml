@@ -13,7 +13,7 @@ indoc = "2"
 maud = { version = "0.26", features = ["axum"] }
 rustls = "0.23"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
-tower-server = { version = "0.2", features = ["signal"] }
+tower-server = { workspace = true, features = ["signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
     "env-filter",

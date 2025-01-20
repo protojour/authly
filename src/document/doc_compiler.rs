@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::hash_map::Entry;
 use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
@@ -7,6 +8,8 @@ use authly_common::{
     id::{BuiltinID, Eid, ObjId},
     property::QualifiedAttributeName,
 };
+use serde::de::value::StrDeserializer;
+use serde::Deserialize;
 use serde_spanned::Spanned;
 use tracing::debug;
 
@@ -17,6 +20,7 @@ use crate::document::compiled_document::{
 };
 use crate::policy::compiler::PolicyCompiler;
 use crate::policy::PolicyOutcome;
+use crate::settings::{Setting, Settings};
 
 use super::compiled_document::{
     CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData,
@@ -86,6 +90,33 @@ pub async fn compile_doc(
         // service_entities: doc.service_entity,
         ..Default::default()
     };
+
+    if let Some(settings) = mem::take(&mut doc.local_settings) {
+        let mut test_settings = Settings::default();
+
+        for (key, value) in settings {
+            let setting =
+                match Setting::deserialize(StrDeserializer::<serde_json::Error>::new(key.as_ref()))
+                {
+                    Ok(setting) => setting,
+                    Err(_) => {
+                        comp.errors
+                            .push(key.span(), CompileError::LocalSettingNotFound);
+                        continue;
+                    }
+                };
+
+            if let Err(err) = test_settings.try_set(setting, Cow::Borrowed(value.as_ref())) {
+                comp.errors.push(
+                    value.span(),
+                    CompileError::InvalidSettingValue(format!("{err}")),
+                );
+                continue;
+            }
+
+            data.settings.insert(setting, value.into_inner());
+        }
+    }
 
     seed_namespace(&doc, &mut comp);
 

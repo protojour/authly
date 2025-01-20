@@ -29,11 +29,13 @@ authly-common = { workspace = true, features = [
 
 anyhow = "1"
 argon2 = "0.5"
+arc-swap = "1.7"
 axum = { version = "0.7", features = ["macros"] }
 axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
 clap = { version = "4", features = ["derive"] }
 cookie = "0.18"
 figment = { version = "0.10", features = ["env"] }
+futures-util = "0.3"
 fnv = "1"
 hexhex = "1"
 hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = false, features = [
@@ -43,8 +45,10 @@ hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = f
 ] }
 http = "1"
 indoc = "2"
+int-enum = "1"
 itertools = "0.14"
 hostname = "0.4"
+humantime = "2"
 hyper = { version = "1", default-features = false }
 jsonwebtoken = "9"
 k8s-openapi = { version = "0.24.0", features = ["latest"] }
@@ -58,7 +62,7 @@ pest = "2"
 pest_derive = "2"
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 rand = "0.8"
-rcgen = { git = "https://github.com/audunhalland/rcgen.git", branch = "sign-using-params", features = [
+rcgen = { git = "https://github.com/rustls/rcgen.git", features = [
     "x509-parser",
 ] }
 reqwest = { version = "0.12", default-features = false, features = [
@@ -81,7 +85,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = "0.7"
 tonic = { version = "0.12", default-features = false }
 tower = { version = "0.5", features = ["steer"] }
-tower-server = { version = "0.2", features = ["signal"] }
+tower-server = { workspace = true, features = ["signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
     "env-filter",
@@ -109,3 +113,4 @@ resolver = "2"
 [workspace.dependencies]
 authly-common = { git = "https://github.com/protojour/authly-lib.git" }
 authly-client = { git = "https://github.com/protojour/authly-lib.git" }
+tower-server = "0.3"

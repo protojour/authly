@@ -12,11 +12,10 @@ use rcgen::{
 use rustls::{
     pki_types::{CertificateDer, CertificateSigningRequestDer, PrivateKeyDer},
     server::WebPkiClientVerifier,
-    RootCertStore,
+    RootCertStore, ServerConfig,
 };
 use time::{Duration, OffsetDateTime};
 use tokio_util::sync::CancellationToken;
-use tower_server::TlsConfigFactory;
 
 #[tokio::test]
 async fn test_tls_localhost_cert_ok() {
@@ -273,13 +272,13 @@ async fn test_mtls_invalid_issuer() {
     );
 }
 
-async fn spawn_server(rustls_config_factory: TlsConfigFactory) -> (u16, CancellationToken) {
+async fn spawn_server(rustls_config: ServerConfig) -> (u16, CancellationToken) {
     let cancel = CancellationToken::new();
     let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
         .with_scheme(tower_server::Scheme::Https)
-        .with_tls_config(rustls_config_factory)
+        .with_tls_config(rustls_config)
         .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
-        .with_cancellation_token(cancel.clone())
+        .with_graceful_shutdown(cancel.clone())
         .bind()
         .await
         .unwrap();
@@ -304,7 +303,7 @@ async fn test_handler(
 
 fn rustls_server_config_no_client_auth(
     server_cert: &Cert<KeyPair>,
-) -> anyhow::Result<TlsConfigFactory> {
+) -> anyhow::Result<ServerConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
@@ -314,15 +313,13 @@ fn rustls_server_config_no_client_auth(
         .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    let config = Arc::new(config);
-
-    Ok(Arc::new(move || config.clone()))
+    Ok(config)
 }
 
 fn rustls_server_config_mtls(
     server_cert: &Cert<KeyPair>,
     root_ca: &CertificateDer,
-) -> anyhow::Result<TlsConfigFactory> {
+) -> anyhow::Result<ServerConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
@@ -335,9 +332,7 @@ fn rustls_server_config_mtls(
         .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    let config = Arc::new(config);
-
-    Ok(Arc::new(move || config.clone()))
+    Ok(config)
 }
 
 fn new_key_pair() -> KeyPair {

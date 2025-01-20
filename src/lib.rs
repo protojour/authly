@@ -5,17 +5,20 @@ use std::{
 };
 
 use anyhow::anyhow;
+use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use cert::{Cert, MakeSigningRequest};
-use db::config_db;
+use db::{config_db, settings_db};
 use document::load::load_cfg_documents;
 pub use env_config::EnvConfig;
+use futures_util::StreamExt;
 use openraft::RaftMetrics;
 use rcgen::KeyPair;
-use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore};
+use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore, ServerConfig};
 use serde::{Deserialize, Serialize};
+use settings::Settings;
 use tokio_util::sync::CancellationToken;
-use tower_server::{Scheme, TlsConfigFactory};
+use tower_server::Scheme;
 use tracing::info;
 use util::protocol_router::ProtocolRouter;
 
@@ -34,6 +37,7 @@ mod k8s;
 mod openapi;
 mod policy;
 mod proto;
+mod settings;
 mod util;
 mod webauth;
 
@@ -49,6 +53,7 @@ struct AuthlyCtx {
     /// The client for hiqlite, an embedded database
     hql: hiqlite::Client,
     dynamic_config: Arc<DynamicConfig>,
+    settings: Arc<ArcSwap<Settings>>,
     cancel: CancellationToken,
     etc_dir: PathBuf,
     export_tls_to_etc: bool,
@@ -89,15 +94,18 @@ pub async fn serve() -> anyhow::Result<()> {
         k8s::k8s_auth_server::spawn_k8s_auth_server(&env_config, &ctx).await?;
     }
 
-    let rustls_config = main_service_rustls(&env_config, &ctx.dynamic_config)?;
     let server = tower_server::Builder::new(SocketAddr::new(
         Ipv4Addr::new(0, 0, 0, 0).into(),
         env_config.server_port,
     ))
     .with_scheme(Scheme::Https)
-    .with_tls_config(rustls_config)
+    .with_tls_config(main_service_tls_configurer(
+        env_config.hostname.clone(),
+        ctx.settings.clone(),
+        ctx.dynamic_config.clone(),
+    )?)
     .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
-    .with_cancellation_token(ctx.cancel.clone())
+    .with_graceful_shutdown(ctx.cancel.clone())
     .bind()
     .await?;
 
@@ -167,6 +175,7 @@ async fn initialize() -> anyhow::Result<Init> {
     let ctx = AuthlyCtx {
         hql,
         dynamic_config: Arc::new(dynamic_config),
+        settings: Arc::new(ArcSwap::new(Arc::new(Settings::default()))),
         cancel: tower_server::signal::termination_signal(),
         etc_dir: env_config.etc_dir.clone(),
         export_tls_to_etc: env_config.export_tls_to_etc,
@@ -185,38 +194,88 @@ async fn initialize() -> anyhow::Result<Init> {
         load_cfg_documents(&env_config, &ctx).await?;
     }
 
+    let settings = settings_db::load_local_settings(&ctx).await?;
+
+    info!("local settings: {settings:#?}");
+
+    ctx.settings.store(Arc::new(settings));
+
     Ok(Init { ctx, env_config })
 }
 
-fn main_service_rustls(
-    env_config: &EnvConfig,
-    dynamic_config: &DynamicConfig,
-) -> anyhow::Result<TlsConfigFactory> {
+fn main_service_tls_configurer(
+    hostname: String,
+    settings: Arc<ArcSwap<Settings>>,
+    dynamic_config: Arc<DynamicConfig>,
+) -> anyhow::Result<impl tower_server::tls::TlsConfigurer> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    info!(
-        "generating server certificate for hostname={}",
-        env_config.hostname
-    );
+    // The root cert store is currently not changing
+    let root_cert_store = {
+        let mut store = RootCertStore::empty();
+        store.add(dynamic_config.local_ca.der.clone())?;
+        Arc::new(store)
+    };
 
-    let server_cert = dynamic_config
-        .local_ca
-        .sign(KeyPair::generate()?.server_cert(&env_config.hostname, time::Duration::days(365)));
+    fn regenerate(
+        hostname: &str,
+        dynamic_config: &DynamicConfig,
+        rotation_rate: std::time::Duration,
+        root_cert_store: Arc<RootCertStore>,
+    ) -> anyhow::Result<ServerConfig> {
+        // Make the certificate valid for twice the rotation rate
+        let not_after = time::Duration::try_from(rotation_rate)? * 2;
 
-    let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
-        .map_err(|err| anyhow!("server private key: {err}"))?;
+        let server_cert = dynamic_config
+            .local_ca
+            .sign(KeyPair::generate()?.server_cert(hostname, not_after));
 
-    let mut root_cert_store = RootCertStore::empty();
-    root_cert_store.add(dynamic_config.local_ca.der.clone())?;
+        let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
+            .map_err(|err| anyhow!("server private key: {err}"))?;
 
-    let mut config = rustls::server::ServerConfig::builder()
-        .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store.into()).build()?)
-        .with_single_cert(vec![server_cert.der], server_private_key_der)?;
+        let mut config = rustls::server::ServerConfig::builder()
+            .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store).build()?)
+            .with_single_cert(vec![server_cert.der], server_private_key_der)?;
 
-    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    let config = Arc::new(config);
+        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        Ok(config)
+    }
 
-    Ok(Arc::new(move || config.clone()))
+    info!("generating server certificate for hostname={hostname}");
+
+    // The first TLS config is produced immediately
+    let initial = futures_util::stream::iter([Arc::new(regenerate(
+        &hostname,
+        &dynamic_config,
+        settings.load().server_cert_rotation_rate,
+        root_cert_store.clone(),
+    )?)]);
+
+    // The following configs are produced after delay
+    let rotation_stream = futures_util::stream::unfold((), move |_| {
+        let hostname = hostname.clone();
+        let dynamic_config = dynamic_config.clone();
+        let root_cert_store = root_cert_store.clone();
+        let settings = settings.clone();
+        async move {
+            // TODO: reset this when settings change
+            tokio::time::sleep(settings.load().server_cert_rotation_rate).await;
+
+            let server_config = Arc::new(
+                regenerate(
+                    &hostname,
+                    &dynamic_config,
+                    settings.load().server_cert_rotation_rate,
+                    root_cert_store,
+                )
+                .expect("unable to regenerate server TLS config"),
+            );
+
+            Some((server_config, ()))
+        }
+    });
+
+    Ok(initial.chain(rotation_stream).boxed())
 }
 
 fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
@@ -259,7 +318,7 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
             }
         }
     } else {
-        env_config.node_id.unwrap_or(1)
+        env_config.cluster_node_id.unwrap_or(1)
     };
 
     let hiqlite_nodes: Vec<hiqlite::Node> = if env_config.k8s {

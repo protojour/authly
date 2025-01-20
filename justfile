@@ -1,7 +1,7 @@
 # generate files necessary for running authly locally
 generate-testdata:
     #!/usr/bin/env bash
-    if ! test -f .local/cluster.crt; then
+    if ! test -d .local; then
         mkdir .local
         AUTHLY_ETC_DIR=.local/etc \
         AUTHLY_HOSTNAME=localhost \

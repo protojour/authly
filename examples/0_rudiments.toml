@@ -1,6 +1,10 @@
 [authly-document]
 id = "3ef3430a-6499-497c-b8eb-00516a22f326"
 
+[local-settings]
+# For the example setup, change the server certificate very often:
+SERVER_CERT_ROTATION_RATE = "3m"
+
 # Defines the Arx gateway (https://github.com/protojour/arx) as a service.
 # The gateway is responsible for opening up the public aspects of Authly
 # to the world outside the cluster:

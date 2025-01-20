@@ -1,11 +1,16 @@
-use std::{collections::BTreeSet, ops::Range};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Range,
+};
 
 use authly_common::id::{BuiltinID, Eid, ObjId};
 
-use crate::{db::service_db, policy::error::PolicyCompileErrorKind};
+use crate::{db::service_db, policy::error::PolicyCompileErrorKind, settings::Setting};
 
 #[derive(Debug)]
 pub enum CompileError {
+    LocalSettingNotFound,
+    InvalidSettingValue(String),
     NameDefinedMultipleTimes(Range<usize>, String),
     UnresolvedEntity,
     UnresolvedProfile,
@@ -36,6 +41,8 @@ pub struct DocumentMeta {
 
 #[derive(Default, Debug)]
 pub struct CompiledDocumentData {
+    pub settings: BTreeMap<Setting, String>,
+
     /// Attributes to set on entities
     pub entity_attribute_assignments: Vec<CompiledEntityAttributeAssignment>,
 
