@@ -26,7 +26,9 @@ async fn test_store_doc_trivial() {
     })
     .unwrap();
 
-    compile_and_apply_doc(doc, &db).await;
+    compile_and_apply_doc(doc, &Default::default(), &db)
+        .await
+        .unwrap();
 
     assert_eq!(
         entity_db::list_entity_attrs(&db, hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b").into())

@@ -60,10 +60,12 @@ CREATE TABLE ent_ident (
     aid BLOB NOT NULL,
     eid BLOB NOT NULL,
     prop_id BLOB NOT NULL,
-    ident TEXT NOT NULL,
+    fingerprint BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    ciph BLOB NOT NULL,
 
     PRIMARY KEY (eid, prop_id),
-    UNIQUE (prop_id, ident)
+    UNIQUE (prop_id, fingerprint)
 );
 
 CREATE TABLE ent_rel (

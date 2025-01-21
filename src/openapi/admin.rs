@@ -9,7 +9,6 @@ use axum::{
     Extension, RequestPartsExt,
 };
 use http::{request::Parts, StatusCode};
-use sha2::Digest;
 
 use crate::{
     access_control::{self, authorize_peer_service, VerifyAuthlyRole},
@@ -73,8 +72,8 @@ pub async fn post_document(
             auth.user_claims.authly.entity_id
         ),
         hash: {
-            let mut hasher = sha2::Sha256::new();
-            hasher.update(&body);
+            let mut hasher = blake3::Hasher::new();
+            hasher.update(body.as_bytes());
             hasher.finalize().into()
         },
     };

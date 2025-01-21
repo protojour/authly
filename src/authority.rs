@@ -17,6 +17,9 @@ pub enum AuthorityError {
     #[error("db error: {0}")]
     Db(#[from] DbError),
 
+    #[error("context error: {0}")]
+    Context(anyhow::Error),
+
     #[error("broadcast error: {0}")]
     Broadcast(#[from] BroadcastError),
 }
@@ -30,8 +33,13 @@ pub async fn apply_document(
 
     let service_ids = compiled_doc.data.service_ids.clone();
 
+    let deks = ctx.deks.load_full();
+
     ctx.hql
-        .txn(document_db::document_txn_statements(compiled_doc))
+        .txn(
+            document_db::document_txn_statements(compiled_doc, &deks)
+                .map_err(AuthorityError::Context)?,
+        )
         .await
         .map_err(|err| AuthorityError::Db(err.into()))?;
 

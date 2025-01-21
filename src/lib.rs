@@ -10,6 +10,7 @@ use authly_common::id::Eid;
 use cert::{Cert, MakeSigningRequest};
 use db::{config_db, settings_db};
 use document::load::load_cfg_documents;
+use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
 use futures_util::StreamExt;
 use openraft::RaftMetrics;
@@ -27,13 +28,13 @@ pub mod access_token;
 pub mod cert;
 pub mod db;
 pub mod document;
+pub mod encryption;
 pub mod env_config;
 pub mod session;
 
 mod access_control;
 mod authority;
 mod broadcast;
-mod encryption;
 mod id;
 mod k8s;
 mod openapi;
@@ -56,6 +57,7 @@ struct AuthlyCtx {
     hql: hiqlite::Client,
     dynamic_config: Arc<DynamicConfig>,
     settings: Arc<ArcSwap<Settings>>,
+    deks: Arc<ArcSwap<DecryptedDeks>>,
     cancel: CancellationToken,
     etc_dir: PathBuf,
     export_tls_to_etc: bool,
@@ -173,14 +175,14 @@ async fn initialize() -> anyhow::Result<Init> {
         err
     })?;
 
-    let crypt_keys =
-        encryption::load_decrypted_deks(&hql, hql.is_leader_db().await, &env_config).await?;
-    let dynamic_config = config_db::load_db_config(&hql, &crypt_keys).await?;
+    let deks = encryption::load_decrypted_deks(&hql, hql.is_leader_db().await, &env_config).await?;
+    let dynamic_config = config_db::load_db_config(&hql, &deks).await?;
 
     let ctx = AuthlyCtx {
         hql,
         dynamic_config: Arc::new(dynamic_config),
         settings: Arc::new(ArcSwap::new(Arc::new(Settings::default()))),
+        deks: Arc::new(ArcSwap::new(Arc::new(deks))),
         cancel: tower_server::signal::termination_signal(),
         etc_dir: env_config.etc_dir.clone(),
         export_tls_to_etc: env_config.export_tls_to_etc,

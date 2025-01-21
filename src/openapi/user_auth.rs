@@ -85,10 +85,19 @@ pub async fn authenticate(
 
     let (ehash, secret) = match body {
         AuthenticateRequest::User { username, password } => {
+            let prop_id = BuiltinID::PropUsername.to_obj_id();
+
+            let ident_fingerprint = {
+                let deks = ctx.deks.load_full();
+                let dek = deks.get(prop_id).unwrap();
+
+                dek.fingerprint(username.as_bytes())
+            };
+
             let ehash = entity_db::find_local_authority_entity_password_hash_by_entity_ident(
                 &ctx,
                 BuiltinID::PropUsername.to_obj_id(),
-                &username,
+                &ident_fingerprint,
             )
             .await?
             .ok_or_else(|| AuthError::UserAuthFailed)?;

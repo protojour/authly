@@ -56,7 +56,9 @@ async fn test_access_control_basic() {
     })
     .unwrap();
 
-    compile_and_apply_doc(doc, &db).await;
+    compile_and_apply_doc(doc, &Default::default(), &db)
+        .await
+        .unwrap();
 
     {
         let engine = service_db::load_policy_engine(&db, SVC_A).await.unwrap();

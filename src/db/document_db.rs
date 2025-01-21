@@ -1,12 +1,16 @@
 use std::borrow::Cow;
 
+use aes_gcm_siv::aead::Aead;
 use authly_common::id::Eid;
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use itertools::Itertools;
 use tracing::debug;
 
-use crate::document::compiled_document::CompiledDocument;
+use crate::{
+    document::compiled_document::CompiledDocument,
+    encryption::{random_nonce, DecryptedDeks},
+};
 
 use super::{Convert, Db, DbResult, Literal, Row};
 
@@ -37,7 +41,10 @@ pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentAuthority>> {
 }
 
 /// Produce the transaction statements for saving a new document
-pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, str>, Params)> {
+pub fn document_txn_statements(
+    document: CompiledDocument,
+    deks: &DecryptedDeks,
+) -> anyhow::Result<Vec<(Cow<'static, str>, Params)>> {
     let CompiledDocument { aid, meta, data } = document;
     let mut stmts: Vec<(Cow<'static, str>, Params)> = vec![];
 
@@ -70,13 +77,21 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
         ));
 
         for ident in data.entity_ident {
+            let dek = deks.get(ident.prop_id)?;
+
+            let fingerprint = dek.fingerprint(ident.ident.as_bytes());
+            let nonce = random_nonce();
+            let ciph = dek.aes().encrypt(&nonce, ident.ident.as_bytes())?;
+
             stmts.push((
-                "INSERT INTO ent_ident (aid, eid, prop_id, ident) VALUES ($1, $2, $3, $4)".into(),
+                "INSERT INTO ent_ident (aid, eid, prop_id, fingerprint, nonce, ciph) VALUES ($1, $2, $3, $4, $5, $6)".into(),
                 params!(
                     aid.as_param(),
                     ident.eid.as_param(),
                     ident.prop_id.as_param(),
-                    ident.ident
+                    fingerprint.to_vec(),
+                    nonce.to_vec(),
+                    ciph
                 ),
             ));
         }
@@ -274,7 +289,7 @@ pub fn document_txn_statements(document: CompiledDocument) -> Vec<(Cow<'static, 
         debug!("{stmt}");
     }
 
-    stmts
+    Ok(stmts)
 }
 
 struct NotIn<'a, I>(&'a str, I);

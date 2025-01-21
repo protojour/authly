@@ -2,7 +2,6 @@ use std::{fs, os::unix::ffi::OsStrExt};
 
 use anyhow::anyhow;
 use authly_common::{document::Document, id::Eid};
-use sha2::Digest;
 use tracing::info;
 
 use crate::{
@@ -46,8 +45,8 @@ pub(crate) async fn load_cfg_documents(
             let meta = DocumentMeta {
                 url: format!("file://{}", path.to_str().unwrap()),
                 hash: {
-                    let mut hasher = sha2::Sha256::new();
-                    hasher.update(&source);
+                    let mut hasher = blake3::Hasher::new();
+                    hasher.update(source.as_bytes());
                     hasher.finalize().into()
                 },
             };

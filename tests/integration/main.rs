@@ -7,6 +7,7 @@ use authly::{
         sqlite::sqlite_txn,
     },
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
+    encryption::DecryptedDeks,
 };
 use authly_common::{document::Document, id::Eid, service::PropertyMapping};
 use tracing::info;
@@ -39,13 +40,22 @@ async fn sqlite_migrate<T: rust_embed::RustEmbed>(conn: &mut rusqlite::Connectio
     txn.commit().unwrap();
 }
 
-async fn compile_and_apply_doc(doc: Document, conn: &RwLock<rusqlite::Connection>) {
+async fn compile_and_apply_doc(
+    doc: Document,
+    deks: &DecryptedDeks,
+    conn: &RwLock<rusqlite::Connection>,
+) -> anyhow::Result<()> {
     let compiled_doc = compile_doc(doc, DocumentMeta::default(), conn)
         .await
         .unwrap();
-    sqlite_txn(conn, document_db::document_txn_statements(compiled_doc))
-        .await
-        .unwrap();
+    sqlite_txn(
+        conn,
+        document_db::document_txn_statements(compiled_doc, deks)?,
+    )
+    .await
+    .unwrap();
+
+    Ok(())
 }
 
 struct ServiceProperties {

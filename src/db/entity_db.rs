@@ -28,7 +28,7 @@ pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<
 pub async fn find_local_authority_entity_password_hash_by_entity_ident(
     deps: &impl Db,
     ident_prop_id: ObjId,
-    ident: &str,
+    ident_fingerprint: &[u8],
 ) -> DbResult<Option<EntityPasswordHash>> {
     let (eid, hash): (Eid, String) = {
         let Some(mut row) = deps
@@ -37,13 +37,13 @@ pub async fn find_local_authority_entity_password_hash_by_entity_ident(
                     "
                     SELECT ta.eid, ta.value FROM ent_text_attr ta
                     JOIN ent_ident i ON ta.eid = i.eid
-                    WHERE i.prop_id = $1 AND i.ident = $2 AND ta.prop_id = $3
+                    WHERE i.prop_id = $1 AND i.fingerprint = $2 AND ta.prop_id = $3
                     ",
                 }
                 .into(),
                 params!(
                     ident_prop_id.as_param(),
-                    ident,
+                    ident_fingerprint,
                     BuiltinID::PropPasswordHash.to_obj_id().as_param()
                 ),
             )

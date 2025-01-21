@@ -2,9 +2,10 @@ use std::{collections::HashMap, time::Duration};
 
 use aes_gcm_siv::{
     aead::{Aead, Nonce},
-    Aes256GcmSiv, KeyInit,
+    Aes256GcmSiv, Key, KeyInit,
 };
 use anyhow::{anyhow, Context};
+use authly_common::id::ObjId;
 use rand::{rngs::OsRng, RngCore};
 use serde::Deserialize;
 use serde_json::json;
@@ -16,13 +17,16 @@ use crate::{
     EnvConfig,
 };
 
+#[derive(Default)]
 pub struct DecryptedDeks {
-    pub deks: HashMap<BuiltinID, DecryptedDek>,
+    pub deks: HashMap<ObjId, DecryptedDek>,
 }
 
 impl DecryptedDeks {
-    pub fn get(&self, id: BuiltinID) -> Option<&DecryptedDek> {
-        self.deks.get(&id)
+    pub fn get(&self, id: ObjId) -> anyhow::Result<&DecryptedDek> {
+        self.deks
+            .get(&id)
+            .ok_or_else(|| anyhow!("no DEK present for {id}"))
     }
 }
 
@@ -46,7 +50,22 @@ pub struct EncryptedDek {
 }
 
 pub struct DecryptedDek {
-    pub aes: Aes256GcmSiv,
+    pub key: Key<Aes256GcmSiv>,
+}
+
+impl DecryptedDek {
+    /// Make an AES cipher for this key
+    pub fn aes(&self) -> Aes256GcmSiv {
+        Aes256GcmSiv::new(&self.key)
+    }
+
+    // Use blake3 to produce a fingerprint of the given data, with this Dek as "salt"
+    pub fn fingerprint(&self, data: &[u8]) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(self.key.as_slice());
+        hasher.update(data);
+        *hasher.finalize().as_bytes()
+    }
 }
 
 #[derive(Deserialize)]
@@ -159,10 +178,10 @@ async fn gen_prop_deks(
     deps: &impl Db,
     decrypted_master: &DecryptedMaster,
     is_leader: bool,
-) -> anyhow::Result<HashMap<BuiltinID, DecryptedDek>> {
+) -> anyhow::Result<HashMap<ObjId, DecryptedDek>> {
     let old_encrypted_deks = config_db::list_all_cr_prop_deks(deps).await?;
-    let mut new_encrypted_deks: HashMap<BuiltinID, EncryptedDek> = Default::default();
-    let mut decrypted_deks: HashMap<BuiltinID, DecryptedDek> = Default::default();
+    let mut new_encrypted_deks: HashMap<ObjId, EncryptedDek> = Default::default();
+    let mut decrypted_deks: HashMap<ObjId, DecryptedDek> = Default::default();
 
     let master_key = Aes256GcmSiv::new_from_slice(&decrypted_master.plaintext)
         .context("could not make cipher from master plaintext")?;
@@ -173,16 +192,17 @@ async fn gen_prop_deks(
             let dek = master_key.decrypt(&nonce, encrypted.ciph.as_ref())?;
 
             DecryptedDek {
-                aes: Aes256GcmSiv::new_from_slice(dek.as_slice())?,
+                key: Key::<Aes256GcmSiv>::from_exact_iter(dek.iter().copied())
+                    .ok_or_else(|| anyhow!("invalid key length"))?,
             }
         } else {
-            let nonce = gen_nonce();
+            let nonce = random_nonce();
             let dek = Aes256GcmSiv::generate_key(OsRng);
 
             let encrypted = master_key.encrypt(&nonce, dek.as_slice())?;
 
             new_encrypted_deks.insert(
-                id,
+                id.to_obj_id(),
                 EncryptedDek {
                     nonce: nonce.to_vec(),
                     ciph: encrypted,
@@ -190,16 +210,22 @@ async fn gen_prop_deks(
                 },
             );
 
+            let key = Key::<Aes256GcmSiv>::from_exact_iter(dek.iter().copied())
+                .ok_or_else(|| anyhow!("invalid key length"))?;
+
+            Aes256GcmSiv::new(&key);
+
             DecryptedDek {
-                aes: Aes256GcmSiv::new(&dek),
+                key: Key::<Aes256GcmSiv>::from_exact_iter(dek.iter().copied())
+                    .ok_or_else(|| anyhow!("invalid key length"))?,
             }
         };
 
-        decrypted_deks.insert(id, decrypted_dek);
+        decrypted_deks.insert(id.to_obj_id(), decrypted_dek);
     }
 
     if is_leader && !new_encrypted_deks.is_empty() {
-        config_db::insert_crypt_prop_deks(deps, new_encrypted_deks).await?;
+        config_db::insert_cr_prop_deks(deps, new_encrypted_deks).await?;
     }
 
     Ok(decrypted_deks)
@@ -209,7 +235,7 @@ fn all_encrypted_props() -> impl Iterator<Item = BuiltinID> {
     BuiltinID::iter().filter(|id| id.is_encrypted_prop())
 }
 
-pub fn gen_nonce() -> Nonce<Aes256GcmSiv> {
+pub fn random_nonce() -> Nonce<Aes256GcmSiv> {
     let mut nonce = *Nonce::<Aes256GcmSiv>::from_slice(&[0; 12]); // 96-bits; unique per message
     OsRng.fill_bytes(nonce.as_mut_slice());
     nonce

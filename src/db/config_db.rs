@@ -15,7 +15,7 @@ use tracing::{debug, info};
 
 use crate::{
     cert::Cert,
-    encryption::{gen_nonce, nonce_from_slice, DecryptedDeks, EncryptedDek, MasterVersion},
+    encryption::{nonce_from_slice, random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
     id::BuiltinID,
     DynamicConfig,
 };
@@ -96,16 +96,16 @@ pub async fn list_all_cr_prop_deks(
         .collect())
 }
 
-pub async fn insert_crypt_prop_deks(
+pub async fn insert_cr_prop_deks(
     deps: &impl Db,
-    deks: HashMap<BuiltinID, EncryptedDek>,
+    deks: HashMap<ObjId, EncryptedDek>,
 ) -> Result<(), ConfigDbError> {
     for (id, dek) in deks {
         deps.execute(
             "INSERT INTO cr_prop_dek (prop_id, nonce, ciph, created_at) VALUES ($1, $2, $3, $4)"
                 .into(),
             params!(
-                id.to_obj_id().as_param(),
+                id.as_param(),
                 dek.nonce,
                 dek.ciph,
                 dek.created_at.unix_timestamp()
@@ -188,14 +188,14 @@ async fn load_tlskey(
     let cert_der = CertificateDer::from(row.get::<Vec<u8>>("cert"));
 
     let dek = deks
-        .get(BuiltinID::PropLocalCA)
-        .ok_or_else(|| ConfigDbError::Crypto(anyhow!("no decryption key for local CA key")))?;
+        .get(BuiltinID::PropLocalCA.to_obj_id())
+        .map_err(ConfigDbError::Crypto)?;
 
     let nonce = nonce_from_slice(&row.get::<Vec<_>>("key_nonce")).map_err(ConfigDbError::Crypto)?;
     let private_key_ciph: Vec<u8> = row.get("key_ciph");
 
     let private_key_plaintext = dek
-        .aes
+        .aes()
         .decrypt(&nonce, private_key_ciph.as_ref())
         .map_err(|err| ConfigDbError::Crypto(err.into()))?;
 
@@ -221,12 +221,11 @@ async fn save_tlskey(
     let private_key_der = cert.key.serialize_der();
 
     let dek = deks
-        .get(BuiltinID::PropLocalCA)
-        .ok_or_else(|| ConfigDbError::Crypto(anyhow!("no decryption key for local CA key")))?;
-    let nonce = gen_nonce();
-
+        .get(BuiltinID::PropLocalCA.to_obj_id())
+        .map_err(ConfigDbError::Crypto)?;
+    let nonce = random_nonce();
     let key_ciph = dek
-        .aes
+        .aes()
         .encrypt(&nonce, private_key_der.as_ref())
         .map_err(|err| ConfigDbError::Crypto(err.into()))?;
 
