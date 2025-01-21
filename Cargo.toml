@@ -17,7 +17,7 @@ path = "src/main.rs"
 test = false
 
 [features]
-dev = []
+dev = ["authly-common/policy_debug"]
 
 [dependencies]
 authly-common = { workspace = true, features = [
