@@ -17,7 +17,7 @@ Attributes can be used to model roles, resources, actions and other IAM concepts
 Authly is available as a multi-arch (amd64/arm64) Docker image:
 
 ```bash
-docker run ghcp.io/protojour/authly
+docker run ghcr.io/protojour/authly
 ```
 
 It uses an embedded database and _can_ run independently, _in principle_. However, it is not intended to run directly exposed to the internet, and should have access to a secrets store. Refer to [Quickstart](#quickstart) for more complete examples.
