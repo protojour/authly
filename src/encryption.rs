@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, fmt::Debug, time::Duration};
 
 use aes_gcm_siv::{
     aead::{Aead, Nonce},
@@ -17,13 +17,14 @@ use crate::{
     EnvConfig,
 };
 
-#[derive(Default)]
+/// The set of Data Encryption Keys used by authly
+#[derive(Default, Debug)]
 pub struct DecryptedDeks {
-    pub deks: HashMap<ObjId, DecryptedDek>,
+    deks: HashMap<ObjId, AesKey>,
 }
 
 impl DecryptedDeks {
-    pub fn get(&self, id: ObjId) -> anyhow::Result<&DecryptedDek> {
+    pub fn get(&self, id: ObjId) -> anyhow::Result<&AesKey> {
         self.deks
             .get(&id)
             .ok_or_else(|| anyhow!("no DEK present for {id}"))
@@ -39,7 +40,7 @@ pub struct MasterVersion {
 
 struct DecryptedMaster {
     encrypted: MasterVersion,
-    plaintext: Vec<u8>,
+    key: AesKey,
 }
 
 #[derive(Clone)]
@@ -49,11 +50,17 @@ pub struct EncryptedDek {
     pub created_at: time::OffsetDateTime,
 }
 
-pub struct DecryptedDek {
-    pub key: Key<Aes256GcmSiv>,
+pub struct AesKey {
+    key: Key<Aes256GcmSiv>,
 }
 
-impl DecryptedDek {
+impl Debug for AesKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AesKey").finish()
+    }
+}
+
+impl AesKey {
     /// Make an AES cipher for this key
     pub fn aes(&self) -> Aes256GcmSiv {
         Aes256GcmSiv::new(&self.key)
@@ -146,7 +153,9 @@ async fn gen_new_master(env_config: &EnvConfig) -> anyhow::Result<DecryptedMaste
             version: output.version.0,
             created_at: time::OffsetDateTime::now_utc(),
         },
-        plaintext: output.plaintext.0,
+        key: AesKey {
+            key: load_key(output.plaintext.0)?,
+        },
     })
 }
 
@@ -170,7 +179,9 @@ async fn decrypt_master(
 
     Ok(DecryptedMaster {
         encrypted,
-        plaintext: output.plaintext.0,
+        key: AesKey {
+            key: load_key(output.plaintext.0)?,
+        },
     })
 }
 
@@ -178,47 +189,37 @@ async fn gen_prop_deks(
     deps: &impl Db,
     decrypted_master: &DecryptedMaster,
     is_leader: bool,
-) -> anyhow::Result<HashMap<ObjId, DecryptedDek>> {
+) -> anyhow::Result<HashMap<ObjId, AesKey>> {
     let old_encrypted_deks = config_db::list_all_cr_prop_deks(deps).await?;
     let mut new_encrypted_deks: HashMap<ObjId, EncryptedDek> = Default::default();
-    let mut decrypted_deks: HashMap<ObjId, DecryptedDek> = Default::default();
-
-    let master_key = Aes256GcmSiv::new_from_slice(&decrypted_master.plaintext)
-        .context("could not make cipher from master plaintext")?;
+    let mut decrypted_deks: HashMap<ObjId, AesKey> = Default::default();
 
     for id in all_encrypted_props() {
         let decrypted_dek = if let Some(encrypted) = old_encrypted_deks.get(&id) {
             let nonce = nonce_from_slice(&encrypted.nonce)?;
-            let dek = master_key.decrypt(&nonce, encrypted.ciph.as_ref())?;
+            let decrypted_dek = decrypted_master
+                .key
+                .aes()
+                .decrypt(&nonce, encrypted.ciph.as_ref())?;
 
-            DecryptedDek {
-                key: Key::<Aes256GcmSiv>::from_exact_iter(dek.iter().copied())
-                    .ok_or_else(|| anyhow!("invalid key length"))?,
+            AesKey {
+                key: load_key(decrypted_dek)?,
             }
         } else {
             let nonce = random_nonce();
             let dek = Aes256GcmSiv::generate_key(OsRng);
-
-            let encrypted = master_key.encrypt(&nonce, dek.as_slice())?;
+            let ciph = decrypted_master.key.aes().encrypt(&nonce, dek.as_slice())?;
 
             new_encrypted_deks.insert(
                 id.to_obj_id(),
                 EncryptedDek {
                     nonce: nonce.to_vec(),
-                    ciph: encrypted,
+                    ciph,
                     created_at: time::OffsetDateTime::now_utc(),
                 },
             );
 
-            let key = Key::<Aes256GcmSiv>::from_exact_iter(dek.iter().copied())
-                .ok_or_else(|| anyhow!("invalid key length"))?;
-
-            Aes256GcmSiv::new(&key);
-
-            DecryptedDek {
-                key: Key::<Aes256GcmSiv>::from_exact_iter(dek.iter().copied())
-                    .ok_or_else(|| anyhow!("invalid key length"))?,
-            }
+            AesKey { key: dek }
         };
 
         decrypted_deks.insert(id.to_obj_id(), decrypted_dek);
@@ -233,6 +234,10 @@ async fn gen_prop_deks(
 
 fn all_encrypted_props() -> impl Iterator<Item = BuiltinID> {
     BuiltinID::iter().filter(|id| id.is_encrypted_prop())
+}
+
+fn load_key(bytes: impl IntoIterator<Item = u8>) -> anyhow::Result<Key<Aes256GcmSiv>> {
+    Key::<Aes256GcmSiv>::from_exact_iter(bytes).ok_or_else(|| anyhow!("invalid key length"))
 }
 
 pub fn random_nonce() -> Nonce<Aes256GcmSiv> {
