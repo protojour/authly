@@ -5,7 +5,7 @@ services:
       DANGER_ENCRYPTION_DISABLED: 'true'
 
   authly:
-    image: situ/authly:dev
+    image: protojour/authly:dev
     environment:
       AUTHLY_HOSTNAME: authly
       AUTHLY_K8S: 'false'
@@ -24,7 +24,7 @@ services:
     command: serve
 
   testservice:
-    image: situ/authly-testservice:dev
+    image: protojour/authly-testservice:dev
     volumes:
       - authly-local-ca:/etc/authly/local:ro
       - testservice-identity:/etc/authly/identity:ro

@@ -14,10 +14,10 @@ spec:
   selector:
     app: testservice
   ports:
-  - name: web
-    protocol: TCP
-    port: 443
-    targetPort: 443
+    - name: web
+      protocol: TCP
+      port: 443
+      targetPort: 443
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -39,14 +39,14 @@ spec:
       serviceAccountName: testservice
       enableServiceLinks: false
       containers:
-      - name: testservice
-        image: situ/authly-testservice:dev
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 80
-        volumeMounts:
-          - name: authly-ca
-            mountPath: /etc/authly/local
+        - name: testservice
+          image: protojour/authly-testservice:dev
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: authly-ca
+              mountPath: /etc/authly/local
       volumes:
         - name: authly-ca
           configMap:

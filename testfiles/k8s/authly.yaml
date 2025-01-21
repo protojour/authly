@@ -6,7 +6,6 @@ metadata:
   name: authly
 automountServiceAccountToken: true
 ---
-
 # The kubernetes roles given to authly:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -14,11 +13,10 @@ metadata:
   namespace: authly-test
   name: authly-role
 rules:
-- apiGroups: [""]
-  resources: ["configmaps", "secrets"]
-  verbs: ["get", "watch", "list", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "watch", "list", "create", "patch", "update"]
 ---
-
 # Binds `authly-role` to `authly`:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -26,14 +24,13 @@ metadata:
   namespace: authly-test
   name: authly-role-binding
 subjects:
-- kind: ServiceAccount
-  name: authly
+  - kind: ServiceAccount
+    name: authly
 roleRef:
   kind: Role
   name: authly-role
   apiGroup: rbac.authorization.k8s.io
 ---
-
 # Basic configuration environment variables:
 apiVersion: v1
 kind: ConfigMap
@@ -41,11 +38,10 @@ metadata:
   namespace: authly-test
   name: authly-config
 data:
-  AUTHLY_K8S: 'true'
+  AUTHLY_K8S: "true"
   AUTHLY_K8S_AUTH_HOSTNAME: authly-k8s
-  AUTHLY_K8S_AUTH_SERVER_PORT: '2443'
+  AUTHLY_K8S_AUTH_SERVER_PORT: "2443"
 ---
-
 # Secrets for the Authly cluster:
 apiVersion: v1
 kind: Secret
@@ -56,7 +52,6 @@ stringData:
   AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
   AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
 ---
-
 # The Authly API service:
 apiVersion: v1
 kind: Service
@@ -67,12 +62,11 @@ spec:
   selector:
     app: authly
   ports:
-  - name: api
-    protocol: TCP
-    port: 443
-    targetPort: 443
+    - name: api
+      protocol: TCP
+      port: 443
+      targetPort: 443
 ---
-
 # The Authly service for k8s authentication:
 apiVersion: v1
 kind: Service
@@ -83,12 +77,11 @@ spec:
   selector:
     app: authly
   ports:
-  - name: k8s-auth-api
-    protocol: TCP
-    port: 443
-    targetPort: 2443
+    - name: k8s-auth-api
+      protocol: TCP
+      port: 443
+      targetPort: 2443
 ---
-
 # The Authly cluster headless service.
 # Only used for Authly pods talking to themselves and other authly pods part of the same Authly cluster:
 apiVersion: v1
@@ -110,7 +103,6 @@ spec:
       port: 7856
       targetPort: 7856
 ---
-
 # The Authly network policy:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -122,26 +114,25 @@ spec:
     matchLabels:
       app: authly
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  # Open up 443 (authly server port) and 2443 (authly k8s auth port) to every pod:
-  - ports:
-    - protocol: TCP
-      port: 443
-    - protocol: TCP
-      port: 2443
-  # Open up the cluster ports to the Authly pod only:
-  - ports:
-    - protocol: TCP
-      port: 7855
-    - protocol: TCP
-      port: 7856
-    from:
-    - podSelector:
-        matchLabels:
-          app: authly
+    # Open up 443 (authly server port) and 2443 (authly k8s auth port) to every pod:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 2443
+    # Open up the cluster ports to the Authly pod only:
+    - ports:
+        - protocol: TCP
+          port: 7855
+        - protocol: TCP
+          port: 7856
+      from:
+        - podSelector:
+            matchLabels:
+              app: authly
 ---
-
 # The Authly StatefulSet, which ultimately deploys:
 apiVersion: apps/v1
 kind: StatefulSet
@@ -164,7 +155,7 @@ spec:
       serviceAccountName: authly
       containers:
         - name: authly-dev
-          image: situ/authly:dev
+          image: protojour/authly:dev
           command: ["/authly", "serve"]
           imagePullPolicy: Always
           securityContext:
@@ -205,7 +196,7 @@ spec:
           restartPolicy: Always
           env:
             - name: K8S_INSECURE
-              value: 'true'
+              value: "true"
       volumes:
         - name: authly-cluster-key
           secret:

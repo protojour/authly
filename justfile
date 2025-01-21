@@ -62,14 +62,14 @@ musl *flags:
 
     $buildcmd build -p authly {{ flags }} --target {{ target }} --target-dir target-musl
 
-# build situ/authly:dev debug image
+# build protojour/authly:dev debug image
 dev-image: musl
-    docker build . -t situ/authly:dev --platform linux/amd64 --build-arg RUST_PROFILE=debug
+    docker build . -t protojour/authly:dev --platform linux/amd64 --build-arg RUST_PROFILE=debug
 
-# build situ/authly-testservice:dev image
+# build protojour/authly-testservice:dev image
 testservice-image:
     cross build -p authly-testservice --target x86_64-unknown-linux-musl --target-dir target-musl
-    docker build . -f testservice.Dockerfile -t situ/authly-testservice:dev
+    docker build . -f testservice.Dockerfile -t protojour/authly-testservice:dev
 
 # deploy local development version of authly to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
 k8s-test-deploy: generate-testdata dev-image testservice-image k8s-test-setup
