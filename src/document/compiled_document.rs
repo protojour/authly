@@ -3,9 +3,11 @@ use std::{
     ops::Range,
 };
 
-use authly_common::id::{BuiltinID, Eid, ObjId};
+use authly_common::id::{Eid, ObjId};
 
-use crate::{db::service_db, policy::error::PolicyCompileErrorKind, settings::Setting};
+use crate::{
+    db::service_db, id::BuiltinID, policy::error::PolicyCompileErrorKind, settings::Setting,
+};
 
 #[derive(Debug)]
 pub enum CompileError {

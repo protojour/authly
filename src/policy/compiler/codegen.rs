@@ -1,9 +1,6 @@
-use authly_common::{
-    id::{AnyId, BuiltinID},
-    policy::code::OpCode,
-};
+use authly_common::{id::AnyId, policy::code::OpCode};
 
-use crate::policy::PolicyOutcome;
+use crate::{id::BuiltinID, policy::PolicyOutcome};
 
 use super::expr::{Expr, Global, Term};
 

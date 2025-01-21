@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use authly_common::{
-    id::{BuiltinID, ObjId},
+    id::ObjId,
     policy::{code::to_bytecode, engine::PolicyEngine},
     service::PropertyMapping,
 };
@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
+    id::BuiltinID,
     policy::{
         compiler::{expr::Expr, PolicyCompiler},
         PolicyOutcome,

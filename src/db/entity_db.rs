@@ -1,8 +1,10 @@
 use argon2::{password_hash::SaltString, Argon2};
-use authly_common::id::{BuiltinID, Eid, ObjId};
+use authly_common::id::{Eid, ObjId};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 use indoc::indoc;
+
+use crate::id::BuiltinID;
 
 use super::{Convert, Db, DbResult, Row};
 

@@ -1,6 +1,6 @@
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
-    id::{BuiltinID, Eid, Id128},
+    id::{Eid, Id128},
     mtls_server::PeerServiceEntity,
     policy::{code::Outcome, engine::AccessControlParams},
     proto::service::{
@@ -24,6 +24,7 @@ use crate::{
         entity_db,
         service_db::{self, find_service_label_by_eid, ServicePropertyKind},
     },
+    id::BuiltinID,
     session::{authenticate_session_cookie, find_session_cookie, Session},
     AuthlyCtx,
 };

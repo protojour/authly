@@ -1,5 +1,5 @@
 use argon2::Argon2;
-use authly_common::{id::BuiltinID, mtls_server::PeerServiceEntity};
+use authly_common::mtls_server::PeerServiceEntity;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,7 @@ use crate::{
         entity_db::{self, EntityPasswordHash},
         session_db, DbError,
     },
+    id::BuiltinID,
     session::{new_session_cookie, Session, SessionToken, SESSION_TTL},
     AuthlyCtx, Eid,
 };

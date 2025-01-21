@@ -33,6 +33,7 @@ pub mod session;
 mod access_control;
 mod authority;
 mod broadcast;
+mod id;
 mod k8s;
 mod openapi;
 mod policy;

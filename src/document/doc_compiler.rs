@@ -5,7 +5,7 @@ use std::{collections::HashMap, ops::Range};
 
 use authly_common::{
     document,
-    id::{BuiltinID, Eid, ObjId},
+    id::{Eid, ObjId},
     property::QualifiedAttributeName,
 };
 use serde::de::value::StrDeserializer;
@@ -18,6 +18,7 @@ use crate::db::Db;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, EntityIdent, EntityTextAttr,
 };
+use crate::id::BuiltinID;
 use crate::policy::compiler::PolicyCompiler;
 use crate::policy::PolicyOutcome;
 use crate::settings::{Setting, Settings};

@@ -3,13 +3,16 @@ use super::compiler::{
     PolicyCompiler,
 };
 use authly_common::{
-    id::{BuiltinID, Eid, ObjId},
+    id::{Eid, ObjId},
     policy::code::OpCode,
 };
 
-use crate::document::{
-    compiled_document::{CompiledAttribute, CompiledDocumentData, CompiledProperty},
-    doc_compiler::{Namespace, NamespaceEntry},
+use crate::{
+    document::{
+        compiled_document::{CompiledAttribute, CompiledDocumentData, CompiledProperty},
+        doc_compiler::{Namespace, NamespaceEntry},
+    },
+    id::BuiltinID,
 };
 
 use super::PolicyOutcome;
