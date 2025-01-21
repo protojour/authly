@@ -44,9 +44,18 @@ Authly is not yet audited. We invite anyone to examine or critique its security 
 
 Authly is beta software, currently with a minimal feature set, but several high-level features are planned:
 
+- [x] Attribute-based data model
+- [x] Policy DSL
+- [x] High-availability cluster mode
+- [x] Database encryption-at-rest
+- [x] mTLS provisioning for services
+- [x] Kubernetes example setup
+- [ ] Docker example setup
+- [ ] Minimal login UI
 - [ ] Federation and authority/mandate relations
 - [ ] `authly-client` language bindings
 - [ ] `authly-client`-based minimalist sidecar proxy
+- [ ] mdBook documentation
 - [ ] Improved login UI
 - [ ] User registration and recovery
 - [ ] SMTP email support
