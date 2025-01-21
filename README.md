@@ -1,75 +1,68 @@
-# Authly/next
+# Authly
 
-Experimental prototype that tries some new things.
+Authly is a flexible Attribute-based Access Control (ABAC) Identity and Access Management (IAM) solution with minimalist Service Mesh control plane and data plane capabilitites (see [Security features](#security-features)).
 
-* Uses an embedded database (and a raft cluster) instead of an external client/server database
-* Federation (planned)
-* Disallow string literals in policy rule engine (must predefine every value), for client-side policy-decision-point
+Attributes can be used to model roles, resources, actions and other IAM concepts, and are configured through sequentially applied, declarative TOML documents (see [`examples/`](examples/)). Policies use these attributes through a simple DSL.
 
-## Design outline/proposals
-### Authentication
-Communication with authly is authenticated in two layers, reflecting the service/user duality.
+## Table of Contents
 
-* User authentication is implemented using tokens
-* Service authentication is implemented using mutual TLS (mTLS)
+- [Installation](#installation)
+- [Quickstart](#quickstart)
+- [Security features](#security-features)
+- [Feature roadmap](#feature-roadmap)
+- [License](#license)
 
-Service authentication requires a client certificate signed by Authly (mTLS).
-All traffic to Authly originates from some service, it is not possible to use Authly's API without being an authenticated service.
-This is true regardless of whether the API used is a "service API" or "user API".
-The APIs are always called through some proxy, e.g. a gateway application, Authly is never directly exposed on the internet.
-This way, all interaction with the Authly web API will ALWAYS happen using an implicit context of "which service made the call".
+## Installation
 
-#### Example: kubernetes mode
-Authly is the authority on service identities, therefore Authly also has to be a controller for k8s service accounts.
-When authly sees a new service that could be deployed in the cluster, authly will issue a corresponding service account.
+Authly is available as a multi-arch (amd64/arm64) Docker image:
 
-Authly can issue service client certificates in two possible ways:
+```bash
+docker run ghcp.io/protojour/authly
+```
 
-##### 1. Certificate and key distribution using secrets
-Authly can generate the client certificate and private keys itself, then distribute them as kubernetes secrets.
-This method has the downside that the resulting secret(s) need to be named and requested by a deployment by secret name, thereby potentially exposing the secret,
-because secrets can be freely mounted by an actor that is allowed to define deployments.
+It uses an embedded database and _can_ run independently, _in principle_. However, it is not intended to run directly exposed to the internet, and should have access to a secrets store. Refer to [Quickstart](#quickstart) for more complete examples.
 
-##### 2. Certificate signing request API using kubernetes service account token
-Authly can provide a kubernetes-specific extension REST API accepting a k8s service account JWT token.
-This API call issues a client certificate that proves the service is who it is based on which kubernetes service account it runs.
-The JWT token is automatically mounted by kubernetes at `/var/run/secrets/kubernetes.io/serviceaccount/token`, and is a system-managed secret and is harder to tamper with.
-Authly will verify the token signature.
+## Quickstart
 
-Authly keeps a mapping between kubernetes service account name (which it manages) and entity ID.
-The common name (CN) of the signed client certificate is the service entity ID.
+### Kubernetes example (recommended)
 
-Flow:
-1. Client (service) starts up and generates a key pair
-2. Client calls `https://k8s.authly.local/api/csr` using `Authorization: Bearer $K8S_SERVICE_ACCOUNT_TOKEN` to sign the public key
-3. Client obtains the client certificate that proves it is the indicated entity
-4. Further calls to Authly uses the client certificate for authentication
+An example Kubernetes deployment is available in [`testfiles/k8s`](testfiles/k8s), which includes the Authly-compatible [Arx gateway](https://github.com/protojour/arx), a [Platform Abstraction Layer](https://github.com/protojour/authly-pal) for secrets, the correct routing and setup for Authly to provision an example service with mTLS, and uses the Kubernetes Secrets for its core identity.
 
-Pros: This way the client private key never leaves the client service (compared to authly distributing the secrets).
-Cons: Requires crypto for generating a key pair in every authly client.
+### Docker example
 
-note: `k8s.authly.local` must be a separate network service, that listens on a separate socket address, with TLS client auth turned off, because of the technical limitation that client auth/mTLS can't conditionally depend on a HTTP path (the full TLS handshake must finish before any HTTP path dispatch happens).
+A minimal `docker compose` development example is available in [`testfiles/docker/docker-compose.yml`](testfiles/docker/docker-compose.yml).
 
-### Authly documents
-Authly needs a way for solution owners to easily inject definition manifests that get distributed and fulfilled by authly instances.
-The primary way of mutating Authly state is to manipulate and re-apply documents.
+## Security features
 
-Documents are written the `TOML` format.
+The Authly server relies on mTLS for service client authentication, and can provision such services with client certificates from a (mesh-local or global) Certificate Authority, either manually (CLI commands), through a native [Rust client](https://crates.io/crates/authly-client), through its language bindings (TBA), or a minimalist sidecar proxy (TBA).
 
-Example documents can be found in the `example/` directory.
+It uses an embedded [`hiqlite`](https://github.com/sebadob/hiqlite) database with envelope encrypted user data for encryption-at-rest.
 
-## Major design tasks
-Some things are seriously underspecified:
+Authly is not yet audited. We invite anyone to examine or critique its security model and report any vulnerabilities.
 
-### Multi-client access control and how that relates to service contracts
-Request pipeline may flow through different services, each service having a unique contract with the subject and should share nothing.
-There has to be some token (contract-token) that represents a session and a service contract and that token must stay private to that (distributed) service,
-so some sort of cryptography likely needs to be used.
+## Feature roadmap
 
-## TODO
-* GC expired sessions
+Authly is beta software, currently with a minimal feature set, but several high-level features are planned:
 
-## Questions
-It seems weird that `mfaNeeded` a global setting. Intuitively it should be the intent/context of a specific authenticaion that mandates MFA.
-E.g. certain "dangerous" operations may require MFA or higher degree of security, but trivial operations would not need to.
+- [x] Attribute-based data model
+- [x] Policy DSL
+- [x] High-availability cluster mode
+- [x] Database encryption-at-rest
+- [x] mTLS provisioning for services
+- [x] Kubernetes example setup
+- [ ] Docker example setup
+- [ ] Minimal login UI
+- [ ] Federation and authority/mandate relations
+- [ ] `authly-client` language bindings
+- [ ] `authly-client`-based minimalist sidecar proxy
+- [ ] mdBook documentation
+- [ ] Improved login UI
+- [ ] User registration and recovery
+- [ ] SMTP email support
+- [ ] OATH TOTP support for authenticator apps
+- [ ] OATH HOTP support for recovery codes
+- [ ] WebAuthn/Passkeys support
 
+## License
+
+Authly is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPLv3) license. Contact us for commercial licensing options.
