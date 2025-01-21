@@ -33,6 +33,7 @@ pub mod session;
 mod access_control;
 mod authority;
 mod broadcast;
+mod encryption;
 mod id;
 mod k8s;
 mod openapi;
@@ -172,7 +173,10 @@ async fn initialize() -> anyhow::Result<Init> {
         err
     })?;
 
-    let dynamic_config = config_db::load_db_config(&hql).await?;
+    let crypt_keys =
+        encryption::load_decrypted_deks(&hql, hql.is_leader_db().await, &env_config).await?;
+    let dynamic_config = config_db::load_db_config(&hql, &crypt_keys).await?;
+
     let ctx = AuthlyCtx {
         hql,
         dynamic_config: Arc::new(dynamic_config),

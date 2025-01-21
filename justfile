@@ -1,3 +1,7 @@
+# setup docker dev environment
+dev-environment:
+    docker-compose -f docker-compose.dev.yml up -d
+
 # generate files necessary for running authly locally
 generate-testdata:
     #!/usr/bin/env bash
@@ -18,7 +22,7 @@ generate-testdata:
 debug_web_port := "12345"
 
 # run debug version on localhost. Necessary for running end-to-end tests.
-rundev: generate-testdata
+rundev: dev-environment generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_SERVER_PORT=1443 \
@@ -28,7 +32,7 @@ rundev: generate-testdata
         cargo run -p authly --features dev serve
 
 # run release version on localhost
-runrelease: generate-testdata
+runrelease: dev-environment generate-testdata
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_SERVER_PORT=1443 \
