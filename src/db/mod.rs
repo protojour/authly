@@ -139,7 +139,7 @@ impl Display for StrLiteral<'_> {
     }
 }
 
-impl Db for AuthlyCtx {
+impl Db for hiqlite::Client {
     type Row<'a> = hiqlite::Row<'a>;
 
     #[tracing::instrument(skip(self, params))]
@@ -150,16 +150,32 @@ impl Db for AuthlyCtx {
     ) -> Result<Vec<Self::Row<'_>>, DbError> {
         if LOG_QUERIES {
             let start = Instant::now();
-            let result = hiqlite::Client::query_raw(&self.hql, stmt, params).await;
+            let result = hiqlite::Client::query_raw(self, stmt, params).await;
             info!("query_raw took {:?}", start.elapsed());
             Ok(result?)
         } else {
-            Ok(hiqlite::Client::query_raw(&self.hql, stmt, params).await?)
+            Ok(hiqlite::Client::query_raw(self, stmt, params).await?)
         }
     }
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
-        Ok(hiqlite::Client::execute(&self.hql, sql, params).await?)
+        Ok(hiqlite::Client::execute(self, sql, params).await?)
+    }
+}
+
+impl Db for AuthlyCtx {
+    type Row<'a> = hiqlite::Row<'a>;
+
+    async fn query_raw(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Vec<Self::Row<'_>>, DbError> {
+        Db::query_raw(&self.hql, stmt, params).await
+    }
+
+    async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
+        Db::execute(&self.hql, sql, params).await
     }
 }
 

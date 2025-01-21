@@ -1,4 +1,8 @@
 services:
+  authly-pal:
+    image: protojour/authly-pal:dev
+    environment:
+      DANGER_ENCRYPTION_DISABLED: 'true'
 
   authly:
     image: situ/authly:dev
@@ -8,6 +12,7 @@ services:
       AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
       AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
       AUTHLY_EXPORT_TLS_TO_ETC: 'true'
+      AUTHLY_PAL_URL: http://authly-pal:6666
     ports:
       - 1443:443
     volumes:

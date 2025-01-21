@@ -1,8 +1,23 @@
+CREATE TABLE cr_master_version (
+    kind TEXT NOT NULL,
+    version BLOB NOT NULL,
+    created_at DATETIME NOT NULL
+);
+
+-- Envelope encryption for Property Data Encryption Keys
+CREATE TABLE cr_prop_dek (
+    prop_id BLOB NOT NULL PRIMARY KEY,
+    nonce BLOB NOT NULL,
+    ciph BLOB NOT NULL,
+    created_at DATETIME NOT NULL
+);
+
 CREATE TABLE tlskey (
     purpose TEXT NOT NULL PRIMARY KEY,
     expires_at DATETIME NOT NULL,
     cert BLOB NOT NULL,
-    private_key BLOB NOT NULL
+    key_nonce BLOB NOT NULL,
+    key_ciph BLOB NOT NULL
 );
 
 CREATE TABLE authority (

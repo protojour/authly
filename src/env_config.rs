@@ -27,6 +27,8 @@ pub struct EnvConfig {
     /// Database directory
     pub data_dir: PathBuf,
 
+    pub pal_url: String,
+
     pub cluster_node_id: Option<u64>,
     pub cluster_api_nodes: Option<Vec<SocketAddr>>,
     pub cluster_raft_nodes: Option<Vec<SocketAddr>>,
@@ -71,6 +73,8 @@ impl Default for EnvConfig {
 
             etc_dir: PathBuf::from("/etc/authly"),
             data_dir: PathBuf::from("/var/lib/authly/data"),
+
+            pal_url: "http://localhost:6666".to_string(),
 
             cluster_node_id: None,
             cluster_raft_nodes: None,

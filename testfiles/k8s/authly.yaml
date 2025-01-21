@@ -15,7 +15,7 @@ metadata:
   name: authly-role
 rules:
 - apiGroups: [""]
-  resources: ["configmaps"]
+  resources: ["configmaps", "secrets"]
   verbs: ["get", "watch", "list", "create", "patch", "update"]
 ---
 
@@ -199,6 +199,13 @@ spec:
             requests:
               memory: 32Mi
               cpu: 100m
+      initContainers:
+        - name: authly-pal
+          image: protojour/authly-pal:dev
+          restartPolicy: Always
+          env:
+            - name: K8S_INSECURE
+              value: 'true'
       volumes:
         - name: authly-cluster-key
           secret:
