@@ -1,5 +1,5 @@
+-- The version of the master encryption key Authly is currently using
 CREATE TABLE cr_master_version (
-    kind TEXT NOT NULL,
     version BLOB NOT NULL,
     created_at DATETIME NOT NULL
 );

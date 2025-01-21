@@ -33,7 +33,6 @@ impl DecryptedDeks {
 
 #[derive(Clone)]
 pub struct MasterVersion {
-    pub kind: String,
     pub version: Vec<u8>,
     pub created_at: time::OffsetDateTime,
 }
@@ -149,7 +148,6 @@ async fn gen_new_master(env_config: &EnvConfig) -> anyhow::Result<DecryptedMaste
 
     Ok(DecryptedMaster {
         encrypted: MasterVersion {
-            kind: "crypt".to_string(),
             version: output.version.0,
             created_at: time::OffsetDateTime::now_utc(),
         },

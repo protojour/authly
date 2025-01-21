@@ -36,7 +36,7 @@ pub async fn load_cr_master_version(
 ) -> Result<Option<MasterVersion>, ConfigDbError> {
     let rows = deps
         .query_raw(
-            "SELECT kind, version, created_at FROM cr_master_version".into(),
+            "SELECT version, created_at FROM cr_master_version".into(),
             params!(),
         )
         .await?;
@@ -46,7 +46,6 @@ pub async fn load_cr_master_version(
     };
 
     Ok(Some(MasterVersion {
-        kind: row.get_text("kind"),
         version: row.get_blob("version"),
         created_at: OffsetDateTime::from_unix_timestamp(row.get_int("created_at")).unwrap(),
     }))
@@ -57,8 +56,8 @@ pub async fn insert_cr_master_version(
     ver: MasterVersion,
 ) -> Result<(), ConfigDbError> {
     deps.execute(
-        "INSERT INTO cr_master_version (kind, version, created_at) VALUES ($1, $2, $3)".into(),
-        params!(ver.kind, ver.version, ver.created_at.unix_timestamp()),
+        "INSERT INTO cr_master_version (version, created_at) VALUES ($1, $2)".into(),
+        params!(ver.version, ver.created_at.unix_timestamp()),
     )
     .await?;
 
