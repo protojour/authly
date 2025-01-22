@@ -41,7 +41,7 @@ futures-util = "0.3"
 fnv = "1"
 hex = { version = "0.4", features = ["serde"] }
 hexhex = "1"
-hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = false, features = [
+hiqlite = { version = "0.5", default-features = false, features = [
     "auto-heal",
     "listen_notify_local",
     "sqlite",
@@ -73,7 +73,7 @@ reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "rustls-tls",
 ] }
-rusqlite = "0.32"
+rusqlite = "0.33"
 rust-embed = { version = "8", features = ["debug-embed"] }
 rustls = "0.23"
 rustls-pemfile = "2"
