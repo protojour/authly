@@ -371,8 +371,8 @@ dependencies = [
 
 [[package]]
 name = "authly-client"
-version = "0.0.2"
-source = "git+https://github.com/protojour/authly-lib.git#07f10f9041aa45e2a89d9dc3e819c1ed8ebaec25"
+version = "0.0.3"
+source = "git+https://github.com/protojour/authly-lib.git#95e0a3e7c10b9f33408ccd32f97249a234accff2"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -394,8 +394,8 @@ dependencies = [
 
 [[package]]
 name = "authly-common"
-version = "0.0.2"
-source = "git+https://github.com/protojour/authly-lib.git#07f10f9041aa45e2a89d9dc3e819c1ed8ebaec25"
+version = "0.0.3"
+source = "git+https://github.com/protojour/authly-lib.git#95e0a3e7c10b9f33408ccd32f97249a234accff2"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -530,11 +530,11 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.8.2"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efea76243612a2436fb4074ba0cf3ba9ea29efdeb72645d8fc63f116462be1de"
+checksum = "6d6fd624c75e18b3b4c6b9caf42b1afe24437daaee904069137d8bab077be8b8"
 dependencies = [
- "axum-core 0.5.1",
+ "axum-core 0.5.0",
  "bytes",
  "form_urlencoded",
  "futures-util",
@@ -585,12 +585,12 @@ dependencies = [
 
 [[package]]
 name = "axum-core"
-version = "0.5.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab1b0df7cded837c40dacaa2e1c33aa17c84fc3356ae67b5645f1e83190753e"
+checksum = "df1362f362fd16024ae199c1970ce98f9661bf5ef94b9808fee734bc3698b733"
 dependencies = [
  "bytes",
- "futures-core",
+ "futures-util",
  "http",
  "http-body",
  "http-body-util",
@@ -1164,9 +1164,9 @@ dependencies = [
 
 [[package]]
 name = "crunchy"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
+checksum = "43da5946c66ffcc7745f48db692ffbb10a83bfe0afd96235c5c2a4fb23994929"
 
 [[package]]
 name = "crypto-common"
@@ -1397,7 +1397,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "305d3ba574508e27190906d11707dad683e0494e6b85eae9b044cb2734a5e422"
 dependencies = [
  "async-trait",
- "axum-core 0.5.1",
+ "axum-core 0.5.0",
  "base64 0.21.7",
  "bytes",
  "http",
@@ -1742,7 +1742,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4baadbe228f3a1faffcc8e397048a278132b43c3f4f8d8eea5f54c61d6814cb8"
 dependencies = [
- "axum 0.8.2",
+ "axum 0.8.1",
  "axum-server",
  "bincode",
  "byteorder",
@@ -2183,9 +2183,9 @@ checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
 
 [[package]]
 name = "is-terminal"
-version = "0.4.14"
+version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f187290c0ed3dfe3f7c85bedddd320949b68fc86ca0ceb71adfb05b3dc3af2a"
+checksum = "e19b23d53f35ce9f56aebc7d1bb4e6ac1e9c0db7ac85c8d1760c04379edced37"
 dependencies = [
  "hermit-abi 0.4.0",
  "libc",

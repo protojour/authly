@@ -62,7 +62,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
     tokio::spawn(
         server.serve(
             axum::Router::new()
-                .route("/api/csr", post(csr_handler))
+                .route("/api/v0/authenticate", post(v0_authenticate_handler))
                 .with_state(K8SAuthServerState {
                     ctx: ctx.clone(),
                     jwt_verifier: Arc::new(jwt_verifier),
@@ -99,11 +99,13 @@ impl IntoResponse for CsrError {
     }
 }
 
+/// Certifies a public key based on what k8s service account it originates from.
+/// Returns a DER-encoded certificate on success.
 #[tracing::instrument(skip_all)]
-async fn csr_handler(
+async fn v0_authenticate_handler(
     State(state): State<K8SAuthServerState>,
     bearer_authorization: TypedHeader<Authorization<Bearer>>,
-    body: Bytes,
+    public_key: Bytes,
 ) -> Result<axum::response::Response, CsrError> {
     let token_data = state.jwt_verifier.verify(bearer_authorization.token())?;
 
@@ -125,7 +127,7 @@ async fn csr_handler(
     };
 
     let signed_client_cert = tokio::task::spawn_blocking(move || -> Result<Cert<_>, CsrError> {
-        let service_public_key = SubjectPublicKeyInfo::from_der(&body)
+        let service_public_key = SubjectPublicKeyInfo::from_der(&public_key)
             .map_err(|_err| CsrError::InvalidPublicKey(eid))?;
 
         Ok(state
