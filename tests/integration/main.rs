@@ -14,6 +14,7 @@ use tracing::info;
 
 mod test_access_control;
 mod test_document;
+mod test_tls;
 
 async fn new_inmemory_db() -> RwLock<rusqlite::Connection> {
     info!("new inmemory db");

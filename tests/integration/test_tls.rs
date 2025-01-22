@@ -1,20 +1,15 @@
-use std::{error::Error, sync::Arc};
+use std::error::Error;
 
 use authly::cert::{Cert, MakeSigningRequest};
 use authly_common::mtls_server::PeerServiceEntity;
 use axum::{response::IntoResponse, Extension};
-use hyper::body::Incoming;
-use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, CertificateSigningRequest,
-    CertificateSigningRequestParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, KeyPair,
-    KeyUsagePurpose, PrintableString, PublicKeyData, SubjectPublicKeyInfo,
-};
+use rcgen::{CertificateSigningRequestParams, KeyPair};
 use rustls::{
     pki_types::{CertificateDer, CertificateSigningRequestDer, PrivateKeyDer},
     server::WebPkiClientVerifier,
     RootCertStore, ServerConfig,
 };
-use time::{Duration, OffsetDateTime};
+use time::Duration;
 use tokio_util::sync::CancellationToken;
 
 #[tokio::test]
@@ -252,7 +247,7 @@ async fn test_mtls_invalid_issuer() {
     let bad_client_cert = bad_ca.sign(new_key_pair().client_cert("1337", Duration::hours(1)));
 
     let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())

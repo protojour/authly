@@ -5,7 +5,6 @@ use reqwest::Identity;
 
 mod test_auth_access_control;
 mod test_service;
-mod test_tls;
 
 struct ConnectionBuilder(authly_client::ClientBuilder);
 
