@@ -1,9 +1,11 @@
 services:
+  # Authly Platform Abstraction Layer for secrets
   authly-pal:
     image: protojour/authly-pal:dev
     environment:
       DANGER_ENCRYPTION_DISABLED: 'true'
 
+  # Authly itself
   authly:
     image: protojour/authly:dev
     environment:
@@ -22,12 +24,24 @@ services:
       - ../../.local/etc/cluster:/etc/authly/cluster:ro
       - ../../examples:/etc/authly/documents:ro
     command: serve
+    healthcheck:
+      test: ["CMD", "/authly", "ready"]
+      retries: 10
+      interval: 2s
+    depends_on:
+      authly-pal:
+        condition: service_started
 
+  # Example service for verifying connection
   testservice:
     image: protojour/authly-testservice:dev
     volumes:
       - authly-local-ca:/etc/authly/local:ro
       - testservice-identity:/etc/authly/identity:ro
+    depends_on:
+      authly:
+        condition: service_healthy
+        restart: true
 
 volumes:
   authly-data:

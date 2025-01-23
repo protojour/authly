@@ -21,6 +21,9 @@ enum Command {
     /// Run Authly in server/cluster mode
     Serve,
 
+    /// Check if an Authly server is running at localhost
+    Ready,
+
     /// Import documents and do general configuration, then exit
     Configure,
 
@@ -40,6 +43,13 @@ async fn main() -> anyhow::Result<()> {
 
     match Cli::parse().command {
         Some(Command::Serve) => serve().await?,
+        Some(Command::Ready) => {
+            reqwest::Client::new()
+                .get("http://localhost:5555/health/readiness")
+                .send()
+                .await?
+                .error_for_status()?;
+        }
         Some(Command::Configure) => configure().await?,
         Some(Command::IssueClusterKey) => {
             let env_config = EnvConfig::load();

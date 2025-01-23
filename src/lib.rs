@@ -7,6 +7,7 @@ use std::{
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
+use axum::{response::IntoResponse, Json};
 use cert::{Cert, MakeSigningRequest};
 use db::{config_db, settings_db};
 use document::load::load_cfg_documents;
@@ -17,6 +18,7 @@ use openraft::RaftMetrics;
 use rcgen::KeyPair;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore, ServerConfig};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use settings::Settings;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
@@ -146,6 +148,17 @@ pub async fn serve() -> anyhow::Result<()> {
                 .serve(webauth::router().with_state(ctx.clone())),
         );
     }
+
+    tokio::spawn(
+        tower_server::Builder::new("0.0.0.0:5555".parse()?)
+            .with_graceful_shutdown(ctx.cancel.clone())
+            .bind()
+            .await?
+            .serve(axum::Router::new().route(
+                "/health/readiness",
+                axum::routing::get(|| async { Json(json!({ "status": "UP" })).into_response() }),
+            )),
+    );
 
     cancel.cancelled().await;
 
