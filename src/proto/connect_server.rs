@@ -11,7 +11,7 @@ use tower::Service;
 use tower_server::tls::TlsConnectionMiddleware;
 use tracing::info;
 
-use crate::tunnel;
+use crate::connect::tunnel;
 
 #[derive(Clone)]
 pub struct ConnectServer {

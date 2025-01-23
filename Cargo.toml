@@ -64,6 +64,7 @@ openraft = { version = "0.9", default-features = false }
 pem = "3"
 pest = "2"
 pest_derive = "2"
+pin-project-lite = "0.2"
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 rand = "0.8"
 rcgen = { git = "https://github.com/rustls/rcgen.git", features = [
@@ -89,6 +90,7 @@ tokio-rustls = "0.26"
 tokio-util = { version = "0.7", features = ["io"] }
 tonic = { version = "0.12", default-features = false }
 tower = { version = "0.5", features = ["steer"] }
+tower-04 = { version = "0.4", package = "tower" }
 tower-server = { workspace = true, features = ["signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [

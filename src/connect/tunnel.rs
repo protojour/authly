@@ -4,7 +4,7 @@ use authly_common::proto::connect::{self as proto, authly_connect_client::Authly
 use axum::body::Bytes;
 use futures_util::{stream::BoxStream, StreamExt};
 use hyper::body::Body;
-use tokio::io::{AsyncRead, SimplexStream, WriteHalf};
+use tokio::io::{AsyncRead, ReadHalf, SimplexStream, WriteHalf};
 use tokio_util::{
     io::{ReaderStream, StreamReader},
     sync::CancellationToken,
@@ -15,6 +15,8 @@ use tracing::info;
 const BUFSIZE: usize = 16 * 1024;
 
 pub type Tunnel<R> = tokio::io::Join<R, WriteHalf<SimplexStream>>;
+
+pub type ClientSideTunnel = Tunnel<ReadHalf<SimplexStream>>;
 
 pub fn grpc_serverside_tunnel(
     incoming: tonic::Streaming<proto::Frame>,
@@ -52,12 +54,12 @@ pub fn grpc_serverside_tunnel(
     )
 }
 
-type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
+pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 pub async fn authly_connect_client_tunnel<T>(
     mut connect_client: AuthlyConnectClient<T>,
     cancel: CancellationToken,
-) -> tonic::Result<Tunnel<impl AsyncRead>>
+) -> tonic::Result<ClientSideTunnel>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<StdError>,

@@ -2,13 +2,21 @@ use std::sync::Arc;
 
 use authly::{
     cert::{Cert, MakeSigningRequest},
+    connect::{
+        grpc_client::new_authly_connect_grpc_client_service, tunnel::authly_connect_client_tunnel,
+    },
     proto::connect_server::ConnectServer,
-    tunnel::authly_connect_client_tunnel,
 };
 use authly_common::{
     mtls_server::PeerServiceEntity,
-    proto::connect::{
-        authly_connect_client::AuthlyConnectClient, authly_connect_server::AuthlyConnectServer,
+    proto::{
+        authority::{
+            authly_authority_client::AuthlyAuthorityClient,
+            authly_authority_server::AuthlyAuthorityServer,
+        },
+        connect::{
+            authly_connect_client::AuthlyConnectClient, authly_connect_server::AuthlyConnectServer,
+        },
     },
 };
 use axum::{response::IntoResponse, Extension};
@@ -75,7 +83,7 @@ async fn test_connect() {
     tunneled_tls
         .write_all(
             concat!(
-                "GET /hello HTTP/1.1\r\n",
+                "POST /hello HTTP/1.1\r\n",
                 "Host: authly-tunnel\r\n",
                 "Connection: close\r\n",
                 "Accept-Encoding: identity\r\n",
@@ -86,12 +94,68 @@ async fn test_connect() {
         .await
         .unwrap();
 
-    let mut plaintext = Vec::new();
-    tunneled_tls.read_to_end(&mut plaintext).await.unwrap();
+    let mut response = Vec::new();
+    tunneled_tls.read_to_end(&mut response).await.unwrap();
 
-    let plaintext = std::str::from_utf8(&plaintext).unwrap();
+    let response = std::str::from_utf8(&response).unwrap();
 
-    assert!(plaintext.ends_with("HELLO cf2e74c3f26240908e1b4e8817bfde7c!"));
+    info!("response: {response}");
+
+    assert!(response.ends_with("HELLO cf2e74c3f26240908e1b4e8817bfde7c!"));
+
+    cancel.cancel();
+}
+
+#[test(tokio::test)]
+async fn test_connect_authority() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    let ca = Cert::new_authly_ca();
+    let tunneled_server_cert = ca.sign(
+        KeyPair::generate()
+            .unwrap()
+            .server_cert("authly-connect", Duration::hours(1)),
+    );
+    let client_cert = ca.sign(
+        KeyPair::generate()
+            .unwrap()
+            .client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)),
+    );
+    let cancel = CancellationToken::new();
+
+    let port = spawn_connect_server(
+        rustls_server_config_mtls(&tunneled_server_cert, &ca.der).unwrap(),
+        mock_authority_service(),
+        cancel.clone(),
+    )
+    .await;
+
+    let mut authority_client = AuthlyAuthorityClient::new(
+        new_authly_connect_grpc_client_service(
+            format!("http://localhost:{port}").into(),
+            Arc::new({
+                let mut root_store = RootCertStore::empty();
+                root_store.add(ca.der).unwrap();
+                rustls::client::ClientConfig::builder()
+                    .with_root_certificates(root_store)
+                    .with_client_auth_cert(
+                        vec![client_cert.der],
+                        client_cert.key.serialize_der().try_into().unwrap(),
+                    )
+                    .unwrap()
+            }),
+            cancel.clone(),
+        )
+        .await
+        .unwrap(),
+    );
+
+    let response = authority_client
+        .get_mandate_contract(tonic::Request::new(Default::default()))
+        .await
+        .unwrap();
+
+    println!("response: {response:?}");
 
     cancel.cancel();
 }
@@ -128,4 +192,37 @@ fn hello_service() -> axum::Router {
     }
 
     axum::Router::new().route("/hello", axum::routing::get(hello))
+}
+
+fn mock_authority_service() -> axum::Router {
+    let mut grpc_routes = tonic::service::RoutesBuilder::default();
+    grpc_routes.add_service(AuthlyAuthorityServer::new(mock::MockAuthlyAuthority));
+    grpc_routes.routes().into_axum_router()
+}
+
+mod mock {
+    use authly_common::id::Eid;
+    use authly_common::proto::authority as proto;
+    use authly_common::proto::authority::authly_authority_server::AuthlyAuthority;
+    use hexhex::hex_literal;
+
+    pub struct MockAuthlyAuthority;
+
+    #[tonic::async_trait]
+    impl AuthlyAuthority for MockAuthlyAuthority {
+        async fn get_mandate_contract(
+            &self,
+            _request: tonic::Request<proto::Empty>,
+        ) -> tonic::Result<tonic::Response<proto::MandateContract>> {
+            Ok(tonic::Response::new(proto::MandateContract {
+                authority_entity_id: Eid::from_array(hex_literal!(
+                    "e5462a0d22b54d9f9ca37bd96e9b9d8b"
+                ))
+                .to_bytes()
+                .to_vec(),
+                authority_certificate: vec![],
+                mandate_grants: vec![],
+            }))
+        }
+    }
 }

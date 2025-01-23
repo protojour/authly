@@ -28,13 +28,13 @@ use util::protocol_router::ProtocolRouter;
 // These are public for the integration test crate
 pub mod access_token;
 pub mod cert;
+pub mod connect;
 pub mod db;
 pub mod document;
 pub mod encryption;
 pub mod env_config;
 pub mod proto;
 pub mod session;
-pub mod tunnel;
 
 mod access_control;
 mod authority;
