@@ -1,0 +1,16 @@
+[package]
+name = "authly-test-grpc"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+prost = "0.13"
+tonic = { version = "0.12", default-features = false, features = ["prost", "codegen"] }
+
+[build-dependencies]
+tonic-build = "0.12"

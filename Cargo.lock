@@ -313,8 +313,10 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "argon2",
+ "async-stream",
  "authly-common",
  "authly-connect",
+ "authly-test-grpc",
  "axum 0.7.9",
  "axum-extra",
  "blake3",
@@ -470,6 +472,15 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "x509-parser",
+]
+
+[[package]]
+name = "authly-test-grpc"
+version = "0.0.0"
+dependencies = [
+ "prost",
+ "tonic",
+ "tonic-build",
 ]
 
 [[package]]
