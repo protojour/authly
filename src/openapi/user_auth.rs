@@ -29,7 +29,7 @@ impl IntoResponse for AuthError {
             Self::UserAuthFailed => StatusCode::UNAUTHORIZED.into_response(),
             Self::Db(err) => {
                 warn!(?err, "auth db error");
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                StatusCode::UNAUTHORIZED.into_response()
             }
         }
     }
