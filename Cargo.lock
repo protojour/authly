@@ -307,13 +307,16 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "authly"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "aes-gcm-siv",
  "anyhow",
  "arc-swap",
  "argon2",
+ "async-stream",
  "authly-common",
+ "authly-connect",
+ "authly-test-grpc",
  "axum 0.7.9",
  "axum-extra",
  "blake3",
@@ -330,6 +333,7 @@ dependencies = [
  "http",
  "humantime",
  "hyper",
+ "hyper-util",
  "indoc",
  "int-enum",
  "itertools 0.14.0",
@@ -355,9 +359,11 @@ dependencies = [
  "serde_json",
  "serde_spanned",
  "strum",
+ "test-log",
  "thiserror 2.0.11",
  "time",
  "tokio",
+ "tokio-rustls",
  "tokio-util",
  "tonic",
  "tower 0.5.2",
@@ -372,7 +378,7 @@ dependencies = [
 [[package]]
 name = "authly-client"
 version = "0.0.3"
-source = "git+https://github.com/protojour/authly-lib.git#95e0a3e7c10b9f33408ccd32f97249a234accff2"
+source = "git+https://github.com/protojour/authly-lib.git#a1dae85ff8deee81bb3c7f520844681cc08ace04"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -395,7 +401,7 @@ dependencies = [
 [[package]]
 name = "authly-common"
 version = "0.0.3"
-source = "git+https://github.com/protojour/authly-lib.git#95e0a3e7c10b9f33408ccd32f97249a234accff2"
+source = "git+https://github.com/protojour/authly-lib.git#a1dae85ff8deee81bb3c7f520844681cc08ace04"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -421,6 +427,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "authly-connect"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "authly-common",
+ "axum 0.7.9",
+ "futures-util",
+ "http",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "tonic",
+ "tower 0.4.13",
+ "tower 0.5.2",
+ "tower-server",
+ "tracing",
+]
+
+[[package]]
 name = "authly-end2end"
 version = "0.0.0"
 dependencies = [
@@ -443,6 +471,15 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "x509-parser",
+]
+
+[[package]]
+name = "authly-test-grpc"
+version = "0.0.0"
+dependencies = [
+ "prost",
+ "tonic",
+ "tonic-build",
 ]
 
 [[package]]
@@ -714,7 +751,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "lazy_static",
  "lazycell",
  "log",
@@ -1348,6 +1385,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "env_filter"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "186e05a59d4c50738528153b83b0b0194d3a29507dfec16eccd4b342903397d0"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcaee3d8e3cfc3fd92428d477bc97fc29ec8716d180c0d74c643bb26166660e0"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "env_filter",
+ "log",
 ]
 
 [[package]]
@@ -2209,24 +2267,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -3043,7 +3083,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0f3e5beed80eb580c68e2c600937ac2c4eedabdfd5ef1e5b7ea4f3fba84497b"
 dependencies = [
  "heck",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -3063,7 +3103,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.96",
@@ -3977,6 +4017,28 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "test-log"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7f46083d221181166e5b6f6b1e5f1d499f3a76888826e6cb1d057554157cd0f"
+dependencies = [
+ "env_logger",
+ "test-log-macros",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "test-log-macros"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "888d0c3c6db53c0fdab160d2ed5e12ba745383d3e85813f2ea0f2b1475ab553f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.96",
 ]
 
 [[package]]

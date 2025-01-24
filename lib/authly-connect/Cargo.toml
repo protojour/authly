@@ -1,0 +1,30 @@
+[package]
+name = "authly-connect"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+authly-common = { workspace = true, features = ["tonic_server"] }
+anyhow = "1"
+axum = { version = "0.7", features = ["macros"] }
+futures-util = "0.3"
+http = "1"
+hyper = { version = "1", default-features = false }
+hyper-util = { version = "0.1", features = ["tokio", "server", "http2"] }
+rustls = "0.23"
+tokio = { version = "1" }
+tokio-rustls = "0.26"
+tokio-util = { version = "0.7", features = ["io"] }
+tonic = { version = "0.12", default-features = false }
+tower = { version = "0.5", features = ["steer"] }
+tower-04 = { version = "0.4", package = "tower" }
+tower-server.workspace = true
+tracing = "0.1"

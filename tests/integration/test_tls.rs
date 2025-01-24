@@ -4,13 +4,11 @@ use authly::cert::{Cert, MakeSigningRequest};
 use authly_common::mtls_server::PeerServiceEntity;
 use axum::{response::IntoResponse, Extension};
 use rcgen::{CertificateSigningRequestParams, KeyPair};
-use rustls::{
-    pki_types::{CertificateDer, CertificateSigningRequestDer, PrivateKeyDer},
-    server::WebPkiClientVerifier,
-    RootCertStore, ServerConfig,
-};
+use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
 use time::Duration;
 use tokio_util::sync::CancellationToken;
+
+use crate::{rustls_server_config_mtls, rustls_server_config_no_client_auth};
 
 #[tokio::test]
 async fn test_tls_localhost_cert_ok() {
@@ -294,40 +292,6 @@ async fn test_handler(
     } else {
         "it works: no client auth".into_response()
     }
-}
-
-fn rustls_server_config_no_client_auth(
-    server_cert: &Cert<KeyPair>,
-) -> anyhow::Result<ServerConfig> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-
-    let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
-
-    let mut config = rustls::server::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
-
-    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    Ok(config)
-}
-
-fn rustls_server_config_mtls(
-    server_cert: &Cert<KeyPair>,
-    root_ca: &CertificateDer,
-) -> anyhow::Result<ServerConfig> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-
-    let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
-
-    let mut root_cert_store = RootCertStore::empty();
-    root_cert_store.add(root_ca.clone())?;
-
-    let mut config = rustls::server::ServerConfig::builder()
-        .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store.into()).build()?)
-        .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
-
-    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    Ok(config)
 }
 
 fn new_key_pair() -> KeyPair {

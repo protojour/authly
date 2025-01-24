@@ -32,6 +32,7 @@ pub mod db;
 pub mod document;
 pub mod encryption;
 pub mod env_config;
+pub mod proto;
 pub mod session;
 
 mod access_control;
@@ -41,7 +42,6 @@ mod id;
 mod k8s;
 mod openapi;
 mod policy;
-mod proto;
 mod settings;
 mod util;
 mod webauth;

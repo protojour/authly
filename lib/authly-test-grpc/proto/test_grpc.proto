@@ -1,0 +1,13 @@
+syntax = "proto3";
+package test_grpc;
+
+// Just for testing
+service TestGrpc {
+    rpc Echo (TestMsg) returns (TestMsg);
+
+    rpc Duplex (stream TestMsg) returns (stream TestMsg);
+}
+
+message TestMsg {
+    string foo = 1;
+}
