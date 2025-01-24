@@ -307,13 +307,14 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "authly"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "aes-gcm-siv",
  "anyhow",
  "arc-swap",
  "argon2",
  "authly-common",
+ "authly-connect",
  "axum 0.7.9",
  "axum-extra",
  "blake3",
@@ -344,7 +345,6 @@ dependencies = [
  "pem",
  "pest",
  "pest_derive",
- "pin-project-lite",
  "postcard",
  "rand",
  "rcgen 0.13.2 (git+https://github.com/rustls/rcgen.git)",
@@ -364,7 +364,6 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "tonic",
- "tower 0.4.13",
  "tower 0.5.2",
  "tower-server",
  "tracing",
@@ -423,6 +422,29 @@ dependencies = [
  "unsigned-varint",
  "uuid",
  "x509-parser",
+]
+
+[[package]]
+name = "authly-connect"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "authly-common",
+ "axum 0.7.9",
+ "futures-util",
+ "http",
+ "hyper",
+ "hyper-util",
+ "pin-project-lite",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "tonic",
+ "tower 0.4.13",
+ "tower 0.5.2",
+ "tower-server",
+ "tracing",
 ]
 
 [[package]]

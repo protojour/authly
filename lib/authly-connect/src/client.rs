@@ -23,25 +23,26 @@ use tower::{Service, ServiceExt};
 use tower_04::buffer::Buffer;
 use tracing::{info, trace};
 
-use super::tunnel::{authly_connect_client_tunnel, ClientSideTunnel, StdError};
+use crate::SERVER_NAME;
 
-/// The fake server name used in the wrapped TLS channel
-const SERVER_NAME: &str = "authly-connect";
+use super::tunnel::{authly_connect_client_tunnel, ClientSideTunnel, StdError};
 
 const TUNNEL_BUFSIZE: usize = 128;
 
+/// Create a gRPC service (client-side) that tunnels through AuthlyConnect
 pub async fn new_authly_connect_grpc_client_service(
     connect_uri: Bytes,
     tls_client_config: Arc<ClientConfig>,
     cancel: CancellationToken,
 ) -> anyhow::Result<grpc_service::TunneledGrpcClientService> {
-    let endpoint = tonic::transport::Endpoint::from_shared(connect_uri).unwrap();
+    let endpoint = tonic::transport::Endpoint::from_shared(connect_uri.clone()).unwrap();
     let channel = endpoint.connect().await?;
 
     Ok(grpc_service::TunneledGrpcClientService {
         make_send_request: MakeTunneledSendRequestService {
             tunnel_buffer: Buffer::new(
                 TunneledTlsStreamService {
+                    connect_uri,
                     channel,
                     tls_client_config,
                     cancel: cancel.clone(),
@@ -230,6 +231,7 @@ impl Service<http::Request<BoxBody>> for SendTunneledRequestService {
 /// Service that produces a new client side tunnel
 #[derive(Clone)]
 struct TunneledTlsStreamService {
+    connect_uri: Bytes,
     channel: Channel,
     tls_client_config: Arc<ClientConfig>,
     cancel: CancellationToken,
@@ -246,7 +248,11 @@ impl Service<()> for TunneledTlsStreamService {
     }
 
     fn call(&mut self, _: ()) -> Self::Future {
-        trace!("TunneledTlsStreamService::call");
+        info!(
+            "opening new tunnel to {:?}",
+            std::str::from_utf8(&self.connect_uri)
+        );
+
         let channel = self.channel.clone();
         let tls_client_config = self.tls_client_config.clone();
         let cancel = self.cancel.clone();

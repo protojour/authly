@@ -1,12 +1,12 @@
 [package]
 name = "authly"
-version = "0.1.0"
-authors = ["Protojour dev team <devs@protojour.com>"]
 edition = "2021"
-license = "AGPL-3.0"
-repository = "https://github.com/protojour/authly"
-rust-version = "1.83"
 publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
 
 [lib]
 doctest = false
@@ -26,6 +26,7 @@ authly-common = { workspace = true, features = [
     "mtls_server",
     "tonic_server",
 ] }
+authly-connect = { path = "lib/authly-connect" }
 
 aes-gcm-siv = "0.11"
 anyhow = "1"
@@ -64,7 +65,6 @@ openraft = { version = "0.9", default-features = false }
 pem = "3"
 pest = "2"
 pest_derive = "2"
-pin-project-lite = "0.2"
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 rand = "0.8"
 rcgen = { git = "https://github.com/rustls/rcgen.git", features = [
@@ -90,7 +90,6 @@ tokio-rustls = "0.26"
 tokio-util = { version = "0.7", features = ["io"] }
 tonic = { version = "0.12", default-features = false }
 tower = { version = "0.5", features = ["steer"] }
-tower-04 = { version = "0.4", package = "tower" }
 tower-server = { workspace = true, features = ["signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
@@ -114,8 +113,18 @@ harness = false
 members = [
     "crates/authly-end2end",
     "crates/authly-testservice",
+    "lib/authly-connect",
 ]
 resolver = "2"
+
+[workspace.package]
+version = "0.0.0"
+authors = ["Protojour dev team <devs@protojour.com>"]
+edition = "2021"
+license = "AGPL-3.0"
+repository = "https://github.com/protojour/authly"
+rust-version = "1.83"
+publish = false
 
 [workspace.dependencies]
 authly-common = { git = "https://github.com/protojour/authly-lib.git", branch = "authly-authority" }

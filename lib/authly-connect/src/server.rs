@@ -11,10 +11,12 @@ use tower::Service;
 use tower_server::tls::TlsConnectionMiddleware;
 use tracing::info;
 
-use crate::connect::tunnel;
+use crate::tunnel;
 
+/// This is a generic service that serves any axum::Router
+/// through the tunnel defined by AuthlyConnect.
 #[derive(Clone)]
-pub struct ConnectServer {
+pub struct AuthlyConnectServerImpl {
     /// How TLS wrapped in the connect tunnel works:
     pub tls_server_config: Arc<rustls::server::ServerConfig>,
     /// The inner service that's wrapped inside TLS inside the tunnel:
@@ -23,7 +25,9 @@ pub struct ConnectServer {
 }
 
 #[tonic::async_trait]
-impl authly_common::proto::connect::authly_connect_server::AuthlyConnect for ConnectServer {
+impl authly_common::proto::connect::authly_connect_server::AuthlyConnect
+    for AuthlyConnectServerImpl
+{
     type TunnelStream = BoxStream<'static, tonic::Result<proto::Frame>>;
 
     async fn tunnel(
@@ -39,7 +43,7 @@ impl authly_common::proto::connect::authly_connect_server::AuthlyConnect for Con
     }
 }
 
-impl ConnectServer {
+impl AuthlyConnectServerImpl {
     async fn serve_https_tunneled(
         self,
         tunnel: tunnel::Tunnel<impl AsyncRead + Unpin + Send + 'static>,
