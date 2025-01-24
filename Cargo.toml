@@ -130,6 +130,6 @@ rust-version = "1.83"
 publish = false
 
 [workspace.dependencies]
-authly-common = { git = "https://github.com/protojour/authly-lib.git", branch = "authly-authority" }
-authly-client = { git = "https://github.com/protojour/authly-lib.git", branch = "authly-authority" }
+authly-common = { git = "https://github.com/protojour/authly-lib.git" }
+authly-client = { git = "https://github.com/protojour/authly-lib.git" }
 tower-server = "0.3"

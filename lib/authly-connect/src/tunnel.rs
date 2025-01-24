@@ -27,7 +27,7 @@ pub fn grpc_serverside_tunnel(
     let incoming_stream_reader = {
         let mapped = incoming.map(|result| {
             result
-                .map(|frame| Bytes::from(frame.data))
+                .map(|frame| Bytes::from(frame.payload))
                 .map_err(|status| {
                     info!(?status, "input stream error");
                     std::io::Error::new(ErrorKind::BrokenPipe, "broken pipe")
@@ -43,7 +43,7 @@ pub fn grpc_serverside_tunnel(
         ReaderStream::new(outgoing_read_half)
             .map(|result| match result {
                 Ok(bytes) => Ok(proto::Frame {
-                    data: bytes.to_vec(),
+                    payload: bytes.to_vec(),
                 }),
                 Err(err) => {
                     info!(?err, "tunnel outgoing error");
@@ -74,7 +74,7 @@ where
             ReaderStream::new(outgoing_read_half).scan((), |_, result| async {
                 match result {
                     Ok(bytes) => Some(proto::Frame {
-                        data: bytes.to_vec(),
+                        payload: bytes.to_vec(),
                     }),
                     Err(err) => {
                         info!(?err, "tunnel outgoing error");
@@ -87,7 +87,7 @@ where
 
     let mut incoming_reader = StreamReader::new(response.into_inner().map(|result| {
         result
-            .map(|frame| Bytes::from(frame.data))
+            .map(|frame| Bytes::from(frame.payload))
             .map_err(|status| {
                 info!(?status, "input stream error");
                 std::io::Error::new(ErrorKind::BrokenPipe, "broken pipe")
