@@ -437,7 +437,6 @@ dependencies = [
  "http",
  "hyper",
  "hyper-util",
- "pin-project-lite",
  "rustls",
  "tokio",
  "tokio-rustls",
