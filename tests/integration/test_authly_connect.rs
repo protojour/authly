@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use authly::cert::{Cert, MakeSigningRequest};
 use authly_common::{
@@ -8,8 +8,10 @@ use authly_common::{
     },
 };
 use authly_connect::{
-    client::new_authly_connect_grpc_client_service, server::AuthlyConnectServerImpl,
+    client::new_authly_connect_grpc_client_service,
+    server::{AuthlyConnectServerImpl, ConnectService},
     tunnel::authly_connect_client_tunnel,
+    TunnelSecurity,
 };
 use authly_test_grpc::{
     test_grpc_client::TestGrpcClient, test_grpc_server::TestGrpcServer, TestMsg,
@@ -61,6 +63,7 @@ async fn test_connect_grpc() {
     let mut authority_client = TestGrpcClient::new(
         new_authly_connect_grpc_client_service(
             format!("http://localhost:{port}").into(),
+            TunnelSecurity::MutuallySecure,
             Arc::new({
                 let mut root_store = RootCertStore::empty();
                 root_store.add(ca.der).unwrap();
@@ -185,6 +188,7 @@ async fn test_connect_http() {
         AuthlyConnectClient::connect(format!("http://localhost:{port}"))
             .await
             .unwrap(),
+        TunnelSecurity::MutuallySecure,
         cancel.clone(),
     )
     .await
@@ -243,11 +247,17 @@ async fn spawn_connect_server(
         .await
         .unwrap();
     let port = server.local_addr().unwrap().port();
+    let tls_config = Arc::new(tls_config);
 
     let mut grpc_routes = tonic::service::RoutesBuilder::default();
     grpc_routes.add_service(AuthlyConnectServer::new(AuthlyConnectServerImpl {
-        tls_server_config: Arc::new(tls_config),
-        service,
+        services: HashMap::from([(
+            TunnelSecurity::MutuallySecure,
+            ConnectService {
+                tls_server_config: tls_config.clone(),
+                service: service.clone(),
+            },
+        )]),
         cancel,
     }));
 

@@ -24,13 +24,14 @@ use tonic::body::BoxBody;
 use tower::Service;
 use tracing::{info, trace};
 
-use crate::SERVER_NAME;
+use crate::{TunnelSecurity, SERVER_NAME};
 
 use super::tunnel::{authly_connect_client_tunnel, StdError};
 
 /// Create a gRPC service (client-side) that tunnels through AuthlyConnect
 pub async fn new_authly_connect_grpc_client_service(
     connect_uri: Bytes,
+    security: TunnelSecurity,
     tls_client_config: Arc<ClientConfig>,
     terminate: CancellationToken,
 ) -> anyhow::Result<TunneledGrpcClientService> {
@@ -39,9 +40,12 @@ pub async fn new_authly_connect_grpc_client_service(
 
     let close_signal = terminate.child_token();
 
-    let raw_tunnel =
-        authly_connect_client_tunnel(AuthlyConnectClient::new(channel.clone()), terminate.clone())
-            .await?;
+    let raw_tunnel = authly_connect_client_tunnel(
+        AuthlyConnectClient::new(channel.clone()),
+        security,
+        terminate.clone(),
+    )
+    .await?;
 
     let tls_tunnel = {
         let connector = TlsConnector::from(tls_client_config.clone());

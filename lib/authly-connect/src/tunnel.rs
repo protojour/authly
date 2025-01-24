@@ -11,6 +11,8 @@ use tokio_util::{
 };
 use tracing::info;
 
+use crate::TunnelSecurity;
+
 /// The maximum amount of bytes to write into the tunnel before gRPC must produce an output frame
 const BUFSIZE: usize = 16 * 1024;
 
@@ -58,6 +60,7 @@ pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 pub async fn authly_connect_client_tunnel<T>(
     mut connect_client: AuthlyConnectClient<T>,
+    security: TunnelSecurity,
     cancel: CancellationToken,
 ) -> tonic::Result<ClientSideTunnel>
 where
@@ -69,9 +72,10 @@ where
     let (outgoing_read_half, outgoing_write_half) = tokio::io::simplex(BUFSIZE);
     let (incoming_read_half, mut incoming_write_half) = tokio::io::simplex(BUFSIZE);
 
-    let response = connect_client
-        .tunnel(tonic::Request::new(
-            ReaderStream::new(outgoing_read_half).scan((), |_, result| async {
+    let response = {
+        let tonic_request = tonic::Request::new(ReaderStream::new(outgoing_read_half).scan(
+            (),
+            |_, result| async {
                 match result {
                     Ok(bytes) => Some(proto::Frame {
                         payload: bytes.to_vec(),
@@ -81,9 +85,14 @@ where
                         None
                     }
                 }
-            }),
-        ))
-        .await?;
+            },
+        ));
+
+        match security {
+            TunnelSecurity::Secure => connect_client.secure(tonic_request).await?,
+            TunnelSecurity::MutuallySecure => connect_client.mutually_secure(tonic_request).await?,
+        }
+    };
 
     let mut incoming_reader = StreamReader::new(response.into_inner().map(|result| {
         result
