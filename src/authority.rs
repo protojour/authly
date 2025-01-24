@@ -59,7 +59,7 @@ pub async fn apply_document(
 
 fn export_service_identity(svc_eid: Eid, ctx: &AuthlyCtx) -> anyhow::Result<()> {
     let pem = ctx
-        .dynamic_config
+        .tls_params
         .local_ca
         .sign(KeyPair::generate()?.client_cert(&svc_eid.to_string(), time::Duration::days(7)))
         .certificate_and_key_pem();

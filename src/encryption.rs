@@ -12,7 +12,7 @@ use serde_json::json;
 use tracing::info;
 
 use crate::{
-    db::{config_db, Db},
+    db::{cryptography_db, Db},
     id::BuiltinID,
     EnvConfig,
 };
@@ -88,13 +88,14 @@ pub async fn load_decrypted_deks(
     is_leader: bool,
     env_config: &EnvConfig,
 ) -> anyhow::Result<DecryptedDeks> {
-    let mut opt_master_version = config_db::load_cr_master_version(deps).await?;
+    let mut opt_master_version = cryptography_db::load_cr_master_version(deps).await?;
 
     let deks = if is_leader {
         match opt_master_version {
             None => {
                 let decrypted = gen_new_master(env_config).await?;
-                config_db::insert_cr_master_version(deps, decrypted.encrypted.clone()).await?;
+                cryptography_db::insert_cr_master_version(deps, decrypted.encrypted.clone())
+                    .await?;
 
                 gen_prop_deks(deps, &decrypted, is_leader).await?
             }
@@ -111,7 +112,7 @@ pub async fn load_decrypted_deks(
                     info!("waiting for leader to initialize master version");
                     tokio::time::sleep(Duration::from_secs(1)).await;
 
-                    opt_master_version = config_db::load_cr_master_version(deps).await?;
+                    opt_master_version = cryptography_db::load_cr_master_version(deps).await?;
                 }
             }
         };
@@ -188,7 +189,7 @@ async fn gen_prop_deks(
     decrypted_master: &DecryptedMaster,
     is_leader: bool,
 ) -> anyhow::Result<HashMap<ObjId, AesKey>> {
-    let old_encrypted_deks = config_db::list_all_cr_prop_deks(deps).await?;
+    let old_encrypted_deks = cryptography_db::list_all_cr_prop_deks(deps).await?;
     let mut new_encrypted_deks: HashMap<ObjId, EncryptedDek> = Default::default();
     let mut decrypted_deks: HashMap<ObjId, AesKey> = Default::default();
 
@@ -224,7 +225,7 @@ async fn gen_prop_deks(
     }
 
     if is_leader && !new_encrypted_deks.is_empty() {
-        config_db::insert_cr_prop_deks(deps, new_encrypted_deks).await?;
+        cryptography_db::insert_cr_prop_deks(deps, new_encrypted_deks).await?;
     }
 
     Ok(decrypted_deks)

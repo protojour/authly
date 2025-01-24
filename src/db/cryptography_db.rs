@@ -1,10 +1,10 @@
-//! configuration stored in the database
+//! cryptography-oriented things stored in the DB (secret information is encrypted!)
 
 use std::{collections::HashMap, time::Duration};
 
 use aes_gcm_siv::aead::Aead;
-use anyhow::anyhow;
-use authly_common::id::ObjId;
+use anyhow::{anyhow, Context};
+use authly_common::id::{Eid, ObjId};
 use hiqlite::{params, Client, Param};
 use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
@@ -14,10 +14,10 @@ use time::OffsetDateTime;
 use tracing::{debug, info};
 
 use crate::{
-    cert::Cert,
+    cert::{Cert, MakeSigningRequest},
     encryption::{nonce_from_slice, random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
     id::BuiltinID,
-    DynamicConfig,
+    TlsParams,
 };
 
 use super::{Convert, Db, DbError, Row};
@@ -116,67 +116,96 @@ pub async fn insert_cr_prop_deks(
     Ok(())
 }
 
-pub async fn load_db_config(
+/// Load initial TLS params.
+///
+/// If starting up for the first time, then self-signed CA and identity is generated.
+/// These can be changed after the fact, after registering an authly authority for the first time.
+pub async fn load_tls_params(
     db: &Client,
     deks: &DecryptedDeks,
-) -> Result<DynamicConfig, ConfigDbError> {
+) -> Result<TlsParams, ConfigDbError> {
     let is_leader = db.is_leader_db().await;
 
-    let local_ca = match load_tlskey("local_ca", db, deks).await? {
-        Some(local_ca) => {
+    // Load or generate the local CA
+    let local_ca = load_or_generate_tlskey(
+        is_leader,
+        BuiltinID::PropLocalCA,
+        Cert::new_authly_ca,
+        db,
+        deks,
+    )
+    .await?;
+
+    // Load or generate the self-signed identity
+    let identity = load_or_generate_tlskey(
+        is_leader,
+        BuiltinID::PropTlsIdentity,
+        || {
+            let self_eid = Eid::random();
+            local_ca.sign(
+                KeyPair::generate()
+                    .unwrap()
+                    .client_cert(&self_eid.to_string(), time::Duration::days(365 * 100)),
+            )
+        },
+        db,
+        deks,
+    )
+    .await?;
+
+    Ok(TlsParams::from_keys(local_ca, identity))
+}
+
+async fn load_or_generate_tlskey(
+    is_leader: bool,
+    property: BuiltinID,
+    generator: impl FnOnce() -> Cert<KeyPair>,
+    db: &Client,
+    deks: &DecryptedDeks,
+) -> Result<Cert<KeyPair>, ConfigDbError> {
+    match try_load_tlskey(property, db, deks).await? {
+        Some(cert_key) => {
             debug!(
-                "reusing stored CA, expires at {}",
-                local_ca.params.not_after
+                "reusing {property:?}, expires at {}",
+                cert_key.params.not_after
             );
-            local_ca
+            Ok(cert_key)
         }
         None => {
             if is_leader {
-                let local_ca = Cert::new_authly_ca();
+                let cert_key = generator();
 
                 debug!(
-                    "generating new local CA expiring at {}",
-                    local_ca.params.not_after
+                    "generating new {property:?} expiring at {}",
+                    cert_key.params.not_after
                 );
 
-                save_tlskey(&local_ca, "local_ca", db, deks).await?;
+                save_tlskey(&cert_key, property, db, deks).await?;
 
-                local_ca
+                Ok(cert_key)
             } else {
                 loop {
-                    info!("waiting for leader to generate local CA");
+                    info!("waiting for leader to generate {property:?}");
                     tokio::time::sleep(Duration::from_secs(1)).await;
 
-                    if let Some(local_ca) = load_tlskey("local_ca", db, deks).await? {
-                        break local_ca;
+                    if let Some(local_ca) = try_load_tlskey(property, db, deks).await? {
+                        return Ok(local_ca);
                     }
                 }
             }
         }
-    };
-
-    let jwt_decoding_key = {
-        let (_, x509_cert) = x509_parser::parse_x509_certificate(&local_ca.der).unwrap();
-
-        // Assume that EC is always used
-        jsonwebtoken::DecodingKey::from_ec_der(&x509_cert.public_key().subject_public_key.data)
-    };
-
-    Ok(DynamicConfig {
-        local_ca,
-        jwt_decoding_key,
-    })
+    }
 }
 
-async fn load_tlskey(
-    purpose: &str,
+async fn try_load_tlskey(
+    property: BuiltinID,
     db: &Client,
     deks: &DecryptedDeks,
 ) -> Result<Option<Cert<KeyPair>>, ConfigDbError> {
     let rows = db
         .query_raw(
             "SELECT cert, key_nonce, key_ciph FROM tlskey WHERE purpose = $1",
-            params!(purpose),
+            params!(purpose(property)),
         )
         .await?;
 
@@ -187,7 +216,7 @@ async fn load_tlskey(
     let cert_der = CertificateDer::from(row.get::<Vec<u8>>("cert"));
 
     let dek = deks
-        .get(BuiltinID::PropLocalCA.to_obj_id())
+        .get(property.to_obj_id())
         .map_err(ConfigDbError::Crypto)?;
 
     let nonce = nonce_from_slice(&row.get::<Vec<_>>("key_nonce")).map_err(ConfigDbError::Crypto)?;
@@ -196,7 +225,8 @@ async fn load_tlskey(
     let private_key_plaintext = dek
         .aes()
         .decrypt(&nonce, private_key_ciph.as_ref())
-        .map_err(|err| ConfigDbError::Crypto(err.into()))?;
+        .context("FATAL: Encryption key has changed, unable to decrypt TLS key")
+        .map_err(ConfigDbError::Crypto)?;
 
     let private_key_der = PrivateKeyDer::try_from(private_key_plaintext)
         .map_err(|msg| ConfigDbError::Crypto(anyhow!("private key: {msg}")))?;
@@ -212,7 +242,7 @@ async fn load_tlskey(
 
 async fn save_tlskey(
     cert: &Cert<KeyPair>,
-    purpose: &str,
+    property: BuiltinID,
     db: &Client,
     deks: &DecryptedDeks,
 ) -> Result<(), ConfigDbError> {
@@ -220,7 +250,7 @@ async fn save_tlskey(
     let private_key_der = cert.key.serialize_der();
 
     let dek = deks
-        .get(BuiltinID::PropLocalCA.to_obj_id())
+        .get(property.to_obj_id())
         .map_err(ConfigDbError::Crypto)?;
     let nonce = random_nonce();
     let key_ciph = dek
@@ -237,7 +267,7 @@ async fn save_tlskey(
             "
         },
         params!(
-            purpose,
+            purpose(property),
             cert.params.not_after.unix_timestamp(),
             cert_der,
             nonce.to_vec(),
@@ -258,5 +288,13 @@ impl From<hiqlite::Error> for ConfigDbError {
 impl From<rcgen::Error> for ConfigDbError {
     fn from(value: rcgen::Error) -> Self {
         Self::Crypto(value.into())
+    }
+}
+
+fn purpose(prop_id: BuiltinID) -> &'static str {
+    match prop_id {
+        BuiltinID::PropLocalCA => "local_ca",
+        BuiltinID::PropTlsIdentity => "identity",
+        _ => panic!("invalid tlskey property"),
     }
 }

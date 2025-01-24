@@ -68,7 +68,7 @@ async fn write_client_configmap(client: Client, ctx: &AuthlyCtx) -> anyhow::Resu
         data: Some(
             [(
                 "ca.crt".to_string(),
-                ctx.dynamic_config.local_ca.certificate_pem(),
+                ctx.tls_params.local_ca.certificate_pem(),
             )]
             .into(),
         ),

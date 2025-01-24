@@ -83,12 +83,9 @@ impl AuthlyService for AuthlyServiceServerImpl {
 
                 let user_attrs = entity_db::list_entity_attrs(&self.ctx, session.eid).await?;
 
-                let token = access_token::create_access_token(
-                    &session,
-                    user_attrs,
-                    &self.ctx.dynamic_config,
-                )
-                .map_err(|_| tonic::Status::internal("access token error"))?;
+                let token =
+                    access_token::create_access_token(&session, user_attrs, &self.ctx.tls_params)
+                        .map_err(|_| tonic::Status::internal("access token error"))?;
 
                 Result::<_, tonic::Status>::Ok(proto::AccessToken {
                     token,
@@ -223,7 +220,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
         // TODO: If a server certificate: Somehow verify that the peer service does not lie about its hostname/common name?
         // Authly would have to know its hostname in that case, if it's not the same as the service label.
 
-        let local_ca = &self.ctx.dynamic_config.local_ca;
+        let local_ca = &self.ctx.tls_params.local_ca;
 
         let certificate = csr_params
             .signed_by(&local_ca.params, &local_ca.key)
@@ -311,7 +308,7 @@ fn verify_bearer(
         .and_then(|bearer| bearer.strip_prefix("Bearer "))
         .ok_or_else(|| tonic::Status::unauthenticated("invalid access token encoding"))?;
 
-    access_token::verify_access_token(token, &ctx.dynamic_config)
+    access_token::verify_access_token(token, &ctx.tls_params)
         .map_err(|_| tonic::Status::unauthenticated("access token not verified"))
 }
 

@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::AuthlyCtx;
 
-pub mod config_db;
+pub mod cryptography_db;
 pub mod document_db;
 pub mod entity_db;
 pub mod service_db;

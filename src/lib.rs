@@ -9,7 +9,7 @@ use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use axum::{response::IntoResponse, Json};
 use cert::{Cert, MakeSigningRequest};
-use db::{config_db, settings_db};
+use db::{cryptography_db, settings_db};
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
@@ -57,7 +57,7 @@ const HIQLITE_RAFT_PORT: u16 = 7856;
 struct AuthlyCtx {
     /// The client for hiqlite, an embedded database
     hql: hiqlite::Client,
-    dynamic_config: Arc<DynamicConfig>,
+    tls_params: Arc<TlsParams>,
     settings: Arc<ArcSwap<Settings>>,
     deks: Arc<ArcSwap<DecryptedDeks>>,
     cancel: CancellationToken,
@@ -72,11 +72,29 @@ impl AuthlyCtx {
     }
 }
 
-pub struct DynamicConfig {
+pub struct TlsParams {
     /// A long-lived CA
     pub local_ca: Cert<KeyPair>,
-
     pub jwt_decoding_key: jsonwebtoken::DecodingKey,
+
+    pub identity: Cert<KeyPair>,
+}
+
+impl TlsParams {
+    pub fn from_keys(local_ca: Cert<KeyPair>, identity: Cert<KeyPair>) -> Self {
+        let jwt_decoding_key = {
+            let (_, x509_cert) = x509_parser::parse_x509_certificate(&local_ca.der).unwrap();
+
+            // Assume that EC is always used
+            jsonwebtoken::DecodingKey::from_ec_der(&x509_cert.public_key().subject_public_key.data)
+        };
+
+        Self {
+            local_ca,
+            jwt_decoding_key,
+            identity,
+        }
+    }
 }
 
 pub struct Init {
@@ -87,10 +105,7 @@ pub struct Init {
 pub async fn serve() -> anyhow::Result<()> {
     let Init { ctx, env_config } = initialize().await?;
 
-    info!(
-        "local CA:\n{}",
-        ctx.dynamic_config.local_ca.certificate_pem()
-    );
+    info!("local CA:\n{}", ctx.tls_params.local_ca.certificate_pem());
 
     broadcast::spawn_global_message_handler(&ctx);
 
@@ -108,7 +123,7 @@ pub async fn serve() -> anyhow::Result<()> {
     .with_tls_config(main_service_tls_configurer(
         env_config.hostname.clone(),
         ctx.settings.clone(),
-        ctx.dynamic_config.clone(),
+        ctx.tls_params.clone(),
     )?)
     .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
     .with_graceful_shutdown(ctx.cancel.clone())
@@ -189,11 +204,11 @@ async fn initialize() -> anyhow::Result<Init> {
     })?;
 
     let deks = encryption::load_decrypted_deks(&hql, hql.is_leader_db().await, &env_config).await?;
-    let dynamic_config = config_db::load_db_config(&hql, &deks).await?;
+    let tls_params = cryptography_db::load_tls_params(&hql, &deks).await?;
 
     let ctx = AuthlyCtx {
         hql,
-        dynamic_config: Arc::new(dynamic_config),
+        tls_params: Arc::new(tls_params),
         settings: Arc::new(ArcSwap::new(Arc::new(Settings::default()))),
         deks: Arc::new(ArcSwap::new(Arc::new(deks))),
         cancel: tower_server::signal::termination_signal(),
@@ -207,7 +222,7 @@ async fn initialize() -> anyhow::Result<Init> {
 
             std::fs::write(
                 env_config.etc_dir.join("local/ca.crt"),
-                ctx.dynamic_config.local_ca.certificate_pem().as_bytes(),
+                ctx.tls_params.local_ca.certificate_pem().as_bytes(),
             )?;
         }
 
@@ -226,27 +241,27 @@ async fn initialize() -> anyhow::Result<Init> {
 fn main_service_tls_configurer(
     hostname: String,
     settings: Arc<ArcSwap<Settings>>,
-    dynamic_config: Arc<DynamicConfig>,
+    tls_params: Arc<TlsParams>,
 ) -> anyhow::Result<impl tower_server::tls::TlsConfigurer> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     // The root cert store is currently not changing
     let root_cert_store = {
         let mut store = RootCertStore::empty();
-        store.add(dynamic_config.local_ca.der.clone())?;
+        store.add(tls_params.local_ca.der.clone())?;
         Arc::new(store)
     };
 
     fn regenerate(
         hostname: &str,
-        dynamic_config: &DynamicConfig,
+        tls_params: &TlsParams,
         rotation_rate: std::time::Duration,
         root_cert_store: Arc<RootCertStore>,
     ) -> anyhow::Result<ServerConfig> {
         // Make the certificate valid for twice the rotation rate
         let not_after = time::Duration::try_from(rotation_rate)? * 2;
 
-        let server_cert = dynamic_config
+        let server_cert = tls_params
             .local_ca
             .sign(KeyPair::generate()?.server_cert(hostname, not_after));
 
@@ -266,7 +281,7 @@ fn main_service_tls_configurer(
     // The first TLS config is produced immediately
     let initial = futures_util::stream::iter([Arc::new(regenerate(
         &hostname,
-        &dynamic_config,
+        &tls_params,
         settings.load().server_cert_rotation_rate,
         root_cert_store.clone(),
     )?)]);
@@ -274,7 +289,7 @@ fn main_service_tls_configurer(
     // The following configs are produced after delay
     let rotation_stream = futures_util::stream::unfold((), move |_| {
         let hostname = hostname.clone();
-        let dynamic_config = dynamic_config.clone();
+        let tls_params = tls_params.clone();
         let root_cert_store = root_cert_store.clone();
         let settings = settings.clone();
         async move {
@@ -284,7 +299,7 @@ fn main_service_tls_configurer(
             let server_config = Arc::new(
                 regenerate(
                     &hostname,
-                    &dynamic_config,
+                    &tls_params,
                     settings.load().server_cert_rotation_rate,
                     root_cert_store,
                 )

@@ -22,7 +22,7 @@ use tracing::{error, info};
 use crate::{
     cert::{Cert, MakeSigningRequest},
     db::service_db,
-    AuthlyCtx, DynamicConfig, EnvConfig,
+    AuthlyCtx, EnvConfig, TlsParams,
 };
 
 const K8S_SA_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
@@ -49,7 +49,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
     };
 
     let jwt_verifier = fetch_k8s_jwk_jwt_verifier().await?;
-    let rustls_config_factory = rustls_server_config(env_config, &ctx.dynamic_config)?;
+    let rustls_config_factory = rustls_server_config(env_config, &ctx.tls_params)?;
 
     let server =
         tower_server::Builder::new(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), port))
@@ -132,7 +132,7 @@ async fn v0_authenticate_handler(
 
         Ok(state
             .ctx
-            .dynamic_config
+            .tls_params
             .local_ca
             .sign(service_public_key.client_cert(&eid.to_string(), CERT_VALIDITY_PERIOD)))
     })
@@ -235,7 +235,7 @@ async fn fetch_k8s_jwk_jwt_verifier() -> anyhow::Result<JwtVerifier> {
 
 fn rustls_server_config(
     env_config: &EnvConfig,
-    dynamic_config: &DynamicConfig,
+    tls_params: &TlsParams,
 ) -> anyhow::Result<ServerConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
@@ -244,7 +244,7 @@ fn rustls_server_config(
         .as_deref()
         .unwrap_or(&env_config.hostname);
 
-    let server_cert = dynamic_config
+    let server_cert = tls_params
         .local_ca
         .sign(KeyPair::generate()?.server_cert(hostname, time::Duration::days(365)));
 

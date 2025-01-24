@@ -2,7 +2,7 @@ use authly_common::id::{Id128, ObjId};
 use int_enum::IntEnum;
 
 /// Builtin Object IDs
-#[derive(Clone, Copy, Eq, PartialEq, Hash, IntEnum)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, IntEnum, Debug)]
 #[repr(u32)]
 pub enum BuiltinID {
     /// Id representing Authly itself
@@ -32,6 +32,8 @@ pub enum BuiltinID {
     PropK8sServiceAccount = 11,
     /// The local CA property
     PropLocalCA = 12,
+    /// The local identity property
+    PropTlsIdentity = 13,
 }
 
 impl BuiltinID {
@@ -62,6 +64,7 @@ impl BuiltinID {
             Self::PropLabel => None,
             Self::PropK8sServiceAccount => None,
             Self::PropLocalCA => None,
+            Self::PropTlsIdentity => None,
         }
     }
 
@@ -81,6 +84,7 @@ impl BuiltinID {
             Self::PropLabel => false,
             Self::PropK8sServiceAccount => true,
             Self::PropLocalCA => true,
+            Self::PropTlsIdentity => true,
         }
     }
 
