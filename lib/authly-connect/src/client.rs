@@ -1,3 +1,8 @@
+//! Authly Connect gRPC service
+//!
+//! Known bugs that must be fixed:
+//! - On network failures, need to reconnect the outer channel
+
 use std::{
     sync::Arc,
     task::{Context, Poll},
@@ -78,6 +83,8 @@ pub async fn new_authly_connect_grpc_client_service(
 }
 
 pub struct TunneledGrpcClientService {
+    // FIXME: This can't just have a SendRequest buffer, if the underlying tunnel fails
+    // there's no way to recover.
     send_request_buffer:
         tower_04::buffer::Buffer<SendTunneledRequestService, http::Request<BoxBody>>,
 
@@ -122,7 +129,7 @@ impl Service<http::Request<BoxBody>> for SendTunneledRequestService {
     }
 
     fn call(&mut self, mut req: http::Request<BoxBody>) -> Self::Future {
-        trace!("SendTunneledRequestService::call: {req:?}");
+        trace!(?req, "SendTunneledRequestService::call");
 
         // manipulate the request URI to inject scheme and authority
         {
