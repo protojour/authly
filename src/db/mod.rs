@@ -5,8 +5,9 @@ use hiqlite::Params;
 use thiserror::Error;
 use tracing::info;
 
-use crate::AuthlyCtx;
+use crate::ctx::GetDb;
 
+pub mod authority_mandate_db;
 pub mod cryptography_db;
 pub mod document_db;
 pub mod entity_db;
@@ -71,19 +72,21 @@ pub trait Row {
     fn get_opt_text(&mut self, idx: &str) -> Option<String>;
 
     fn get_blob(&mut self, idx: &str) -> Vec<u8>;
+
+    fn get_datetime(&mut self, idx: &str) -> DbResult<time::OffsetDateTime> {
+        time::OffsetDateTime::from_unix_timestamp(self.get_int(idx)).map_err(|_| DbError::Timestamp)
+    }
+
+    fn get_id<K>(&mut self, idx: &str) -> Id128<K> {
+        Id128::from_bytes(&self.get_blob(idx)).unwrap()
+    }
 }
 
-pub trait Convert: Sized {
-    fn from_row(row: &mut impl Row, idx: &str) -> Self;
-
+pub trait AsParam: Sized {
     fn as_param(&self) -> hiqlite::Param;
 }
 
-impl<K> Convert for Id128<K> {
-    fn from_row(row: &mut impl Row, idx: &str) -> Self {
-        Self::from_bytes(&row.get_blob(idx)).unwrap()
-    }
-
+impl<K> AsParam for Id128<K> {
     fn as_param(&self) -> hiqlite::Param {
         hiqlite::Param::Blob(self.to_bytes().to_vec())
     }
@@ -163,19 +166,19 @@ impl Db for hiqlite::Client {
     }
 }
 
-impl Db for AuthlyCtx {
-    type Row<'a> = hiqlite::Row<'a>;
+impl<T: GetDb + 'static> Db for T {
+    type Row<'a> = <<T as GetDb>::Db as Db>::Row<'a>;
 
     async fn query_raw(
         &self,
         stmt: Cow<'static, str>,
         params: Params,
     ) -> Result<Vec<Self::Row<'_>>, DbError> {
-        Db::query_raw(&self.hql, stmt, params).await
+        Db::query_raw(self.get_db(), stmt, params).await
     }
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
-        Db::execute(&self.hql, sql, params).await
+        Db::execute(self.get_db(), sql, params).await
     }
 }
 

@@ -20,6 +20,7 @@ CREATE TABLE tlskey (
     key_ciph BLOB NOT NULL
 );
 
+-- Any kind of authority, including other Authly Authorities
 CREATE TABLE authority (
     aid BLOB NOT NULL PRIMARY KEY,
     kind TEXT NOT NULL,
@@ -128,4 +129,38 @@ CREATE TABLE svc_policy_binding (
     svc_eid BLOB NOT NULL,
     attr_matcher_pc BLOB NOT NULL,
     policy_ids_pc BLOB NOT NULL
+);
+
+-- This table has one entry if Authly is trying to become a mandate of an authority
+CREATE TABLE ma_authority_submission (
+    created_at DATETIME NOT NULL,
+    created_by_eid BLOB NOT NULL,
+    url TEXT NOT NULL,
+    code BLOB NOT NULL
+);
+
+-- This table has one entry if Authly is trying to become a mandate of an authority
+CREATE TABLE ma_authority (
+    created_at DATETIME NOT NULL,
+    created_by_eid BLOB NOT NULL,
+    url TEXT NOT NULL,
+    eid BLOB NOT NULL
+);
+
+-- Generated codes for mandate registration to this authority
+CREATE TABLE am_mandate_submission_code (
+    code_fingerprint BLOB NOT NULL PRIMARY KEY,
+    created_at DATETIME NOT NULL,
+    created_by_eid BLOB NOT NULL
+);
+
+CREATE TABLE am_mandate (
+    mandate_eid BLOB NOT NULL PRIMARY KEY,
+    granted_by_eid BLOB NOT NULL,
+    public_key BLOB NOT NULL,
+    created_at DATETIME NOT NULL,
+    mandate_type TEXT NOT NULL,
+    last_connection_time DATETIME NOT NULL,
+
+    UNIQUE (public_key)
 );

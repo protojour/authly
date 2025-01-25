@@ -77,7 +77,7 @@ async fn message_handler(ctx: AuthlyCtx) {
                     }
                 }
             }
-            _ = ctx.cancel.cancelled() => {
+            _ = ctx.shutdown.cancelled() => {
                 info!("exiting message handler");
                 return;
             }

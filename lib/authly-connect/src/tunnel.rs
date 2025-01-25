@@ -61,7 +61,7 @@ pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub async fn authly_connect_client_tunnel<T>(
     mut connect_client: AuthlyConnectClient<T>,
     security: TunnelSecurity,
-    cancel: CancellationToken,
+    close_signal: CancellationToken,
 ) -> tonic::Result<ClientSideTunnel>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
@@ -112,7 +112,7 @@ where
                         info!(?err, "client tunnel incoming error");
                     }
                 }
-                _ = cancel.cancelled() => {}
+                _ = close_signal.cancelled() => {}
             }
         }
     });

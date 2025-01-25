@@ -14,6 +14,7 @@ use tracing::info;
 use crate::{
     db::{cryptography_db, Db},
     id::BuiltinID,
+    serde_util::Hex,
     EnvConfig,
 };
 
@@ -79,9 +80,6 @@ struct Output {
     pub version: Hex,
     pub plaintext: Hex,
 }
-
-#[derive(Clone, Deserialize)]
-struct Hex(#[serde(deserialize_with = "hex::serde::deserialize")] pub Vec<u8>);
 
 pub async fn load_decrypted_deks(
     deps: &impl Db,

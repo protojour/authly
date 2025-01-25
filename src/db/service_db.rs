@@ -19,7 +19,7 @@ use crate::{
     Eid,
 };
 
-use super::{Convert, Db, DbError, DbResult, Literal, Row};
+use super::{AsParam, Db, DbError, DbResult, Literal, Row};
 
 #[derive(Debug)]
 pub struct ServiceProperty {
@@ -103,7 +103,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
         return Ok(None);
     };
 
-    Ok(Some(Eid::from_row(&mut row, "eid")))
+    Ok(Some(row.get_id("eid")))
 }
 
 pub async fn list_service_properties(
@@ -148,7 +148,7 @@ pub async fn list_service_properties(
     let mut properties: HashMap<ObjId, ServiceProperty> = Default::default();
 
     for mut row in rows {
-        let prop_id = ObjId::from_row(&mut row, "pid");
+        let prop_id = row.get_id("pid");
 
         let property = properties
             .entry(prop_id)
@@ -160,7 +160,7 @@ pub async fn list_service_properties(
 
         property
             .attributes
-            .push((ObjId::from_row(&mut row, "attrid"), row.get_text("alabel")));
+            .push((row.get_id("attrid"), row.get_text("alabel")));
     }
 
     Ok(properties.into_values().collect())
@@ -209,7 +209,7 @@ pub async fn get_service_property_mapping(
     for mut row in rows {
         let prop_label = row.get_text("plabel");
         let attr_label = row.get_text("alabel");
-        let attr_id = ObjId::from_row(&mut row, "attrid");
+        let attr_id = row.get_id("attrid");
 
         mapping.add(prop_label, attr_label, attr_id);
     }
@@ -232,7 +232,7 @@ pub async fn list_service_policies(
     let mut policies = Vec::with_capacity(rows.len());
 
     for mut row in rows {
-        let id = ObjId::from_row(&mut row, "id");
+        let id = row.get_id("id");
         let label = row.get_text("label");
 
         let policy = postcard::from_bytes(&row.get_blob("policy_pc")).map_err(|err| {
@@ -263,7 +263,7 @@ pub async fn load_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Policy
     let mut policy_engine = PolicyEngine::default();
 
     for mut row in policy_rows {
-        let id = ObjId::from_row(&mut row, "id");
+        let id = row.get_id("id");
 
         let policy_postcard: PolicyPostcard = postcard::from_bytes(&row.get_blob("policy_pc"))
             .map_err(|err| {

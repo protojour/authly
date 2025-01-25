@@ -40,7 +40,7 @@ pub fn create_access_token(
 ) -> Result<String, AccessTokenError> {
     let jwt_header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
     let now = time::OffsetDateTime::now_utc();
-    let expiration = time::OffsetDateTime::now_utc() + EXPIRATION;
+    let expiration = now + EXPIRATION;
 
     let claims = AuthlyAccessTokenClaims {
         iat: now.unix_timestamp(),

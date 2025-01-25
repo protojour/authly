@@ -33,17 +33,17 @@ pub async fn new_authly_connect_grpc_client_service(
     connect_uri: Bytes,
     security: TunnelSecurity,
     tls_client_config: Arc<ClientConfig>,
-    terminate: CancellationToken,
+    cancel: CancellationToken,
 ) -> anyhow::Result<TunneledGrpcClientService> {
     let endpoint = tonic::transport::Endpoint::from_shared(connect_uri.clone()).unwrap();
     let channel = endpoint.connect().await?;
 
-    let close_signal = terminate.child_token();
+    let close_signal = cancel.child_token();
 
     let raw_tunnel = authly_connect_client_tunnel(
         AuthlyConnectClient::new(channel.clone()),
         security,
-        terminate.clone(),
+        close_signal.clone(),
     )
     .await?;
 

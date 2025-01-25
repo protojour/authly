@@ -34,6 +34,8 @@ pub enum BuiltinID {
     PropLocalCA = 12,
     /// The local identity property
     PropTlsIdentity = 13,
+    /// A user role for granting mandates to authority
+    AttrAuthlyRoleGrantMandate = 14,
 }
 
 impl BuiltinID {
@@ -65,6 +67,7 @@ impl BuiltinID {
             Self::PropK8sServiceAccount => None,
             Self::PropLocalCA => None,
             Self::PropTlsIdentity => None,
+            Self::AttrAuthlyRoleGrantMandate => Some("grant_mandate"),
         }
     }
 
@@ -77,6 +80,7 @@ impl BuiltinID {
             | Self::AttrAuthlyRoleGetAccessToken
             | Self::AttrAuthlyRoleAuthenticate
             | Self::AttrAuthlyRoleApplyDocument
+            | Self::AttrAuthlyRoleGrantMandate
             | Self::RelEntityMembership => false,
             Self::PropUsername => true,
             Self::PropEmail => true,
@@ -95,6 +99,7 @@ impl BuiltinID {
                 Self::AttrAuthlyRoleGetAccessToken,
                 Self::AttrAuthlyRoleAuthenticate,
                 Self::AttrAuthlyRoleApplyDocument,
+                Self::AttrAuthlyRoleGrantMandate,
             ],
             _ => &[],
         }

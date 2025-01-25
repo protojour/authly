@@ -12,7 +12,7 @@ use crate::{
     encryption::{random_nonce, DecryptedDeks},
 };
 
-use super::{Convert, Db, DbResult, Literal, Row};
+use super::{AsParam, Db, DbResult, Literal, Row};
 
 pub struct DocumentAuthority {
     pub aid: Eid,
@@ -29,7 +29,7 @@ pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentAuthority>> {
         .await?
         .into_iter()
         .map(|mut row| DocumentAuthority {
-            aid: Eid::from_row(&mut row, "aid"),
+            aid: row.get_id("aid"),
             url: row.get_text("url"),
             hash: {
                 row.get_blob("hash")

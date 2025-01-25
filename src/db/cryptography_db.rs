@@ -10,7 +10,6 @@ use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use thiserror::Error;
-use time::OffsetDateTime;
 use tracing::{debug, info};
 
 use crate::{
@@ -20,7 +19,7 @@ use crate::{
     TlsParams,
 };
 
-use super::{Convert, Db, DbError, Row};
+use super::{AsParam, Db, DbError, Row};
 
 #[derive(Error, Debug)]
 pub enum ConfigDbError {
@@ -47,7 +46,7 @@ pub async fn load_cr_master_version(
 
     Ok(Some(MasterVersion {
         version: row.get_blob("version"),
-        created_at: OffsetDateTime::from_unix_timestamp(row.get_int("created_at")).unwrap(),
+        created_at: row.get_datetime("created_at").unwrap(),
     }))
 }
 
@@ -85,10 +84,7 @@ pub async fn list_all_cr_prop_deks(
                 EncryptedDek {
                     nonce: row.get_blob("nonce"),
                     ciph: row.get_blob("ciph"),
-                    created_at: time::OffsetDateTime::from_unix_timestamp(
-                        row.get_int("created_at"),
-                    )
-                    .unwrap(),
+                    created_at: row.get_datetime("created_at").unwrap(),
                 },
             ))
         })

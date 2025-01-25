@@ -6,7 +6,7 @@ use indoc::indoc;
 
 use crate::id::BuiltinID;
 
-use super::{Convert, Db, DbResult, Row};
+use super::{AsParam, Db, DbResult, Row};
 
 pub struct EntityPasswordHash {
     pub eid: Eid,
@@ -21,7 +21,7 @@ pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<
         )
         .await?
         .into_iter()
-        .map(|mut row| ObjId::from_row(&mut row, "attrid"))
+        .map(|mut row| row.get_id("attrid"))
         .collect())
 }
 
@@ -54,7 +54,7 @@ pub async fn find_local_authority_entity_password_hash_by_entity_ident(
             return Ok(None);
         };
 
-        (Eid::from_row(&mut row, "eid"), row.get_text("value"))
+        (row.get_id("eid"), row.get_text("value"))
     };
 
     Ok(Some(EntityPasswordHash {

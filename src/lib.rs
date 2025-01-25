@@ -4,19 +4,16 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use axum::{response::IntoResponse, Json};
-use cert::{Cert, MakeSigningRequest};
+use cert::Cert;
 use db::{cryptography_db, settings_db};
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
-use futures_util::StreamExt;
 use openraft::RaftMetrics;
 use rcgen::KeyPair;
-use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore, ServerConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use settings::Settings;
@@ -27,12 +24,16 @@ use util::protocol_router::ProtocolRouter;
 
 // These are public for the integration test crate
 pub mod access_token;
+pub mod audit;
+pub mod authority_mandate;
 pub mod cert;
+pub mod ctx;
 pub mod db;
 pub mod document;
 pub mod encryption;
 pub mod env_config;
 pub mod proto;
+pub mod serde_util;
 pub mod session;
 
 mod access_control;
@@ -43,6 +44,7 @@ mod k8s;
 mod openapi;
 mod policy;
 mod settings;
+mod tls;
 mod util;
 mod webauth;
 
@@ -53,14 +55,18 @@ pub struct Migrations;
 const HIQLITE_API_PORT: u16 = 7855;
 const HIQLITE_RAFT_PORT: u16 = 7856;
 
+/// Common context for the whole application
 #[derive(Clone)]
 struct AuthlyCtx {
     /// The client for hiqlite, an embedded database
     hql: hiqlite::Client,
     tls_params: Arc<TlsParams>,
+    /// Dynamically updatable settings:
     settings: Arc<ArcSwap<Settings>>,
+    /// Data Encryption Keys
     deks: Arc<ArcSwap<DecryptedDeks>>,
-    cancel: CancellationToken,
+    /// Signal triggered when the app is shutting down:
+    shutdown: CancellationToken,
     etc_dir: PathBuf,
     export_tls_to_etc: bool,
 }
@@ -115,40 +121,26 @@ pub async fn serve() -> anyhow::Result<()> {
         k8s::k8s_auth_server::spawn_k8s_auth_server(&env_config, &ctx).await?;
     }
 
-    let server = tower_server::Builder::new(SocketAddr::new(
+    let main_server = tower_server::Builder::new(SocketAddr::new(
         Ipv4Addr::new(0, 0, 0, 0).into(),
         env_config.server_port,
     ))
     .with_scheme(Scheme::Https)
-    .with_tls_config(main_service_tls_configurer(
+    .with_tls_config(tls::main_service_tls_configurer(
         env_config.hostname.clone(),
         ctx.settings.clone(),
         ctx.tls_params.clone(),
     )?)
     .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
-    .with_graceful_shutdown(ctx.cancel.clone())
+    .with_graceful_shutdown(ctx.shutdown.clone())
     .bind()
     .await?;
 
-    let cancel = ctx.cancel.clone();
-
-    let router = axum::Router::new()
-        .merge(openapi::router::router())
-        .merge(webauth::router())
-        .with_state(ctx.clone());
-
     tokio::spawn(
-        server.serve(
+        main_server.serve(
             ProtocolRouter::default()
-                .with_grpc({
-                    let mut grpc_routes = tonic::service::RoutesBuilder::default();
-                    grpc_routes.add_service(
-                        proto::service_server::AuthlyServiceServerImpl::from(ctx.clone())
-                            .into_service(),
-                    );
-                    grpc_routes.routes().into_axum_router()
-                })
-                .or_default(router)
+                .with_grpc(proto::main_service_grpc_router(ctx.clone())?)
+                .or_default(main_service_http_router(ctx.clone()))
                 .into_service(),
         ),
     );
@@ -164,9 +156,11 @@ pub async fn serve() -> anyhow::Result<()> {
         );
     }
 
+    let shutdown = ctx.shutdown.clone();
+
     tokio::spawn(
         tower_server::Builder::new("0.0.0.0:5555".parse()?)
-            .with_graceful_shutdown(ctx.cancel.clone())
+            .with_graceful_shutdown(shutdown.clone())
             .bind()
             .await?
             .serve(axum::Router::new().route(
@@ -175,9 +169,17 @@ pub async fn serve() -> anyhow::Result<()> {
             )),
     );
 
-    cancel.cancelled().await;
+    // App is fully running, wait for it to shut down
+    shutdown.cancelled().await;
 
     Ok(())
+}
+
+fn main_service_http_router(ctx: AuthlyCtx) -> axum::Router {
+    axum::Router::new()
+        .merge(openapi::router::router())
+        .merge(webauth::router())
+        .with_state(ctx.clone())
 }
 
 pub async fn configure() -> anyhow::Result<()> {
@@ -192,6 +194,8 @@ enum CacheEntry {
 }
 
 async fn initialize() -> anyhow::Result<Init> {
+    tls::init_tls_ring();
+
     let env_config = EnvConfig::load();
     let node_config = hiqlite_node_config(&env_config);
     let hql = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
@@ -211,7 +215,7 @@ async fn initialize() -> anyhow::Result<Init> {
         tls_params: Arc::new(tls_params),
         settings: Arc::new(ArcSwap::new(Arc::new(Settings::default()))),
         deks: Arc::new(ArcSwap::new(Arc::new(deks))),
-        cancel: tower_server::signal::termination_signal(),
+        shutdown: tower_server::signal::termination_signal(),
         etc_dir: env_config.etc_dir.clone(),
         export_tls_to_etc: env_config.export_tls_to_etc,
     };
@@ -236,81 +240,6 @@ async fn initialize() -> anyhow::Result<Init> {
     ctx.settings.store(Arc::new(settings));
 
     Ok(Init { ctx, env_config })
-}
-
-fn main_service_tls_configurer(
-    hostname: String,
-    settings: Arc<ArcSwap<Settings>>,
-    tls_params: Arc<TlsParams>,
-) -> anyhow::Result<impl tower_server::tls::TlsConfigurer> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-
-    // The root cert store is currently not changing
-    let root_cert_store = {
-        let mut store = RootCertStore::empty();
-        store.add(tls_params.local_ca.der.clone())?;
-        Arc::new(store)
-    };
-
-    fn regenerate(
-        hostname: &str,
-        tls_params: &TlsParams,
-        rotation_rate: std::time::Duration,
-        root_cert_store: Arc<RootCertStore>,
-    ) -> anyhow::Result<ServerConfig> {
-        // Make the certificate valid for twice the rotation rate
-        let not_after = time::Duration::try_from(rotation_rate)? * 2;
-
-        let server_cert = tls_params
-            .local_ca
-            .sign(KeyPair::generate()?.server_cert(hostname, not_after));
-
-        let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
-            .map_err(|err| anyhow!("server private key: {err}"))?;
-
-        let mut config = rustls::server::ServerConfig::builder()
-            .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store).build()?)
-            .with_single_cert(vec![server_cert.der], server_private_key_der)?;
-
-        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-        Ok(config)
-    }
-
-    info!("generating server certificate for hostname={hostname}");
-
-    // The first TLS config is produced immediately
-    let initial = futures_util::stream::iter([Arc::new(regenerate(
-        &hostname,
-        &tls_params,
-        settings.load().server_cert_rotation_rate,
-        root_cert_store.clone(),
-    )?)]);
-
-    // The following configs are produced after delay
-    let rotation_stream = futures_util::stream::unfold((), move |_| {
-        let hostname = hostname.clone();
-        let tls_params = tls_params.clone();
-        let root_cert_store = root_cert_store.clone();
-        let settings = settings.clone();
-        async move {
-            // TODO: reset this when settings change
-            tokio::time::sleep(settings.load().server_cert_rotation_rate).await;
-
-            let server_config = Arc::new(
-                regenerate(
-                    &hostname,
-                    &tls_params,
-                    settings.load().server_cert_rotation_rate,
-                    root_cert_store,
-                )
-                .expect("unable to regenerate server TLS config"),
-            );
-
-            Some((server_config, ()))
-        }
-    });
-
-    Ok(initial.chain(rotation_stream).boxed())
 }
 
 fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {

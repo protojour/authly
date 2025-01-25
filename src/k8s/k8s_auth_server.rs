@@ -55,7 +55,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
         tower_server::Builder::new(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), port))
             .with_scheme(tower_server::Scheme::Https)
             .with_tls_config(rustls_config_factory)
-            .with_graceful_shutdown(ctx.cancel.clone())
+            .with_graceful_shutdown(ctx.shutdown.clone())
             .bind()
             .await?;
 

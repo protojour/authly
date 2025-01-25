@@ -1,4 +1,4 @@
-use authly::db::service_db;
+use authly::{ctx::GetDb, db::service_db};
 use authly_common::{
     document::Document,
     id::{AnyId, Eid},
@@ -7,14 +7,14 @@ use authly_common::{
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::{compile_and_apply_doc, new_inmemory_db, ServiceProperties};
+use crate::{compile_and_apply_doc, ServiceProperties, TestCtx};
 
 const SVC_A: Eid = Eid::from_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
 const SVC_B: Eid = Eid::from_array(hex_literal!("015362d6655447c6b7f44865bd111c70"));
 
 #[tokio::test]
 async fn test_access_control_basic() {
-    let db = new_inmemory_db().await;
+    let ctx = TestCtx::default().inmemory_db().await;
     let doc = Document::from_toml(indoc! {
         r#"
         [authly-document]
@@ -56,13 +56,13 @@ async fn test_access_control_basic() {
     })
     .unwrap();
 
-    compile_and_apply_doc(doc, &Default::default(), &db)
+    compile_and_apply_doc(doc, &Default::default(), &ctx)
         .await
         .unwrap();
 
     {
-        let engine = service_db::load_policy_engine(&db, SVC_A).await.unwrap();
-        let props = ServiceProperties::load(SVC_A, &db).await;
+        let engine = service_db::load_policy_engine(&ctx, SVC_A).await.unwrap();
+        let props = ServiceProperties::load(SVC_A, ctx.get_db()).await;
 
         assert_eq!(1, engine.get_policy_count());
         assert_eq!(1, engine.get_trigger_count());
@@ -131,7 +131,7 @@ async fn test_access_control_basic() {
     }
 
     {
-        let svc_b_policy_engine = service_db::load_policy_engine(&db, SVC_B).await.unwrap();
+        let svc_b_policy_engine = service_db::load_policy_engine(&ctx, SVC_B).await.unwrap();
         assert_eq!(0, svc_b_policy_engine.get_policy_count());
         assert_eq!(0, svc_b_policy_engine.get_trigger_count());
     }

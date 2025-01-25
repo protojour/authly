@@ -1,10 +1,8 @@
-use authly_common::id::Eid;
 use hiqlite::{params, Param};
-use time::OffsetDateTime;
 
 use crate::session::{Session, SessionToken};
 
-use super::{Convert, Db, DbError, DbResult, Row};
+use super::{AsParam, Db, DbResult, Row};
 
 pub async fn store_session(deps: &impl Db, session: &Session) -> DbResult<()> {
     deps.execute(
@@ -35,8 +33,7 @@ pub async fn get_session(deps: &impl Db, token: SessionToken) -> DbResult<Option
 
     Ok(Some(Session {
         token,
-        eid: Eid::from_row(&mut row, "eid"),
-        expires_at: OffsetDateTime::from_unix_timestamp(row.get_int("expires_at"))
-            .map_err(|_| DbError::Timestamp)?,
+        eid: row.get_id("eid"),
+        expires_at: row.get_datetime("expires_at")?,
     }))
 }

@@ -9,11 +9,14 @@ use axum::{
     Extension, RequestPartsExt,
 };
 use http::{request::Parts, StatusCode};
+use tracing::warn;
 
 use crate::{
     access_control::{self, authorize_peer_service, VerifyAuthlyRole},
     access_token::VerifiedAccessToken,
+    audit::Actor,
     authority,
+    authority_mandate::submission,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     AuthlyCtx,
 };
@@ -93,4 +96,28 @@ pub async fn post_document(
         })?;
 
     Ok((StatusCode::OK, "document applied").into_response())
+}
+
+pub async fn post_authority_mandate_submission_token(
+    State(ctx): State<AuthlyCtx>,
+    auth: AdminAuth<access_control::role::GrantMandate>,
+) -> Result<Response, Response> {
+    let code = submission::authority::authority_generate_submission_code(
+        &ctx,
+        Actor(auth.user_claims.authly.entity_id),
+    )
+    .await
+    .map_err(|err| {
+        warn!(?err, "unable to create submission code");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    })?;
+
+    let token = submission::authority::authority_generate_submission_token(&ctx, code)
+        .await
+        .map_err(|err| {
+            warn!(?err, "unable to create submission token");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        })?;
+
+    Ok(token.into_response())
 }

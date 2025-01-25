@@ -36,6 +36,14 @@ pub mod role {
             BuiltinID::AttrAuthlyRoleApplyDocument
         }
     }
+
+    pub struct GrantMandate;
+
+    impl AuthlyRole for GrantMandate {
+        fn role() -> BuiltinID {
+            BuiltinID::AttrAuthlyRoleGrantMandate
+        }
+    }
 }
 
 pub trait VerifyAuthlyRole {

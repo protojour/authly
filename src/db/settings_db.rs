@@ -5,7 +5,7 @@ use hiqlite::params;
 
 use crate::settings::{Setting, Settings};
 
-use super::{Convert, Db, DbResult, Row};
+use super::{Db, DbResult, Row};
 
 struct LocalSetting {
     #[expect(unused)]
@@ -30,7 +30,7 @@ pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
             };
 
             Some(LocalSetting {
-                aid: Eid::from_row(&mut row, "aid"),
+                aid: row.get_id("aid"),
                 setting,
                 value: row.get_text("value"),
             })
