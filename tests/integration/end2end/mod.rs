@@ -1,7 +1,4 @@
-#![allow(unused)]
-
-use hyper::header::SET_COOKIE;
-use reqwest::Identity;
+//! Tests that depend on `just rundev`.
 
 mod test_auth_access_control;
 mod test_service;
@@ -13,9 +10,9 @@ impl ConnectionBuilder {
         Ok(Self(
             authly_client::Client::builder()
                 .with_url("https://localhost:1443")
-                .with_authly_local_ca_pem(std::fs::read("../../.local/etc/local/ca.crt")?)?
+                .with_authly_local_ca_pem(std::fs::read(".local/etc/local/ca.crt")?)?
                 .with_identity(authly_client::identity::Identity::from_pem(std::fs::read(
-                    "../../.local/etc/service/f3e799137c034e1eb4cd3e4f65705932/identity.pem",
+                    ".local/etc/service/f3e799137c034e1eb4cd3e4f65705932/identity.pem",
                 )?)?),
         ))
     }
@@ -34,10 +31,6 @@ impl ConnectionBuilder {
     async fn service_client(self) -> anyhow::Result<authly_client::Client> {
         Ok(self.0.connect().await?)
     }
-}
-
-fn reqwest_cookie(response: &reqwest::Response) {
-    let cookie = response.headers().get_all(SET_COOKIE);
 }
 
 fn is_allowed(outcome: bool) -> bool {

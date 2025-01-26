@@ -102,6 +102,7 @@ uuid = "1"
 x509-parser = "0.16"
 
 [dev-dependencies]
+authly-client.workspace = true
 authly-test-grpc = { path = "lib/authly-test-grpc" }
 async-stream = "0.3"
 criterion = { version = "0.5", default-features = false }
@@ -113,7 +114,6 @@ harness = false
 
 [workspace]
 members = [
-    "crates/authly-end2end",
     "crates/authly-testservice",
     "lib/authly-connect",
     "lib/authly-test-grpc",

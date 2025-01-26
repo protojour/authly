@@ -1,14 +1,10 @@
-use authly_client::{identity::Identity, Client};
-use reqwest::ClientBuilder;
-use serde_json::{json, Value};
-use tracing::info;
-
-use crate::ConnectionBuilder;
+use super::ConnectionBuilder;
 
 #[tokio::test]
+#[ignore = "end2end"]
 async fn test_metadata() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let mut client = ConnectionBuilder::for_testservice()?
+    let client = ConnectionBuilder::for_testservice()?
         .service_client()
         .await?;
 

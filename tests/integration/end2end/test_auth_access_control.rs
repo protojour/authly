@@ -10,9 +10,10 @@ use reqwest::Identity;
 use serde_json::{json, Value};
 use tracing::info;
 
-use crate::{is_allowed, is_denied, ConnectionBuilder};
+use super::{is_allowed, is_denied, ConnectionBuilder};
 
 #[tokio::test]
+#[ignore = "end2end"]
 async fn user_auth_ok() -> anyhow::Result<()> {
     let web_client = ConnectionBuilder::for_testservice()?.http_client()?;
 
@@ -36,6 +37,7 @@ async fn user_auth_ok() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+#[ignore = "end2end"]
 async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 

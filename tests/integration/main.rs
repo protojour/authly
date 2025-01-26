@@ -19,6 +19,7 @@ use rustls::{
 };
 use tracing::info;
 
+mod end2end;
 mod test_access_control;
 mod test_authly_connect;
 mod test_document;

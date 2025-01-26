@@ -314,6 +314,7 @@ dependencies = [
  "arc-swap",
  "argon2",
  "async-stream",
+ "authly-client",
  "authly-common",
  "authly-connect",
  "authly-test-grpc",
@@ -446,31 +447,6 @@ dependencies = [
  "tower 0.5.2",
  "tower-server",
  "tracing",
-]
-
-[[package]]
-name = "authly-end2end"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "authly",
- "authly-client",
- "authly-common",
- "axum 0.7.9",
- "cookie",
- "hexhex",
- "hyper",
- "rcgen 0.13.2 (git+https://github.com/rustls/rcgen.git)",
- "reqwest",
- "rustls",
- "serde_json",
- "time",
- "tokio",
- "tokio-util",
- "tower-server",
- "tracing",
- "tracing-subscriber",
- "x509-parser",
 ]
 
 [[package]]
