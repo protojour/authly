@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use authly::cert::{Cert, MakeSigningRequest};
+use authly::cert::{key_pair, MakeSigningRequest};
 use authly_common::{
     mtls_server::PeerServiceEntity,
     proto::connect::{
@@ -36,7 +36,7 @@ use crate::rustls_server_config_mtls;
 async fn test_connect_grpc() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let ca = Cert::new_authly_ca();
+    let ca = key_pair().authly_ca().self_signed();
     let tunneled_server_cert = ca.sign(
         KeyPair::generate()
             .unwrap()
@@ -50,7 +50,7 @@ async fn test_connect_grpc() {
     let cancel = CancellationToken::new();
 
     let port = spawn_connect_server(
-        rustls_server_config_mtls(&tunneled_server_cert, &ca.der).unwrap(),
+        rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
         {
             let mut grpc_routes = tonic::service::RoutesBuilder::default();
             grpc_routes.add_service(TestGrpcServer::new(TestGrpcServerImpl));
@@ -156,7 +156,7 @@ impl authly_test_grpc::test_grpc_server::TestGrpc for TestGrpcServerImpl {
 async fn test_connect_http() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let ca = Cert::new_authly_ca();
+    let ca = key_pair().authly_ca().self_signed();
     let tunneled_server_cert = ca.sign(
         KeyPair::generate()
             .unwrap()
@@ -170,7 +170,7 @@ async fn test_connect_http() {
     let cancel = CancellationToken::new();
 
     let port = spawn_connect_server(
-        rustls_server_config_mtls(&tunneled_server_cert, &ca.der).unwrap(),
+        rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
         axum::Router::new().route(
             "/hello",
             axum::routing::get(|ext: Extension<PeerServiceEntity>| async move {

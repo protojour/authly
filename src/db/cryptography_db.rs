@@ -14,7 +14,7 @@ use time::OffsetDateTime;
 use tracing::{debug, info};
 
 use crate::{
-    cert::{Cert, MakeSigningRequest},
+    cert::{key_pair, Cert, MakeSigningRequest},
     encryption::{nonce_from_slice, random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
     id::BuiltinID,
     TlsParams,
@@ -130,7 +130,7 @@ pub async fn load_tls_params(
     let local_ca = load_or_generate_tlskey(
         is_leader,
         BuiltinID::PropLocalCA,
-        Cert::new_authly_ca,
+        || key_pair().authly_ca().self_signed(),
         db,
         deks,
     )

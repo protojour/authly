@@ -68,34 +68,48 @@ async fn compile_and_apply_doc(
 }
 
 fn rustls_server_config_no_client_auth(
-    server_cert: &Cert<KeyPair>,
+    server_cert_chain: &[&Cert<KeyPair>],
 ) -> anyhow::Result<rustls::ServerConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
+    let private_key_der =
+        PrivateKeyDer::try_from(server_cert_chain.first().unwrap().key.serialize_der()).unwrap();
 
     let mut config = rustls::server::ServerConfig::builder()
         .with_no_client_auth()
-        .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
+        .with_single_cert(
+            server_cert_chain
+                .iter()
+                .map(|cert| cert.der.clone())
+                .collect(),
+            private_key_der,
+        )?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     Ok(config)
 }
 
 fn rustls_server_config_mtls(
-    server_cert: &Cert<KeyPair>,
+    server_cert_chain: &[&Cert<KeyPair>],
     root_ca: &CertificateDer,
 ) -> anyhow::Result<rustls::ServerConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der()).unwrap();
+    let private_key_der =
+        PrivateKeyDer::try_from(server_cert_chain.first().unwrap().key.serialize_der()).unwrap();
 
     let mut root_cert_store = RootCertStore::empty();
     root_cert_store.add(root_ca.clone())?;
 
     let mut config = rustls::server::ServerConfig::builder()
         .with_client_cert_verifier(WebPkiClientVerifier::builder(root_cert_store.into()).build()?)
-        .with_single_cert(vec![server_cert.der.clone()], private_key_der)?;
+        .with_single_cert(
+            server_cert_chain
+                .iter()
+                .map(|cert| cert.der.clone())
+                .collect(),
+            private_key_der,
+        )?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     Ok(config)

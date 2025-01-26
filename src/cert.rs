@@ -13,35 +13,6 @@ pub struct Cert<K> {
 }
 
 impl Cert<KeyPair> {
-    /// Create a new Authly CA with a very long expiry date
-    pub fn new_authly_ca() -> Self {
-        let mut params = CertificateParams::default();
-        params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        params
-            .distinguished_name
-            .push(DnType::CommonName, "Authly ID");
-        params
-            .distinguished_name
-            .push(DnType::OrganizationName, "Protojour AS");
-        params.distinguished_name.push(
-            DnType::CountryName,
-            DnValue::PrintableString("NO".try_into().unwrap()),
-        );
-        params.key_usages.push(KeyUsagePurpose::DigitalSignature);
-        params.key_usages.push(KeyUsagePurpose::KeyCertSign);
-        params.key_usages.push(KeyUsagePurpose::CrlSign);
-
-        params.not_before = past(Duration::days(1));
-
-        let key_pair = KeyPair::generate().unwrap();
-        let cert = params.self_signed(&key_pair).unwrap();
-        Self {
-            params: cert.params().clone(),
-            der: cert.der().clone(),
-            key: key_pair,
-        }
-    }
-
     pub fn sign<K: PublicKeyData>(&self, request: SigningRequest<K>) -> Cert<K> {
         let cert = request
             .params
@@ -76,7 +47,42 @@ pub struct SigningRequest<K> {
     pub key: K,
 }
 
+impl SigningRequest<KeyPair> {
+    pub fn self_signed(self) -> Cert<KeyPair> {
+        let cert = self.params.self_signed(&self.key).unwrap();
+
+        Cert {
+            params: cert.params().clone(),
+            der: cert.der().clone(),
+            key: self.key,
+        }
+    }
+}
+
 pub trait MakeSigningRequest: Sized {
+    /// Create a new Authly CA with a very long expiry date
+    fn authly_ca(self) -> SigningRequest<Self> {
+        let mut params = CertificateParams::default();
+        params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        params
+            .distinguished_name
+            .push(DnType::CommonName, "Authly ID");
+        params
+            .distinguished_name
+            .push(DnType::OrganizationName, "Protojour AS");
+        params.distinguished_name.push(
+            DnType::CountryName,
+            DnValue::PrintableString("NO".try_into().unwrap()),
+        );
+        params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+        params.key_usages.push(KeyUsagePurpose::KeyCertSign);
+        params.key_usages.push(KeyUsagePurpose::CrlSign);
+
+        params.not_before = past(Duration::days(1));
+
+        SigningRequest { params, key: self }
+    }
+
     fn server_cert(self, common_name: &str, not_after: Duration) -> SigningRequest<Self> {
         let mut params = CertificateParams::new(vec![common_name.to_string()])
             .expect("we know the name is valid");
@@ -141,6 +147,10 @@ impl From<&Cert<KeyPair>> for reqwest::Identity {
     fn from(value: &Cert<KeyPair>) -> Self {
         reqwest::Identity::from_pem(value.certificate_and_key_pem().as_bytes()).unwrap()
     }
+}
+
+pub fn key_pair() -> KeyPair {
+    KeyPair::generate().unwrap()
 }
 
 fn past(duration: Duration) -> OffsetDateTime {

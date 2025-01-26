@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use authly::cert::{Cert, MakeSigningRequest};
+use authly::cert::{key_pair, Cert, MakeSigningRequest};
 use authly_common::mtls_server::PeerServiceEntity;
 use axum::{response::IntoResponse, Extension};
 use rcgen::{CertificateSigningRequestParams, KeyPair};
@@ -12,10 +12,10 @@ use crate::{rustls_server_config_mtls, rustls_server_config_no_client_auth};
 
 #[tokio::test]
 async fn test_tls_localhost_cert_ok() {
-    let ca = Cert::new_authly_ca();
-    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+    let ca = key_pair().authly_ca().self_signed();
+    let server_cert = ca.sign(key_pair().server_cert("localhost", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
+    let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
@@ -38,11 +38,40 @@ async fn test_tls_localhost_cert_ok() {
 }
 
 #[tokio::test]
-async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
-    let ca = Cert::new_authly_ca();
-    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+async fn test_tls_localhost_intermediate_cert_ok() {
+    let root_ca = key_pair().authly_ca().self_signed();
+    let intermediate_ca = root_ca.sign(key_pair().authly_ca());
+    let server_cert = intermediate_ca.sign(key_pair().server_cert("localhost", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
+    let rustls_config_factory =
+        rustls_server_config_no_client_auth(&[&server_cert, &intermediate_ca]).unwrap();
+    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+
+    let text_response = reqwest::ClientBuilder::new()
+        .add_root_certificate((&root_ca).into())
+        .build()
+        .unwrap()
+        .get(format!("https://localhost:{server_port}/test"))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert_eq!(text_response, "it works: no client auth");
+
+    cancel.cancel();
+}
+
+#[tokio::test]
+async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
+    let ca = key_pair().authly_ca().self_signed();
+    let server_cert = ca.sign(key_pair().server_cert("localhost", Duration::hours(1)));
+
+    let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
@@ -65,14 +94,14 @@ async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
 
 #[tokio::test]
 async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
-    let ca = Cert::new_authly_ca();
-    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+    let ca = key_pair().authly_ca().self_signed();
+    let server_cert = ca.sign(key_pair().server_cert("localhost", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
+    let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
-        .add_root_certificate((&Cert::new_authly_ca()).into())
+        .add_root_certificate((&key_pair().authly_ca().self_signed()).into())
         .build()
         .unwrap()
         .get(format!("https://localhost:{server_port}/test"))
@@ -92,10 +121,10 @@ async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
 
 #[tokio::test]
 async fn test_tls_invalid_host_cert() {
-    let ca = Cert::new_authly_ca();
-    let server_cert = ca.sign(new_key_pair().server_cert("gooofy", Duration::hours(1)));
+    let ca = key_pair().authly_ca().self_signed();
+    let server_cert = ca.sign(key_pair().server_cert("gooofy", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_no_client_auth(&server_cert).unwrap();
+    let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
@@ -119,12 +148,12 @@ async fn test_tls_invalid_host_cert() {
 
 #[tokio::test]
 async fn test_mtls_verified() {
-    let ca = Cert::new_authly_ca();
-    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+    let ca = key_pair().authly_ca().self_signed();
+    let server_cert = ca.sign(key_pair().server_cert("localhost", Duration::hours(1)));
     let client_cert =
-        ca.sign(new_key_pair().client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)));
+        ca.sign(key_pair().client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
+    let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
@@ -152,7 +181,7 @@ async fn test_mtls_verified() {
 
 #[tokio::test]
 async fn test_mtls_server_cert_through_csr() {
-    let ca = Cert::new_authly_ca();
+    let ca = key_pair().authly_ca().self_signed();
 
     let server_cert = {
         let req = KeyPair::generate()
@@ -178,11 +207,11 @@ async fn test_mtls_server_cert_through_csr() {
         }
     };
 
-    // let server_cert = ca.sign(new_key_pair().server_cert_csr("localhost", Duration::hours(1)));
+    // let server_cert = ca.sign(gen_key_pair().server_cert_csr("localhost", Duration::hours(1)));
     let client_cert =
-        ca.sign(new_key_pair().client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)));
+        ca.sign(key_pair().client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
+    let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
@@ -211,10 +240,10 @@ async fn test_mtls_server_cert_through_csr() {
 // TODO: It should be possible to use optional client auth?
 #[tokio::test]
 async fn test_mtls_missing_client_identity() {
-    let ca = Cert::new_authly_ca();
-    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+    let ca = key_pair().authly_ca().self_signed();
+    let server_cert = ca.sign(key_pair().server_cert("localhost", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
+    let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
@@ -238,13 +267,13 @@ async fn test_mtls_missing_client_identity() {
 
 #[tokio::test]
 async fn test_mtls_invalid_issuer() {
-    let ca = Cert::new_authly_ca();
-    let server_cert = ca.sign(new_key_pair().server_cert("localhost", Duration::hours(1)));
+    let ca = key_pair().authly_ca().self_signed();
+    let server_cert = ca.sign(key_pair().server_cert("localhost", Duration::hours(1)));
 
-    let bad_ca = Cert::new_authly_ca();
-    let bad_client_cert = bad_ca.sign(new_key_pair().client_cert("1337", Duration::hours(1)));
+    let bad_ca = key_pair().authly_ca().self_signed();
+    let bad_client_cert = bad_ca.sign(key_pair().client_cert("1337", Duration::hours(1)));
 
-    let rustls_config_factory = rustls_server_config_mtls(&server_cert, &ca.der).unwrap();
+    let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _cancel) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
@@ -292,8 +321,4 @@ async fn test_handler(
     } else {
         "it works: no client auth".into_response()
     }
-}
-
-fn new_key_pair() -> KeyPair {
-    KeyPair::generate().unwrap()
 }
