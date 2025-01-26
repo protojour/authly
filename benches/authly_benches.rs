@@ -1,6 +1,6 @@
 use authly::{
     access_token,
-    cert::Cert,
+    cert::{key_pair, MakeSigningRequest},
     session::{Session, SessionToken},
     TlsParams,
 };
@@ -10,8 +10,8 @@ use fnv::FnvHashSet;
 use time::{Duration, OffsetDateTime};
 
 pub fn authly_benchmark(c: &mut Criterion) {
-    let local_ca = Cert::new_authly_ca();
-    let identity = Cert::new_authly_ca();
+    let local_ca = key_pair().authly_ca().self_signed();
+    let identity = key_pair().authly_ca().self_signed();
     let tls_params = TlsParams::from_keys(local_ca, identity);
     let session = Session {
         token: SessionToken::new_random(),
