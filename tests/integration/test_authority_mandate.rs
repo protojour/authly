@@ -127,7 +127,7 @@ async fn test_mandate_registration() {
         };
 
         // update mandate database
-        let stmts = mandate_fulfill_submission_txn_statements(data).unwrap();
+        let stmts = mandate_fulfill_submission_txn_statements(data);
         sqlite_txn(m_ctx.get_db(), stmts).await.unwrap();
 
         // reload instance

@@ -14,6 +14,7 @@ use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 use rustls::{ClientConfig, RootCertStore};
 use tokio_util::sync::CancellationToken;
+use tracing::error;
 
 use crate::{
     cert::client_cert,
@@ -24,10 +25,36 @@ use crate::{
 
 use super::{MandateSubmissionData, SubmissionClaims};
 
+/// Errors that may occur on the mandate/client side when submitting
+#[derive(thiserror::Error, Debug)]
+pub enum MandateSubmissionError {
+    #[error("invalid token: {0}")]
+    InvalidToken(jsonwebtoken::errors::Error),
+
+    #[error("connect error: {0}")]
+    Connect(anyhow::Error),
+
+    #[error("csr error: {0}")]
+    Csr(rcgen::Error),
+
+    #[error("submission protocol error: {0}")]
+    Protocol(tonic::Status),
+
+    #[error("protobuf error: {0}")]
+    Protobuf(anyhow::Error),
+
+    #[error("local database error")]
+    Db,
+}
+
 /// Perform submission to authority, mandate side.
 /// Talks to Authority through Authly Connect tunnel, using the AuthlyMandateSubmission protocol.
 #[expect(unused)]
-pub(super) async fn do_mandate_submission(ctx: &AuthlyCtx, token: String) -> anyhow::Result<()> {
+pub(super) async fn do_mandate_submission(
+    ctx: &AuthlyCtx,
+    token: String,
+) -> Result<(), MandateSubmissionError> {
+    // read URL from token
     let claims = mandate_decode_submission_token(ctx, &token)?;
 
     // open connection
@@ -45,7 +72,8 @@ pub(super) async fn do_mandate_submission(ctx: &AuthlyCtx, token: String) -> any
             ),
             CancellationToken::default(),
         )
-        .await?,
+        .await
+        .map_err(MandateSubmissionError::Connect)?,
     );
 
     // Ask the authority to sign a identity certificate.
@@ -55,19 +83,25 @@ pub(super) async fn do_mandate_submission(ctx: &AuthlyCtx, token: String) -> any
         &claims.authly.mandate_entity_id.to_string(),
         time::Duration::days(365 * 100),
     )
-    .serialize_request(ctx.instance.private_key())?;
+    .serialize_request(ctx.instance.private_key())
+    .map_err(MandateSubmissionError::Csr)?;
 
     let response = submission_grpc_client
         .submit(proto::SubmissionRequest {
             token,
             identity_csr_der: identity_csr.der().to_vec(),
         })
-        .await?
+        .await
+        .map_err(MandateSubmissionError::Protocol)?
         .into_inner();
 
-    let mandate_submission_data = MandateSubmissionData::try_from(response)?;
-    let stmts = mandate_fulfill_submission_txn_statements(mandate_submission_data)?;
-    ctx.hql.txn(stmts).await?;
+    let mandate_submission_data =
+        MandateSubmissionData::try_from(response).map_err(MandateSubmissionError::Protobuf)?;
+    let stmts = mandate_fulfill_submission_txn_statements(mandate_submission_data);
+    ctx.hql.txn(stmts).await.map_err(|err| {
+        error!(?err, "submission transaction error");
+        MandateSubmissionError::Db
+    })?;
 
     // FIXME TODO FIXME TODO
     // 1. somehow reload AuthlyInstance
@@ -81,7 +115,7 @@ pub(super) async fn do_mandate_submission(ctx: &AuthlyCtx, token: String) -> any
 pub fn mandate_decode_submission_token(
     deps: &impl GetInstance,
     token: &str,
-) -> anyhow::Result<SubmissionClaims> {
+) -> Result<SubmissionClaims, MandateSubmissionError> {
     let mut no_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
     no_validation.insecure_disable_signature_validation();
 
@@ -89,7 +123,8 @@ pub fn mandate_decode_submission_token(
         token,
         deps.get_instance().local_jwt_decoding_key(),
         &no_validation,
-    )?
+    )
+    .map_err(MandateSubmissionError::InvalidToken)?
     .claims)
 }
 
@@ -124,7 +159,7 @@ pub fn mandate_identity_signing_request(
 
 pub fn mandate_fulfill_submission_txn_statements(
     data: MandateSubmissionData,
-) -> anyhow::Result<Vec<(Cow<'static, str>, Params)>> {
+) -> Vec<(Cow<'static, str>, Params)> {
     let mut stmts: Vec<(Cow<'static, str>, Params)> = vec![];
 
     stmts.push((
@@ -143,5 +178,5 @@ pub fn mandate_fulfill_submission_txn_statements(
         stmts.push(save_tls_cert_sql(&authly_cert));
     }
 
-    Ok(stmts)
+    stmts
 }
