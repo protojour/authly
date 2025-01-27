@@ -1,17 +1,81 @@
 //! Submission, mandate side
 
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
-use authly_common::id::Eid;
+use authly_common::{
+    id::Eid,
+    proto::mandate_submission::{
+        self as proto, authly_mandate_submission_client::AuthlyMandateSubmissionClient,
+    },
+};
+use authly_connect::{client::new_authly_connect_grpc_client_service, TunnelSecurity};
+use axum::body::Bytes;
 use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
+use rustls::{ClientConfig, RootCertStore};
+use tokio_util::sync::CancellationToken;
 
 use crate::{
+    cert::client_cert,
     ctx::GetInstance,
     db::{cryptography_db::save_tls_cert_sql, AsParam},
+    AuthlyCtx,
 };
 
 use super::{MandateSubmissionData, SubmissionClaims};
+
+/// Perform submission to authority, mandate side.
+/// Talks to Authority through Authly Connect tunnel, using the AuthlyMandateSubmission protocol.
+#[expect(unused)]
+pub(super) async fn do_mandate_submission(ctx: &AuthlyCtx, token: String) -> anyhow::Result<()> {
+    let claims = mandate_decode_submission_token(ctx, &token)?;
+
+    // open connection
+    let mut submission_grpc_client = AuthlyMandateSubmissionClient::new(
+        new_authly_connect_grpc_client_service(
+            Bytes::from(claims.authly.authority_url.as_bytes().to_vec()),
+            TunnelSecurity::Secure,
+            Arc::new(
+                ClientConfig::builder()
+                    // Use webpki_roots, need a dev flag to do this insecurely:
+                    .with_root_certificates(Arc::new(RootCertStore {
+                        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+                    }))
+                    .with_no_client_auth(),
+            ),
+            CancellationToken::default(),
+        )
+        .await?,
+    );
+
+    // Ask the authority to sign a identity certificate.
+    // The private key never leaves the mandate.
+    // The certificate will be used in subsequent communication with the authority.
+    let identity_csr = client_cert(
+        &claims.authly.mandate_entity_id.to_string(),
+        time::Duration::days(365 * 100),
+    )
+    .serialize_request(ctx.instance.private_key())?;
+
+    let response = submission_grpc_client
+        .submit(proto::SubmissionRequest {
+            token,
+            identity_csr_der: identity_csr.der().to_vec(),
+        })
+        .await?
+        .into_inner();
+
+    let mandate_submission_data = MandateSubmissionData::try_from(response)?;
+    let stmts = mandate_fulfill_submission_txn_statements(mandate_submission_data)?;
+    ctx.hql.txn(stmts).await?;
+
+    // FIXME TODO FIXME TODO
+    // 1. somehow reload AuthlyInstance
+    // 2. issue the correct broadcast changes
+    // 3. redistribute certificates to services in local environment
+
+    Ok(())
+}
 
 /// unverified decode of submission token, mandate side
 pub fn mandate_decode_submission_token(

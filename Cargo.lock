@@ -373,6 +373,7 @@ dependencies = [
  "tracing-subscriber",
  "unsigned-varint",
  "uuid",
+ "webpki-roots",
  "x509-parser",
 ]
 
