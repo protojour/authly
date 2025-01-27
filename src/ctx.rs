@@ -25,11 +25,11 @@ impl GetInstance for AuthlyCtx {
 }
 
 pub mod test {
-    use std::sync::{Arc, RwLock};
+    use std::sync::Arc;
 
     use arc_swap::ArcSwap;
     use authly_common::id::Eid;
-    use authly_db::IsLeaderDb;
+    use authly_db::{sqlite_handle::SqliteHandle, IsLeaderDb};
 
     use crate::{
         cert::{authly_ca, client_cert, key_pair},
@@ -44,7 +44,7 @@ pub mod test {
 
     #[derive(Default)]
     pub struct TestCtx {
-        db: Option<RwLock<rusqlite::Connection>>,
+        db: Option<SqliteHandle>,
         instance: Option<Arc<AuthlyInstance>>,
         deks: Option<Arc<ArcSwap<DecryptedDeks>>>,
     }
@@ -54,7 +54,7 @@ pub mod test {
             let mut conn = rusqlite::Connection::open_in_memory().unwrap();
             sqlite_migrate::<Migrations>(&mut conn).await;
 
-            self.db = Some(RwLock::new(conn));
+            self.db = Some(SqliteHandle::new(conn));
             self
         }
 
@@ -134,7 +134,7 @@ pub mod test {
     }
 
     impl GetDb for TestCtx {
-        type Db = RwLock<rusqlite::Connection>;
+        type Db = SqliteHandle;
 
         #[track_caller]
         fn get_db(&self) -> &Self::Db {

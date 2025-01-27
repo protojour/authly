@@ -3,72 +3,68 @@
 //! This Db implementation is used in tests for now.
 
 use core::str;
-use std::{borrow::Cow, collections::HashMap, sync::RwLock};
+use std::{borrow::Cow, collections::HashMap};
 
 use hiqlite::{Param, Params};
 use rusqlite::{
     params_from_iter,
     types::{ToSqlOutput, Value},
-    Column, ParamsFromIter,
+    Column, Connection, ParamsFromIter,
 };
 
-use crate::{Db, DbError, Row};
+use crate::{DbError, Row};
 
-impl Db for RwLock<rusqlite::Connection> {
-    type Row<'a> = RusqliteRow;
+pub(crate) async fn sqlite_query_raw(
+    conn: &Connection,
+    stmt: Cow<'static, str>,
+    params: Params,
+) -> Result<Vec<RusqliteRow>, DbError> {
+    let mut stmt = conn.prepare(&stmt).map_err(DbError::Rusqlite)?;
+    let columns: Vec<_> = stmt
+        .columns()
+        .iter()
+        .map(RusqliteColumn::from_column)
+        .collect();
 
-    async fn query_raw(
-        &self,
-        stmt: Cow<'static, str>,
-        params: Params,
-    ) -> Result<Vec<Self::Row<'_>>, DbError> {
-        let conn = self.read().unwrap();
-        let mut stmt = conn.prepare(&stmt).map_err(DbError::Rusqlite)?;
-        let columns: Vec<_> = stmt
-            .columns()
-            .iter()
-            .map(RusqliteColumn::from_column)
-            .collect();
+    let mut rows = stmt
+        .query(rusqlite_params(params))
+        .map_err(DbError::Rusqlite)?;
 
-        let mut rows = stmt
-            .query(rusqlite_params(params))
-            .map_err(DbError::Rusqlite)?;
+    let mut output = vec![];
 
-        let mut output = vec![];
-
-        while let Some(row) = rows.next().map_err(DbError::Rusqlite)? {
-            output.push(RusqliteRow::from_rusqlite(row, &columns));
-        }
-
-        Ok(output)
+    while let Some(row) = rows.next().map_err(DbError::Rusqlite)? {
+        output.push(RusqliteRow::from_rusqlite(row, &columns));
     }
 
-    async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
-        let conn = self.read().unwrap();
-        rusqlite::Connection::execute(&conn, &sql, rusqlite_params(params))
-            .map_err(DbError::Rusqlite)
+    Ok(output)
+}
+
+pub(crate) async fn sqlite_execute(
+    conn: &Connection,
+    sql: Cow<'static, str>,
+    params: Params,
+) -> Result<usize, DbError> {
+    rusqlite::Connection::execute(conn, &sql, rusqlite_params(params)).map_err(DbError::Rusqlite)
+}
+
+pub(crate) async fn sqlite_txn(
+    conn: &mut Connection,
+    sql: Vec<(Cow<'static, str>, Params)>,
+) -> Result<Vec<Result<usize, DbError>>, DbError> {
+    let txn = conn.transaction().map_err(DbError::Rusqlite)?;
+
+    let mut output = vec![];
+
+    for (query, params) in sql {
+        output.push(
+            txn.execute(&query, rusqlite_params(params))
+                .map_err(DbError::Rusqlite),
+        );
     }
 
-    async fn txn(
-        &self,
-        sql: Vec<(Cow<'static, str>, Params)>,
-    ) -> Result<Vec<Result<usize, DbError>>, DbError> {
-        let mut conn = self.write().unwrap();
-        let txn = conn.transaction().map_err(DbError::Rusqlite)?;
+    txn.commit().map_err(DbError::Rusqlite)?;
 
-        let mut output = vec![];
-
-        for (query, params) in sql {
-            output.push(
-                txn.execute(&query, rusqlite_params(params))
-                    .map_err(DbError::Rusqlite),
-            );
-        }
-
-        txn.commit().map_err(DbError::Rusqlite)?;
-
-        Ok(output)
-    }
+    Ok(output)
 }
 
 struct RusqliteColumn {

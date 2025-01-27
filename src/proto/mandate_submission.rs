@@ -1,26 +1,23 @@
 use authly_common::proto::mandate_submission::{
-    self as proto,
-    authly_mandate_submission_server::{AuthlyMandateSubmission, AuthlyMandateSubmissionServer},
+    self as proto, authly_mandate_submission_server::AuthlyMandateSubmission,
 };
+use authly_db::GetDb;
 use rcgen::CertificateSigningRequestParams;
 use rustls::pki_types::CertificateSigningRequestDer;
 use tonic::{Request, Response};
 use tracing::warn;
 
-use crate::{authority_mandate::submission, AuthlyCtx};
+use crate::{authority_mandate::submission, ctx::GetInstance};
 
-pub struct AuthlyMandateSubmissionServerImpl {
-    pub(crate) ctx: AuthlyCtx,
-}
-
-impl AuthlyMandateSubmissionServerImpl {
-    pub fn into_service(self) -> AuthlyMandateSubmissionServer<Self> {
-        AuthlyMandateSubmissionServer::new(self)
-    }
+pub struct AuthlyMandateSubmissionServerImpl<Ctx> {
+    pub(crate) ctx: Ctx,
 }
 
 #[tonic::async_trait]
-impl AuthlyMandateSubmission for AuthlyMandateSubmissionServerImpl {
+impl<Ctx> AuthlyMandateSubmission for AuthlyMandateSubmissionServerImpl<Ctx>
+where
+    Ctx: GetDb + GetInstance + Send + Sync + 'static,
+{
     /// Submit is tunneled through Authly Connect Secure
     async fn submit(
         &self,
@@ -41,15 +38,17 @@ impl AuthlyMandateSubmission for AuthlyMandateSubmissionServerImpl {
                     tonic::Status::internal("submission failed")
                 })?;
 
+        let instance = self.ctx.get_instance();
+
         // cert chain, start with Mandate's new local CA
         let mut ca_chain = vec![proto::AuthlyCertificate {
             certifies_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
-            signed_by_entity_id: self.ctx.instance.authly_eid().to_bytes().to_vec(),
+            signed_by_entity_id: instance.authly_eid().to_bytes().to_vec(),
             der: certified_mandate.mandate_local_ca.der.to_vec(),
         }];
 
         // pass authority's local CA chain to the mandate
-        for authly_cert in self.ctx.instance.ca_chain() {
+        for authly_cert in instance.ca_chain() {
             ca_chain.push(proto::AuthlyCertificate {
                 certifies_entity_id: authly_cert.certifies.to_bytes().to_vec(),
                 signed_by_entity_id: authly_cert.signed_by.to_bytes().to_vec(),
@@ -61,7 +60,7 @@ impl AuthlyMandateSubmission for AuthlyMandateSubmissionServerImpl {
             mandate_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
             mandate_identity_cert: Some(proto::AuthlyCertificate {
                 certifies_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
-                signed_by_entity_id: self.ctx.instance.authly_eid().to_bytes().to_vec(),
+                signed_by_entity_id: instance.authly_eid().to_bytes().to_vec(),
                 der: certified_mandate.mandate_identity.der.to_vec(),
             }),
             ca_chain,

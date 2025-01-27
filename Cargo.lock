@@ -461,6 +461,7 @@ dependencies = [
  "rusqlite",
  "thiserror 2.0.11",
  "time",
+ "tokio",
  "tracing",
 ]
 

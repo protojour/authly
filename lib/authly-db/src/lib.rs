@@ -6,6 +6,7 @@ use thiserror::Error;
 
 pub mod literal;
 pub mod param;
+pub mod sqlite_handle;
 
 mod hql;
 mod sqlite;
@@ -22,6 +23,9 @@ pub enum DbError {
 
     #[error("db: {0}")]
     Rusqlite(rusqlite::Error),
+
+    #[error("channel error")]
+    Channel,
 
     #[error("timestamp encoding")]
     Timestamp,
@@ -50,19 +54,19 @@ pub trait Db {
         &self,
         stmt: Cow<'static, str>,
         params: Params,
-    ) -> impl Future<Output = Result<Vec<Self::Row<'_>>, DbError>>;
+    ) -> impl Future<Output = Result<Vec<Self::Row<'_>>, DbError>> + Send;
 
     fn execute(
         &self,
         sql: Cow<'static, str>,
         params: Params,
-    ) -> impl Future<Output = Result<usize, DbError>>;
+    ) -> impl Future<Output = Result<usize, DbError>> + Send;
 
     /// Execute multiple statements in a transaction
     fn txn(
         &self,
         sql: Vec<(Cow<'static, str>, Params)>,
-    ) -> impl Future<Output = Result<Vec<Result<usize, DbError>>, DbError>>;
+    ) -> impl Future<Output = Result<Vec<Result<usize, DbError>>, DbError>> + Send;
 }
 
 pub trait Row {
@@ -95,7 +99,7 @@ pub trait GetDb {
 }
 
 /// Every GetDb is also a Db:
-impl<T: GetDb + 'static> Db for T {
+impl<T: GetDb + Send + Sync + 'static> Db for T {
     type Row<'a> = <<T as GetDb>::Db as Db>::Row<'a>;
 
     async fn query_raw(

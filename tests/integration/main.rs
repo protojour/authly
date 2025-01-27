@@ -1,5 +1,3 @@
-use std::sync::RwLock;
-
 use authly::{
     cert::Cert,
     ctx::test::TestCtx,
@@ -11,7 +9,7 @@ use authly::{
     encryption::DecryptedDeks,
 };
 use authly_common::{document::Document, id::Eid, service::PropertyMapping};
-use authly_db::Db;
+use authly_db::{sqlite_handle::SqliteHandle, Db};
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -95,7 +93,7 @@ struct ServiceProperties {
 }
 
 impl ServiceProperties {
-    async fn load(svc_eid: Eid, conn: &RwLock<rusqlite::Connection>) -> Self {
+    async fn load(svc_eid: Eid, conn: &SqliteHandle) -> Self {
         let resource =
             service_db::get_service_property_mapping(conn, svc_eid, ServicePropertyKind::Resource)
                 .await
