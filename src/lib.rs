@@ -203,12 +203,15 @@ async fn initialize() -> anyhow::Result<Init> {
 
     if ctx.hql.is_leader_db().await {
         if env_config.export_tls_to_etc {
-            std::fs::create_dir_all(env_config.etc_dir.join("local"))?;
+            std::fs::create_dir_all(env_config.etc_dir.join("certs"))?;
 
             std::fs::write(
-                // local/ is now incorrect, it must indicate the trust root
-                env_config.etc_dir.join("local/ca.crt"),
+                env_config.etc_dir.join("certs/root.crt"),
                 ctx.instance.trust_root_ca().certificate_pem().as_bytes(),
+            )?;
+            std::fs::write(
+                env_config.etc_dir.join("certs/local.crt"),
+                ctx.instance.local_ca().certificate_pem().as_bytes(),
             )?;
         }
 

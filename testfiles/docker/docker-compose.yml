@@ -19,7 +19,7 @@ services:
       - 1443:443
     volumes:
       - authly-data:/var/lib/authly/data
-      - authly-local-ca:/etc/authly/local
+      - authly-certs:/etc/authly/certs
       - testservice-identity:/etc/authly/service/f3e799137c034e1eb4cd3e4f65705932
       - ../../.local/etc/cluster:/etc/authly/cluster:ro
       - ../../examples:/etc/authly/documents:ro
@@ -36,7 +36,7 @@ services:
   testservice:
     image: protojour/authly-testservice:dev
     volumes:
-      - authly-local-ca:/etc/authly/local:ro
+      - authly-certs:/etc/authly/certs:ro
       - testservice-identity:/etc/authly/identity:ro
     depends_on:
       authly:
@@ -45,5 +45,5 @@ services:
 
 volumes:
   authly-data:
-  authly-local-ca:
+  authly-certs:
   testservice-identity:

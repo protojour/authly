@@ -50,7 +50,7 @@ async fn k8s_manager_task(client: Client, _cancel: CancellationToken, ctx: Authl
 
 async fn write_client_configmap(client: Client, ctx: &AuthlyCtx) -> anyhow::Result<()> {
     let configmap_api: Api<ConfigMap> = Api::namespaced(client.clone(), client.default_namespace());
-    let name = "authly-local-ca.crt";
+    let name = "authly-certs.crt";
     let configmap = ConfigMap {
         metadata: ObjectMeta {
             name: Some(name.to_string()),
@@ -66,10 +66,16 @@ async fn write_client_configmap(client: Client, ctx: &AuthlyCtx) -> anyhow::Resu
         },
         binary_data: None,
         data: Some(
-            [(
-                "ca.crt".to_string(),
-                ctx.instance.trust_root_ca().certificate_pem(),
-            )]
+            [
+                (
+                    "root.crt".to_string(),
+                    ctx.instance.trust_root_ca().certificate_pem(),
+                ),
+                (
+                    "local.crt".to_string(),
+                    ctx.instance.local_ca().certificate_pem(),
+                ),
+            ]
             .into(),
         ),
         immutable: None,
