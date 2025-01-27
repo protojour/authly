@@ -32,11 +32,14 @@ pub mod test {
     use std::sync::{Arc, RwLock};
 
     use arc_swap::ArcSwap;
+    use authly_common::id::Eid;
 
     use crate::{
+        cert::{authly_ca, client_cert, key_pair},
         db::{cryptography_db, IsLeaderDb},
         encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
-        instance::AuthlyInstance,
+        instance::{AuthlyId, AuthlyInstance},
+        tls::{AuthlyCert, AuthlyCertKind},
         Migrations,
     };
 
@@ -55,6 +58,41 @@ pub mod test {
             sqlite_migrate::<Migrations>(&mut conn).await;
 
             self.db = Some(RwLock::new(conn));
+            self
+        }
+
+        /// With AuthlyInstance that doesn't use the database
+        pub fn lite_instance(mut self) -> Self {
+            let authly_id = AuthlyId {
+                eid: Eid::random(),
+                private_key: key_pair(),
+            };
+            let certs = vec![
+                {
+                    let certificate = authly_ca().self_signed(&authly_id.private_key).unwrap();
+                    AuthlyCert {
+                        kind: AuthlyCertKind::Ca,
+                        certifies: authly_id.eid,
+                        signed_by: authly_id.eid,
+                        params: certificate.params().clone(),
+                        der: certificate.der().clone(),
+                    }
+                },
+                {
+                    let certificate =
+                        client_cert(&authly_id.eid.to_string(), time::Duration::days(365 * 100))
+                            .self_signed(&authly_id.private_key)
+                            .unwrap();
+                    AuthlyCert {
+                        kind: AuthlyCertKind::Identity,
+                        certifies: authly_id.eid,
+                        signed_by: authly_id.eid,
+                        params: certificate.params().clone(),
+                        der: certificate.der().clone(),
+                    }
+                },
+            ];
+            self.instance = Some(Arc::new(AuthlyInstance::new(authly_id, certs)));
             self
         }
 
