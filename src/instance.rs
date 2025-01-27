@@ -55,6 +55,10 @@ impl AuthlyInstance {
         }
     }
 
+    pub fn authly_eid(&self) -> Eid {
+        self.authly_id.eid
+    }
+
     pub fn local_jwt_decoding_key(&self) -> &jsonwebtoken::DecodingKey {
         &self.local_jwt_decoding_key
     }
@@ -65,6 +69,12 @@ impl AuthlyInstance {
 
     pub fn private_key(&self) -> &KeyPair {
         &self.authly_id.private_key
+    }
+
+    pub fn cert_chain(&self) -> impl Iterator<Item = &AuthlyCert> {
+        self.certs
+            .iter()
+            .filter(|cert| matches!(cert.kind, AuthlyCertKind::Ca))
     }
 
     pub fn trust_root_ca(&self) -> &AuthlyCert {

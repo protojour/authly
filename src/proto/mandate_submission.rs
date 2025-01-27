@@ -33,7 +33,7 @@ impl AuthlyMandateSubmission for AuthlyMandateSubmissionServerImpl {
         )
         .map_err(|_err| tonic::Status::invalid_argument("invalid Certificate Signing Request"))?;
 
-        let mandate_certificate =
+        let certified_mandate =
             submission::authority::authority_fulfill_submission(&self.ctx, &req.token, csr_params)
                 .await
                 .map_err(|err| {
@@ -41,9 +41,24 @@ impl AuthlyMandateSubmission for AuthlyMandateSubmissionServerImpl {
                     tonic::Status::internal("submission failed")
                 })?;
 
+        let mut cert_chain = vec![proto::AuthlyCertificate {
+            certifies_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
+            signed_by_entity_id: self.ctx.instance.authly_eid().to_bytes().to_vec(),
+            der: certified_mandate.certificate.der().to_vec(),
+        }];
+
+        // pass our local certificates to the mandate
+        for authly_cert in self.ctx.instance.cert_chain() {
+            cert_chain.push(proto::AuthlyCertificate {
+                certifies_entity_id: authly_cert.certifies.to_bytes().to_vec(),
+                signed_by_entity_id: authly_cert.signed_by.to_bytes().to_vec(),
+                der: authly_cert.der.to_vec(),
+            });
+        }
+
         Ok(tonic::Response::new(proto::SubmissionResponse {
-            authority_ca: self.ctx.instance.local_ca().der.to_vec(),
-            mandate_identity_cert_der: mandate_certificate.der().to_vec(),
+            mandate_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
+            cert_chain,
         }))
     }
 }

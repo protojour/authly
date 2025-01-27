@@ -15,6 +15,11 @@ use crate::{
 
 use super::{Authly, SubmissionClaims, SUBMISSION_CODE_EXPIRATION};
 
+pub struct CertifiedMandate {
+    pub mandate_eid: Eid,
+    pub certificate: Certificate,
+}
+
 pub async fn authority_generate_submission_code(
     deps: &impl Db,
     created_by: Actor,
@@ -65,7 +70,7 @@ pub async fn authority_fulfill_submission(
     deps: &(impl Db + GetInstance),
     token: &str,
     csr_params: CertificateSigningRequestParams,
-) -> anyhow::Result<Certificate> {
+) -> anyhow::Result<CertifiedMandate> {
     let instance = deps.get_instance();
 
     let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
@@ -118,5 +123,8 @@ pub async fn authority_fulfill_submission(
     )
     .await?;
 
-    Ok(identity_certificate)
+    Ok(CertifiedMandate {
+        mandate_eid,
+        certificate: identity_certificate,
+    })
 }
