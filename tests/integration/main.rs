@@ -2,7 +2,7 @@ use std::sync::RwLock;
 
 use authly::{
     cert::Cert,
-    ctx::{test::TestCtx, GetDb},
+    ctx::test::TestCtx,
     db::{
         document_db,
         service_db::{self, ServicePropertyKind},
@@ -11,7 +11,7 @@ use authly::{
     encryption::DecryptedDeks,
 };
 use authly_common::{document::Document, id::Eid, service::PropertyMapping};
-use authly_db::sqlite_txn;
+use authly_db::Db;
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -34,12 +34,9 @@ async fn compile_and_apply_doc(
     let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx)
         .await
         .unwrap();
-    sqlite_txn(
-        ctx.get_db(),
-        document_db::document_txn_statements(compiled_doc, deks)?,
-    )
-    .await
-    .unwrap();
+    ctx.txn(document_db::document_txn_statements(compiled_doc, deks)?)
+        .await
+        .unwrap();
 
     Ok(())
 }

@@ -11,11 +11,11 @@ use authly::{
         },
         MandateSubmissionData,
     },
-    ctx::{GetDb, GetInstance},
+    ctx::GetInstance,
     db::cryptography_db::load_authly_instance,
 };
 use authly_common::id::Eid;
-use authly_db::{sqlite_txn, IsLeaderDb};
+use authly_db::{Db, IsLeaderDb};
 use rcgen::CertificateSigningRequestParams;
 use test_log::test;
 use tracing::info;
@@ -129,11 +129,11 @@ async fn test_mandate_registration() {
 
         // update mandate database
         let stmts = mandate_fulfill_submission_txn_statements(data);
-        sqlite_txn(m_ctx.get_db(), stmts).await.unwrap();
+        m_ctx.txn(stmts).await.unwrap();
 
         // reload instance
         let deks = m_ctx.get_decrypted_deks();
-        let authly_instance = load_authly_instance(IsLeaderDb(true), m_ctx.get_db(), &deks)
+        let authly_instance = load_authly_instance(IsLeaderDb(true), &m_ctx, &deks)
             .await
             .unwrap();
 

@@ -1,7 +1,7 @@
 use std::fs;
 
 use authly_common::id::Eid;
-use authly_db::DbError;
+use authly_db::{Db, DbError};
 use tracing::error;
 
 use crate::{
@@ -35,13 +35,11 @@ pub async fn apply_document(
 
     let deks = ctx.deks.load_full();
 
-    ctx.hql
-        .txn(
-            document_db::document_txn_statements(compiled_doc, &deks)
-                .map_err(DirectoryError::Context)?,
-        )
-        .await
-        .map_err(|err| DirectoryError::Db(err.into()))?;
+    ctx.txn(
+        document_db::document_txn_statements(compiled_doc, &deks)
+            .map_err(DirectoryError::Context)?,
+    )
+    .await?;
 
     if ctx.export_tls_to_etc {
         for svc_eid in service_ids {

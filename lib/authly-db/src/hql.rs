@@ -27,6 +27,17 @@ impl Db for hiqlite::Client {
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
         Ok(hiqlite::Client::execute(self, sql, params).await?)
     }
+
+    async fn txn(
+        &self,
+        sql: Vec<(Cow<'static, str>, Params)>,
+    ) -> Result<Vec<Result<usize, DbError>>, DbError> {
+        Ok(hiqlite::Client::txn(self, sql)
+            .await?
+            .into_iter()
+            .map(|result| result.map_err(|err| err.into()))
+            .collect())
+    }
 }
 
 impl Row for hiqlite::Row<'_> {

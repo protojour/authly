@@ -1,4 +1,6 @@
 //! sqlite integration with the `Db` trait
+//!
+//! This Db implementation is used in tests for now.
 
 use core::str;
 use std::{borrow::Cow, collections::HashMap, sync::RwLock};
@@ -46,31 +48,27 @@ impl Db for RwLock<rusqlite::Connection> {
         rusqlite::Connection::execute(&conn, &sql, rusqlite_params(params))
             .map_err(DbError::Rusqlite)
     }
-}
 
-pub async fn sqlite_txn<C, Q>(
-    conn: &RwLock<rusqlite::Connection>,
-    sql: Q,
-) -> Result<Vec<Result<usize, DbError>>, DbError>
-where
-    Q: IntoIterator<Item = (C, Params)>,
-    C: Into<Cow<'static, str>>,
-{
-    let mut conn = conn.write().unwrap();
-    let txn = conn.transaction().map_err(DbError::Rusqlite)?;
+    async fn txn(
+        &self,
+        sql: Vec<(Cow<'static, str>, Params)>,
+    ) -> Result<Vec<Result<usize, DbError>>, DbError> {
+        let mut conn = self.write().unwrap();
+        let txn = conn.transaction().map_err(DbError::Rusqlite)?;
 
-    let mut output = vec![];
+        let mut output = vec![];
 
-    for (query, params) in sql {
-        output.push(
-            txn.execute(&query.into(), rusqlite_params(params))
-                .map_err(DbError::Rusqlite),
-        );
+        for (query, params) in sql {
+            output.push(
+                txn.execute(&query, rusqlite_params(params))
+                    .map_err(DbError::Rusqlite),
+            );
+        }
+
+        txn.commit().map_err(DbError::Rusqlite)?;
+
+        Ok(output)
     }
-
-    txn.commit().map_err(DbError::Rusqlite)?;
-
-    Ok(output)
 }
 
 struct RusqliteColumn {

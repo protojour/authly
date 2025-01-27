@@ -9,7 +9,7 @@ use authly_common::{
     },
 };
 use authly_connect::{client::new_authly_connect_grpc_client_service, TunnelSecurity};
-use authly_db::param::AsParam;
+use authly_db::{param::AsParam, Db};
 use axum::body::Bytes;
 use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
@@ -96,7 +96,7 @@ pub(super) async fn do_mandate_submission(
     let mandate_submission_data =
         MandateSubmissionData::try_from(response).map_err(MandateSubmissionError::Protobuf)?;
     let stmts = mandate_fulfill_submission_txn_statements(mandate_submission_data);
-    ctx.hql.txn(stmts).await.map_err(|err| {
+    ctx.txn(stmts).await.map_err(|err| {
         error!(?err, "submission transaction error");
         MandateSubmissionError::Db
     })?;

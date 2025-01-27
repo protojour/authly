@@ -2,15 +2,9 @@
 
 use std::sync::Arc;
 
-use authly_db::Db;
+use authly_db::GetDb;
 
 use crate::{instance::AuthlyInstance, AuthlyCtx};
-
-pub trait GetDb {
-    type Db: Db;
-
-    fn get_db(&self) -> &Self::Db;
-}
 
 pub trait GetInstance {
     fn get_instance(&self) -> &Arc<AuthlyInstance>;
@@ -31,15 +25,11 @@ impl GetInstance for AuthlyCtx {
 }
 
 pub mod test {
-    use std::{
-        borrow::Cow,
-        sync::{Arc, RwLock},
-    };
+    use std::sync::{Arc, RwLock};
 
     use arc_swap::ArcSwap;
     use authly_common::id::Eid;
-    use authly_db::{Db, DbError, IsLeaderDb};
-    use hiqlite::Params;
+    use authly_db::IsLeaderDb;
 
     use crate::{
         cert::{authly_ca, client_cert, key_pair},
@@ -172,21 +162,5 @@ pub mod test {
         }
 
         txn.commit().unwrap();
-    }
-
-    impl Db for TestCtx {
-        type Row<'a> = <<TestCtx as GetDb>::Db as Db>::Row<'a>;
-
-        async fn query_raw(
-            &self,
-            stmt: Cow<'static, str>,
-            params: Params,
-        ) -> Result<Vec<Self::Row<'_>>, DbError> {
-            Db::query_raw(self.get_db(), stmt, params).await
-        }
-
-        async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
-            Db::execute(self.get_db(), sql, params).await
-        }
     }
 }

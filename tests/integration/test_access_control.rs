@@ -1,12 +1,10 @@
-use authly::{
-    ctx::{test::TestCtx, GetDb},
-    db::service_db,
-};
+use authly::{ctx::test::TestCtx, db::service_db};
 use authly_common::{
     document::Document,
     id::{AnyId, Eid},
     policy::{code::Outcome, engine::AccessControlParams},
 };
+use authly_db::GetDb;
 use hexhex::hex_literal;
 use indoc::indoc;
 
