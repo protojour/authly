@@ -1,8 +1,12 @@
 use std::env;
 
-use authly::{cert::MakeSigningRequest, configure, env_config::ClusterTlsPath, serve, EnvConfig};
+use authly::{
+    cert::{server_cert, CertificateParamsExt},
+    configure,
+    env_config::ClusterTlsPath,
+    serve, EnvConfig,
+};
 use clap::{Parser, Subcommand};
-use rcgen::KeyPair;
 use time::Duration;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -70,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn issue_cluster_key(common_name: &str, tls_path: ClusterTlsPath) -> anyhow::Result<()> {
-    let req = KeyPair::generate()?.server_cert(common_name, Duration::days(10000));
+    let req = server_cert(common_name, Duration::days(10000)).with_new_key_pair();
     let certificate = req.params.self_signed(&req.key)?;
 
     std::fs::create_dir_all(&tls_path.0)?;

@@ -35,7 +35,7 @@ pub(crate) fn main_service_grpc_router(ctx: AuthlyCtx) -> anyhow::Result<axum::R
                         .into_axum_router(),
                     tls_server_config: tls::generate_tls_server_config(
                         "authly-connect",
-                        &ctx.tls_params,
+                        &ctx.instance,
                         std::time::Duration::from_secs(365 * 100),
                     )?,
                 },

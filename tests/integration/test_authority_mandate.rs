@@ -17,8 +17,8 @@ use crate::TestCtx;
 
 #[test(tokio::test)]
 async fn test_mandate_registration_failure() {
-    let a_ctx = TestCtx::default().inmemory_db().await.gen_tls_params();
-    let m_ctx = TestCtx::default().inmemory_db().await.gen_tls_params();
+    let a_ctx = TestCtx::default().inmemory_db().await.supreme_instance();
+    let m_ctx = TestCtx::default().inmemory_db().await.supreme_instance();
 
     let token = authority_generate_submission_token(&a_ctx, b"INVALID CODE".to_vec())
         .await
@@ -38,11 +38,11 @@ async fn test_mandate_registration_failure() {
 
 #[test(tokio::test)]
 async fn test_mandate_registration() {
-    let a_ctx = TestCtx::default().inmemory_db().await.gen_tls_params();
-    // Two mandates:
+    let a_ctx = TestCtx::default().inmemory_db().await.supreme_instance();
+    // Two mandate wannabes:
     let m_ctxs = [
-        TestCtx::default().inmemory_db().await.gen_tls_params(),
-        TestCtx::default().inmemory_db().await.gen_tls_params(),
+        TestCtx::default().inmemory_db().await.supreme_instance(),
+        TestCtx::default().inmemory_db().await.supreme_instance(),
     ];
 
     let actor = Actor(Eid::random());

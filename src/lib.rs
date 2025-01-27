@@ -7,13 +7,12 @@ use std::{
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use axum::{response::IntoResponse, Json};
-use cert::Cert;
 use db::{cryptography_db, settings_db};
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
+use instance::AuthlyInstance;
 use openraft::RaftMetrics;
-use rcgen::KeyPair;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use settings::Settings;
@@ -32,9 +31,11 @@ pub mod db;
 pub mod document;
 pub mod encryption;
 pub mod env_config;
+pub mod instance;
 pub mod proto;
 pub mod serde_util;
 pub mod session;
+pub mod tls;
 
 mod access_control;
 mod authority;
@@ -44,7 +45,6 @@ mod k8s;
 mod openapi;
 mod policy;
 mod settings;
-mod tls;
 mod util;
 mod webauth;
 
@@ -60,7 +60,7 @@ const HIQLITE_RAFT_PORT: u16 = 7856;
 struct AuthlyCtx {
     /// The client for hiqlite, an embedded database
     hql: hiqlite::Client,
-    tls_params: Arc<TlsParams>,
+    instance: Arc<AuthlyInstance>,
     /// Dynamically updatable settings:
     settings: Arc<ArcSwap<Settings>>,
     /// Data Encryption Keys
@@ -78,31 +78,6 @@ impl AuthlyCtx {
     }
 }
 
-pub struct TlsParams {
-    /// A long-lived CA
-    pub local_ca: Cert<KeyPair>,
-    pub jwt_decoding_key: jsonwebtoken::DecodingKey,
-
-    pub identity: Cert<KeyPair>,
-}
-
-impl TlsParams {
-    pub fn from_keys(local_ca: Cert<KeyPair>, identity: Cert<KeyPair>) -> Self {
-        let jwt_decoding_key = {
-            let (_, x509_cert) = x509_parser::parse_x509_certificate(&local_ca.der).unwrap();
-
-            // Assume that EC is always used
-            jsonwebtoken::DecodingKey::from_ec_der(&x509_cert.public_key().subject_public_key.data)
-        };
-
-        Self {
-            local_ca,
-            jwt_decoding_key,
-            identity,
-        }
-    }
-}
-
 pub struct Init {
     ctx: AuthlyCtx,
     env_config: EnvConfig,
@@ -111,7 +86,10 @@ pub struct Init {
 pub async fn serve() -> anyhow::Result<()> {
     let Init { ctx, env_config } = initialize().await?;
 
-    info!("local CA:\n{}", ctx.tls_params.local_ca.certificate_pem());
+    info!(
+        "root CA:\n{}",
+        ctx.instance.trust_root_ca().certificate_pem()
+    );
 
     broadcast::spawn_global_message_handler(&ctx);
 
@@ -126,11 +104,14 @@ pub async fn serve() -> anyhow::Result<()> {
         env_config.server_port,
     ))
     .with_scheme(Scheme::Https)
-    .with_tls_config(tls::main_service_tls_configurer(
-        env_config.hostname.clone(),
-        ctx.settings.clone(),
-        ctx.tls_params.clone(),
-    )?)
+    .with_tls_config(
+        tls::main_service_tls_configurer(
+            env_config.hostname.clone(),
+            ctx.settings.clone(),
+            ctx.instance.clone(),
+        )
+        .await?,
+    )
     .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
     .with_graceful_shutdown(ctx.shutdown.clone())
     .bind()
@@ -208,11 +189,11 @@ async fn initialize() -> anyhow::Result<Init> {
     })?;
 
     let deks = encryption::load_decrypted_deks(&hql, hql.is_leader_db().await, &env_config).await?;
-    let tls_params = cryptography_db::load_tls_params(&hql, &deks).await?;
+    let instance = cryptography_db::load_authly_instance(&hql, &deks).await?;
 
     let ctx = AuthlyCtx {
         hql,
-        tls_params: Arc::new(tls_params),
+        instance: Arc::new(instance),
         settings: Arc::new(ArcSwap::new(Arc::new(Settings::default()))),
         deks: Arc::new(ArcSwap::new(Arc::new(deks))),
         shutdown: tower_server::signal::termination_signal(),
@@ -225,8 +206,9 @@ async fn initialize() -> anyhow::Result<Init> {
             std::fs::create_dir_all(env_config.etc_dir.join("local"))?;
 
             std::fs::write(
+                // local/ is now incorrect, it must indicate the trust root
                 env_config.etc_dir.join("local/ca.crt"),
-                ctx.tls_params.local_ca.certificate_pem().as_bytes(),
+                ctx.instance.trust_root_ca().certificate_pem().as_bytes(),
             )?;
         }
 

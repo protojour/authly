@@ -12,12 +12,21 @@ CREATE TABLE cr_prop_dek (
     created_at DATETIME NOT NULL
 );
 
-CREATE TABLE tlskey (
-    purpose TEXT NOT NULL PRIMARY KEY,
+CREATE TABLE authly_instance (
+    key TEXT NOT NULL PRIMARY KEY,
+    eid BLOB NOT NULL,
+    private_key_nonce BLOB NOT NULL,
+    private_key_ciph BLOB NOT NULL
+);
+
+CREATE TABLE tls_cert (
+    -- CA or identity
+    kind TEXT NOT NULL,
+    certifies_eid BLOB NOT NULL,
+    signed_by_eid BLOB NOT NULL,
+    created_at DATETIME NOT NULL,
     expires_at DATETIME NOT NULL,
-    cert BLOB NOT NULL,
-    key_nonce BLOB NOT NULL,
-    key_ciph BLOB NOT NULL
+    der BLOB NOT NULL
 );
 
 -- Any kind of authority, including other Authly Authorities

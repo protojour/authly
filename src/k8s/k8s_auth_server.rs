@@ -15,14 +15,15 @@ use jsonwebtoken::{
     jwk::{AlgorithmParameters, EllipticCurve, JwkSet},
     DecodingKey, TokenData, Validation,
 };
-use rcgen::{KeyPair, SubjectPublicKeyInfo};
+use rcgen::SubjectPublicKeyInfo;
 use rustls::{pki_types::PrivateKeyDer, ServerConfig};
 use tracing::{error, info};
 
 use crate::{
-    cert::{Cert, MakeSigningRequest},
+    cert::{client_cert, server_cert, Cert, CertificateParamsExt},
     db::service_db,
-    AuthlyCtx, EnvConfig, TlsParams,
+    instance::AuthlyInstance,
+    AuthlyCtx, EnvConfig,
 };
 
 const K8S_SA_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
@@ -49,7 +50,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
     };
 
     let jwt_verifier = fetch_k8s_jwk_jwt_verifier().await?;
-    let rustls_config_factory = rustls_server_config(env_config, &ctx.tls_params)?;
+    let rustls_config_factory = rustls_server_config(env_config, &ctx.instance)?;
 
     let server =
         tower_server::Builder::new(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), port))
@@ -130,11 +131,9 @@ async fn v0_authenticate_handler(
         let service_public_key = SubjectPublicKeyInfo::from_der(&public_key)
             .map_err(|_err| CsrError::InvalidPublicKey(eid))?;
 
-        Ok(state
-            .ctx
-            .tls_params
-            .local_ca
-            .sign(service_public_key.client_cert(&eid.to_string(), CERT_VALIDITY_PERIOD)))
+        Ok(state.ctx.instance.sign_with_local_ca(
+            client_cert(&eid.to_string(), CERT_VALIDITY_PERIOD).with_owned_key(service_public_key),
+        ))
     })
     .await
     .map_err(|err| {
@@ -235,7 +234,7 @@ async fn fetch_k8s_jwk_jwt_verifier() -> anyhow::Result<JwtVerifier> {
 
 fn rustls_server_config(
     env_config: &EnvConfig,
-    tls_params: &TlsParams,
+    instance: &AuthlyInstance,
 ) -> anyhow::Result<ServerConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
@@ -244,9 +243,8 @@ fn rustls_server_config(
         .as_deref()
         .unwrap_or(&env_config.hostname);
 
-    let server_cert = tls_params
-        .local_ca
-        .sign(KeyPair::generate()?.server_cert(hostname, time::Duration::days(365)));
+    let server_cert = instance
+        .sign_with_local_ca(server_cert(hostname, time::Duration::days(365)).with_new_key_pair());
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("k8s auth server private key: {err}"))?;

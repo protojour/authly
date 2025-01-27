@@ -18,7 +18,7 @@ use axum_extra::{
 use fnv::FnvHashSet;
 use http::{request::Parts, StatusCode};
 
-use crate::{session::Session, AuthlyCtx, TlsParams};
+use crate::{instance::AuthlyInstance, session::Session, AuthlyCtx};
 
 const EXPIRATION: time::Duration = time::Duration::days(365);
 
@@ -36,7 +36,7 @@ pub enum AccessTokenError {
 pub fn create_access_token(
     session: &Session,
     user_attributes: FnvHashSet<ObjId>,
-    tls_params: &TlsParams,
+    instance: &AuthlyInstance,
 ) -> Result<String, AccessTokenError> {
     let jwt_header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
     let now = time::OffsetDateTime::now_utc();
@@ -50,21 +50,19 @@ pub fn create_access_token(
             entity_attributes: user_attributes,
         },
     };
-    let encoding_key =
-        jsonwebtoken::EncodingKey::from_ec_der(tls_params.local_ca.key.serialized_der());
 
-    jsonwebtoken::encode(&jwt_header, &claims, &encoding_key)
+    jsonwebtoken::encode(&jwt_header, &claims, &instance.local_jwt_encoding_key())
         .map_err(|_| AccessTokenError::EncodeError)
 }
 
 pub fn verify_access_token(
     access_token: &str,
-    tls_params: &TlsParams,
+    instance: &AuthlyInstance,
 ) -> Result<AuthlyAccessTokenClaims, AccessTokenError> {
     let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
     let token_data = jsonwebtoken::decode::<AuthlyAccessTokenClaims>(
         access_token,
-        &tls_params.jwt_decoding_key,
+        instance.local_jwt_decoding_key(),
         &validation,
     )
     .map_err(|err| AccessTokenError::Unverified(err.into()))?;
@@ -91,7 +89,7 @@ impl axum::extract::FromRequestParts<AuthlyCtx> for VerifiedAccessToken {
             .await
             .map_err(|_| (StatusCode::UNAUTHORIZED, "no access token"))?;
 
-        let claims = verify_access_token(authorization.token(), &ctx.tls_params)
+        let claims = verify_access_token(authorization.token(), &ctx.instance)
             .map_err(|_| (StatusCode::UNAUTHORIZED, "invalid access token"))?;
 
         Ok(Self { claims })

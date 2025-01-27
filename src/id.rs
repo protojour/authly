@@ -30,12 +30,10 @@ pub enum BuiltinID {
     /// The kubernetes service account name property.
     /// The value format is `{namespace}/{account_name}`.
     PropK8sServiceAccount = 11,
-    /// The local CA property
-    PropLocalCA = 12,
-    /// The local identity property
-    PropTlsIdentity = 13,
+    /// The Authly instance property
+    PropAuthlyInstance = 12,
     /// A user role for granting mandates to authority
-    AttrAuthlyRoleGrantMandate = 14,
+    AttrAuthlyRoleGrantMandate = 13,
 }
 
 impl BuiltinID {
@@ -65,8 +63,7 @@ impl BuiltinID {
             Self::PropPasswordHash => None,
             Self::PropLabel => None,
             Self::PropK8sServiceAccount => None,
-            Self::PropLocalCA => None,
-            Self::PropTlsIdentity => None,
+            Self::PropAuthlyInstance => None,
             Self::AttrAuthlyRoleGrantMandate => Some("grant_mandate"),
         }
     }
@@ -87,8 +84,7 @@ impl BuiltinID {
             Self::PropPasswordHash => true,
             Self::PropLabel => false,
             Self::PropK8sServiceAccount => true,
-            Self::PropLocalCA => true,
-            Self::PropTlsIdentity => true,
+            Self::PropAuthlyInstance => true,
         }
     }
 
