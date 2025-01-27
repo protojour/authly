@@ -6,12 +6,12 @@ use authly::{
     db::{
         document_db,
         service_db::{self, ServicePropertyKind},
-        sqlite::sqlite_txn,
     },
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     encryption::DecryptedDeks,
 };
 use authly_common::{document::Document, id::Eid, service::PropertyMapping};
+use authly_db::sqlite_txn;
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},

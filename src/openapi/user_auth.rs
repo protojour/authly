@@ -1,5 +1,6 @@
 use argon2::Argon2;
 use authly_common::mtls_server::PeerServiceEntity;
+use authly_db::DbError;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,7 @@ use crate::{
     access_control::{authorize_peer_service, SvcAccessControlError},
     db::{
         entity_db::{self, EntityPasswordHash},
-        session_db, DbError,
+        session_db,
     },
     id::BuiltinID,
     session::{new_session_cookie, Session, SessionToken, SESSION_TTL},

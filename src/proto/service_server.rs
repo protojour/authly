@@ -25,6 +25,7 @@ use crate::{
         service_db::{self, find_service_label_by_eid, ServicePropertyKind},
     },
     id::BuiltinID,
+    proto::grpc_db_err,
     session::{authenticate_session_cookie, find_session_cookie, Session},
     AuthlyCtx,
 };
@@ -53,7 +54,8 @@ impl AuthlyService for AuthlyServiceServerImpl {
     ) -> tonic::Result<Response<proto::ServiceMetadata>> {
         let peer_svc = svc_mtls_auth(request.extensions(), &[], &self.ctx).await?;
         let label = find_service_label_by_eid(&self.ctx, peer_svc.eid)
-            .await?
+            .await
+            .map_err(grpc_db_err)?
             .ok_or_else(|| tonic::Status::internal("no service label"))?;
 
         Ok(Response::new(proto::ServiceMetadata {
@@ -81,7 +83,9 @@ impl AuthlyService for AuthlyServiceServerImpl {
                     .await
                     .map_err(tonic::Status::unauthenticated)?;
 
-                let user_attrs = entity_db::list_entity_attrs(&self.ctx, session.eid).await?;
+                let user_attrs = entity_db::list_entity_attrs(&self.ctx, session.eid)
+                    .await
+                    .map_err(grpc_db_err)?;
 
                 let token =
                     access_token::create_access_token(&session, user_attrs, &self.ctx.instance)
@@ -113,7 +117,8 @@ impl AuthlyService for AuthlyServiceServerImpl {
             peer_svc_eid,
             ServicePropertyKind::Resource,
         )
-        .await?;
+        .await
+        .map_err(grpc_db_err)?;
 
         let response = proto::PropertyMappingsResponse {
             properties: resource_property_mapping
@@ -177,7 +182,8 @@ impl AuthlyService for AuthlyServiceServerImpl {
                 subject_entity_id,
                 ServicePropertyKind::Entity,
             )
-            .await?;
+            .await
+            .map_err(grpc_db_err)?;
 
             for (_, attributes) in subject_entity_property_mapping {
                 for (_, attribute) in attributes {
@@ -187,7 +193,9 @@ impl AuthlyService for AuthlyServiceServerImpl {
         }
 
         // TODO: Should definitely cache service policy engine in memory
-        let policy_engine = service_db::load_policy_engine(&self.ctx, peer_svc_eid).await?;
+        let policy_engine = service_db::load_policy_engine(&self.ctx, peer_svc_eid)
+            .await
+            .map_err(grpc_db_err)?;
 
         let outcome = match policy_engine.eval(&params) {
             Ok(outcome) => {

@@ -1,12 +1,11 @@
 use authly_common::id::Eid;
+use authly_db::{param::AsParam, Db, DbError, Row};
 use hiqlite::{params, Param};
 use indoc::indoc;
 use thiserror::Error;
 use time::OffsetDateTime;
 
 use crate::{audit::Actor, authority_mandate::submission::SUBMISSION_CODE_EXPIRATION};
-
-use super::{AsParam, Db, DbError, Row};
 
 #[derive(Error, Debug)]
 pub enum AmError {

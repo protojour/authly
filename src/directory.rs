@@ -1,12 +1,13 @@
 use std::fs;
 
 use authly_common::id::Eid;
+use authly_db::DbError;
 use tracing::error;
 
 use crate::{
     broadcast::{BroadcastError, BroadcastMsgKind},
     cert::{client_cert, CertificateParamsExt},
-    db::{document_db, DbError},
+    db::document_db,
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
 };

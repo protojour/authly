@@ -12,9 +12,10 @@ use authly::{
         MandateSubmissionData,
     },
     ctx::{GetDb, GetInstance},
-    db::{cryptography_db::load_authly_instance, sqlite::sqlite_txn, IsLeaderDb},
+    db::cryptography_db::load_authly_instance,
 };
 use authly_common::id::Eid;
+use authly_db::{sqlite_txn, IsLeaderDb};
 use rcgen::CertificateSigningRequestParams;
 use test_log::test;
 use tracing::info;

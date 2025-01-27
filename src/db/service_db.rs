@@ -5,6 +5,7 @@ use authly_common::{
     policy::{code::to_bytecode, engine::PolicyEngine},
     service::PropertyMapping,
 };
+use authly_db::{literal::Literal, param::AsParam, Db, DbError, DbResult, Row};
 use hiqlite::{params, Param};
 use indoc::indoc;
 use serde::{Deserialize, Serialize};
@@ -18,8 +19,6 @@ use crate::{
     },
     Eid,
 };
-
-use super::{AsParam, Db, DbError, DbResult, Literal, Row};
 
 #[derive(Debug)]
 pub struct ServiceProperty {

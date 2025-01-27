@@ -5,6 +5,8 @@ use std::{borrow::Cow, collections::HashMap, str::FromStr, time::Duration};
 use aes_gcm_siv::aead::Aead;
 use anyhow::{anyhow, Context};
 use authly_common::id::{Eid, ObjId};
+use authly_db::IsLeaderDb;
+use authly_db::{param::AsParam, Db, DbError, Row};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
@@ -20,8 +22,6 @@ use crate::{
     tls::{AuthlyCert, AuthlyCertKind},
     AuthlyInstance,
 };
-
-use super::{AsParam, Db, DbError, IsLeaderDb, Row};
 
 #[derive(Error, Debug)]
 pub enum CrDbError {

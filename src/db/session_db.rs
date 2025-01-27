@@ -1,8 +1,7 @@
+use authly_db::{param::AsParam, Db, DbResult, Row};
 use hiqlite::{params, Param};
 
 use crate::session::{Session, SessionToken};
-
-use super::{AsParam, Db, DbResult, Row};
 
 pub async fn store_session(deps: &impl Db, session: &Session) -> DbResult<()> {
     deps.execute(

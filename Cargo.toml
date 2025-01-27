@@ -27,6 +27,7 @@ authly-common = { workspace = true, features = [
     "tonic_server",
 ] }
 authly-connect = { path = "lib/authly-connect" }
+authly-db = { path = "lib/authly-db" }
 
 aes-gcm-siv = "0.11"
 anyhow = "1"
@@ -42,11 +43,7 @@ futures-util = "0.3"
 fnv = "1"
 hex = { version = "0.4", features = ["serde"] }
 hexhex = "1"
-hiqlite = { version = "0.5", default-features = false, features = [
-    "auto-heal",
-    "listen_notify_local",
-    "sqlite",
-] }
+hiqlite.workspace = true
 http = "1"
 indoc = "2"
 int-enum = "1"
@@ -117,6 +114,7 @@ harness = false
 members = [
     "crates/authly-testservice",
     "lib/authly-connect",
+    "lib/authly-db",
     "lib/authly-test-grpc",
 ]
 resolver = "2"
@@ -133,4 +131,9 @@ publish = false
 [workspace.dependencies]
 authly-common = { git = "https://github.com/protojour/authly-lib.git" }
 authly-client = { git = "https://github.com/protojour/authly-lib.git" }
+hiqlite = { version = "0.5", default-features = false, features = [
+    "auto-heal",
+    "listen_notify_local",
+    "sqlite",
+] }
 tower-server = "0.3"

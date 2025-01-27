@@ -1,0 +1,22 @@
+[package]
+name = "authly-db"
+description = "Authly database abstraction library, traits working for hiqlite and sqlite"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+authly-common.workspace = true
+hexhex = "1"
+hiqlite.workspace = true
+rusqlite = "0.33"
+thiserror = "2"
+time = "0.3"
+tracing = "0.1"

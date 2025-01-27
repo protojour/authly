@@ -5,20 +5,14 @@ use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
+use authly_db::DbError;
 use mandate_submission::AuthlyMandateSubmissionServerImpl;
 use tracing::warn;
 
-use crate::{db::DbError, tls, AuthlyCtx};
+use crate::{tls, AuthlyCtx};
 
 pub mod mandate_submission;
 pub mod service_server;
-
-impl From<DbError> for tonic::Status {
-    fn from(err: DbError) -> Self {
-        warn!(?err, "gRPC db error");
-        tonic::Status::internal("db error")
-    }
-}
 
 // gRPC entry point
 pub(crate) fn main_service_grpc_router(ctx: AuthlyCtx) -> anyhow::Result<axum::Router> {
@@ -43,4 +37,9 @@ pub(crate) fn main_service_grpc_router(ctx: AuthlyCtx) -> anyhow::Result<axum::R
             cancel: ctx.shutdown.clone(),
         }))
         .into_axum_router())
+}
+
+fn grpc_db_err(err: DbError) -> tonic::Status {
+    warn!(?err, "gRPC DbError");
+    tonic::Status::internal("internal error")
 }

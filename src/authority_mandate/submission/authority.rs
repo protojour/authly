@@ -2,6 +2,7 @@
 
 use anyhow::anyhow;
 use authly_common::id::Eid;
+use authly_db::Db;
 use rand::{rngs::OsRng, Rng};
 use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
@@ -10,7 +11,7 @@ use crate::{
     audit::Actor,
     cert::authly_ca,
     ctx::GetInstance,
-    db::{authority_mandate_db, Db},
+    db::authority_mandate_db,
     serde_util::Hex,
     tls::{AuthlyCert, AuthlyCertKind},
 };

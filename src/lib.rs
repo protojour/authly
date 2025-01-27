@@ -6,8 +6,9 @@ use std::{
 
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
+use authly_db::IsLeaderDb;
 use axum::{response::IntoResponse, Json};
-use db::{cryptography_db, settings_db, IsLeaderDb};
+use db::{cryptography_db, settings_db};
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;

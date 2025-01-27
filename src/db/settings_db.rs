@@ -1,11 +1,10 @@
 use std::borrow::Cow;
 
 use authly_common::id::Eid;
+use authly_db::{Db, DbResult, Row};
 use hiqlite::params;
 
 use crate::settings::{Setting, Settings};
-
-use super::{Db, DbResult, Row};
 
 struct LocalSetting {
     #[expect(unused)]

@@ -317,6 +317,7 @@ dependencies = [
  "authly-client",
  "authly-common",
  "authly-connect",
+ "authly-db",
  "authly-test-grpc",
  "axum 0.7.9",
  "axum-extra",
@@ -447,6 +448,19 @@ dependencies = [
  "tower 0.4.13",
  "tower 0.5.2",
  "tower-server",
+ "tracing",
+]
+
+[[package]]
+name = "authly-db"
+version = "0.0.0"
+dependencies = [
+ "authly-common",
+ "hexhex",
+ "hiqlite",
+ "rusqlite",
+ "thiserror 2.0.11",
+ "time",
  "tracing",
 ]
 

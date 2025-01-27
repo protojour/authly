@@ -8,13 +8,13 @@ use authly_common::{
     id::{Eid, ObjId},
     property::QualifiedAttributeName,
 };
+use authly_db::Db;
 use serde::de::value::StrDeserializer;
 use serde::Deserialize;
 use serde_spanned::Spanned;
 use tracing::debug;
 
 use crate::db::service_db;
-use crate::db::Db;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, EntityIdent, EntityTextAttr,
 };

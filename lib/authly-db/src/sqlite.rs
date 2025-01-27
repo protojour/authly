@@ -10,7 +10,7 @@ use rusqlite::{
     Column, ParamsFromIter,
 };
 
-use super::{Db, DbError, Row};
+use crate::{Db, DbError, Row};
 
 impl Db for RwLock<rusqlite::Connection> {
     type Row<'a> = RusqliteRow;

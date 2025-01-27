@@ -1,11 +1,8 @@
 use authly_common::id::{Eid, ObjId};
+use authly_db::DbError;
 use fnv::FnvHashSet;
 
-use crate::{
-    db::{entity_db, DbError},
-    id::BuiltinID,
-    AuthlyCtx,
-};
+use crate::{db::entity_db, id::BuiltinID, AuthlyCtx};
 
 pub enum SvcAccessControlError {
     Denied,

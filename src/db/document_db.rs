@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use aes_gcm_siv::aead::Aead;
 use authly_common::id::Eid;
+use authly_db::{literal::Literal, param::AsParam, Db, DbResult, Row};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use itertools::Itertools;
@@ -11,8 +12,6 @@ use crate::{
     document::compiled_document::CompiledDocument,
     encryption::{random_nonce, DecryptedDeks},
 };
-
-use super::{AsParam, Db, DbResult, Literal, Row};
 
 pub struct DocumentDirectory {
     pub did: Eid,

@@ -1,12 +1,11 @@
 use argon2::{password_hash::SaltString, Argon2};
 use authly_common::id::{Eid, ObjId};
+use authly_db::{param::AsParam, Db, DbResult, Row};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 use indoc::indoc;
 
 use crate::id::BuiltinID;
-
-use super::{AsParam, Db, DbResult, Row};
 
 pub struct EntityPasswordHash {
     pub eid: Eid,
