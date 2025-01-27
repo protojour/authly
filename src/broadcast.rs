@@ -16,17 +16,17 @@ pub struct BroadcastMsg {
 /// The message bus is a broadcast bus and every message will be sent to all nodes in the cluster.
 #[derive(Serialize, Deserialize)]
 pub enum BroadcastMsgKind {
-    /// An authority caused a change to the database.
-    /// It can also mean the authority was added or removed.
-    AuthorityChanged {
-        /// The authority ID that changed
-        aid: Eid,
+    /// An directory caused a change to the database.
+    /// It can also mean the directory was added or removed.
+    DirectoryChanged {
+        /// The directory ID that changed
+        did: Eid,
     },
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct BroadcastMeta {
-    /// The last db log index observed after the authority changed
+    /// The last db log index observed after the directory changed
     pub last_log_index: Option<u64>,
 }
 
@@ -87,18 +87,18 @@ async fn message_handler(ctx: AuthlyCtx) {
 
 async fn handle_msg(BroadcastMsg { kind, meta }: BroadcastMsg, ctx: &AuthlyCtx) {
     match kind {
-        BroadcastMsgKind::AuthorityChanged { aid } => {
+        BroadcastMsgKind::DirectoryChanged { did } => {
             let metrics = ctx.metrics_db().await;
 
             if meta.last_log_index > metrics.last_log_index {
                 error!(
-                    ?aid,
+                    ?did,
                     ?metrics,
                     ?meta.last_log_index,
-                    "FIXME: received authority changed before log was written: Put into local queue"
+                    "FIXME: received directory changed before log was written: Put into local queue"
                 );
             } else {
-                info!(?aid, ?meta.last_log_index, "authority changed");
+                info!(?did, ?meta.last_log_index, "directory changed");
             }
         }
     }

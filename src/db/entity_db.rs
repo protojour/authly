@@ -25,7 +25,7 @@ pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<
         .collect())
 }
 
-pub async fn find_local_authority_entity_password_hash_by_entity_ident(
+pub async fn find_local_directory_entity_password_hash_by_entity_ident(
     deps: &impl Db,
     ident_prop_id: ObjId,
     ident_fingerprint: &[u8],
@@ -66,7 +66,7 @@ pub async fn find_local_authority_entity_password_hash_by_entity_ident(
 #[expect(unused)]
 pub async fn try_insert_entity_credentials(
     deps: &impl Db,
-    aid: Eid,
+    did: Eid,
     eid: Eid,
     ident: String,
     secret: String,
@@ -83,8 +83,8 @@ pub async fn try_insert_entity_credentials(
 
     deps
         .execute(
-            "INSERT INTO entity_password (aid, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3".into(),
-            params!(aid.as_param(), eid.as_param(), secret_hash),
+            "INSERT INTO entity_password (did, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3".into(),
+            params!(did.as_param(), eid.as_param(), secret_hash),
         )
         .await?;
 

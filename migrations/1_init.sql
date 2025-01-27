@@ -29,16 +29,16 @@ CREATE TABLE tls_cert (
     der BLOB NOT NULL
 );
 
--- Any kind of authority, including other Authly Authorities
-CREATE TABLE authority (
-    aid BLOB NOT NULL PRIMARY KEY,
+-- Any kind of directory, including other Authly Authorities
+CREATE TABLE directory (
+    did BLOB NOT NULL PRIMARY KEY,
     kind TEXT NOT NULL,
     url TEXT,
     hash BLOB
 );
 
 CREATE TABLE local_setting (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     setting INTEGER NOT NULL,
     value TEXT NOT NULL
 );
@@ -50,7 +50,7 @@ CREATE TABLE session (
 );
 
 CREATE TABLE ent_attr (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     eid BLOB NOT NULL,
     attrid BLOB NOT NULL,
 
@@ -58,7 +58,7 @@ CREATE TABLE ent_attr (
 );
 
 CREATE TABLE ent_text_attr (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     eid BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     value TEXT NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE ent_text_attr (
 );
 
 CREATE TABLE ent_ident (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     eid BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     fingerprint BLOB NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE ent_ident (
 );
 
 CREATE TABLE ent_rel (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     rel_id BLOB NOT NULL,
     subject_eid BLOB NOT NULL,
     object_eid BLOB NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE ent_rel (
 );
 
 CREATE TABLE svc_ent_prop (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     svc_eid BLOB NOT NULL,
     label TEXT NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE svc_ent_prop (
 );
 
 CREATE TABLE svc_ent_attrlabel (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     id BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     label TEXT NOT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE svc_ent_attrlabel (
 );
 
 CREATE TABLE svc_res_prop (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     svc_eid BLOB NOT NULL,
     label TEXT NOT NULL,
@@ -115,7 +115,7 @@ CREATE TABLE svc_res_prop (
 );
 
 CREATE TABLE svc_res_attrlabel (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     prop_id BLOB NOT NULL,
     label TEXT NOT NULL,
@@ -124,7 +124,7 @@ CREATE TABLE svc_res_attrlabel (
 );
 
 CREATE TABLE svc_policy (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     svc_eid BLOB NOT NULL,
     label TEXT NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE svc_policy (
 );
 
 CREATE TABLE svc_policy_binding (
-    aid BLOB NOT NULL,
+    did BLOB NOT NULL,
     svc_eid BLOB NOT NULL,
     attr_matcher_pc BLOB NOT NULL,
     policy_ids_pc BLOB NOT NULL

@@ -108,7 +108,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
 
 pub async fn list_service_properties(
     deps: &impl Db,
-    aid: Eid,
+    did: Eid,
     svc_eid: Eid,
     property_kind: ServicePropertyKind,
 ) -> DbResult<Vec<ServiceProperty>> {
@@ -120,11 +120,11 @@ pub async fn list_service_properties(
                         SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
                         FROM svc_ent_prop p
                         JOIN svc_ent_attrlabel a ON a.prop_id = p.id
-                        WHERE p.aid = $1 AND p.svc_eid = $2
+                        WHERE p.did = $1 AND p.svc_eid = $2
                         ",
                 }
                 .into(),
-                params!(aid.as_param(), svc_eid.as_param()),
+                params!(did.as_param(), svc_eid.as_param()),
             )
             .await?
         }
@@ -135,11 +135,11 @@ pub async fn list_service_properties(
                         SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
                         FROM svc_res_prop p
                         JOIN svc_res_attrlabel a ON a.prop_id = p.id
-                        WHERE p.aid = $1 AND p.svc_eid = $2
+                        WHERE p.did = $1 AND p.svc_eid = $2
                         ",
                 }
                 .into(),
-                params!(aid.as_param(), svc_eid.as_param()),
+                params!(did.as_param(), svc_eid.as_param()),
             )
             .await?
         }
@@ -219,13 +219,13 @@ pub async fn get_service_property_mapping(
 
 pub async fn list_service_policies(
     deps: &impl Db,
-    aid: Eid,
+    did: Eid,
     svc_eid: Eid,
 ) -> DbResult<Vec<ServicePolicy>> {
     let rows = deps
         .query_raw(
-            "SELECT id, label, policy_pc FROM svc_policy WHERE aid = $1 AND svc_eid = $2".into(),
-            params!(aid.as_param(), svc_eid.as_param()),
+            "SELECT id, label, policy_pc FROM svc_policy WHERE did = $1 AND svc_eid = $2".into(),
+            params!(did.as_param(), svc_eid.as_param()),
         )
         .await?;
 

@@ -81,7 +81,7 @@ pub async fn authenticate(
 
     // BUG: figure this out:
     let _mfa_needed = false;
-    // TODO: authority selection?
+    // TODO: directory selection?
 
     let (ehash, secret) = match body {
         AuthenticateRequest::User { username, password } => {
@@ -94,7 +94,7 @@ pub async fn authenticate(
                 dek.fingerprint(username.as_bytes())
             };
 
-            let ehash = entity_db::find_local_authority_entity_password_hash_by_entity_ident(
+            let ehash = entity_db::find_local_directory_entity_password_hash_by_entity_ident(
                 &ctx,
                 BuiltinID::PropUsername.to_obj_id(),
                 &ident_fingerprint,

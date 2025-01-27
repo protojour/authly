@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(thiserror::Error, Debug)]
-pub enum AuthorityError {
+pub enum DirectoryError {
     #[error("db error: {0}")]
     Db(#[from] DbError),
 
@@ -23,12 +23,12 @@ pub enum AuthorityError {
     Broadcast(#[from] BroadcastError),
 }
 
-/// Apply (write or overwrite) a document authority, publish change message
+/// Apply (write or overwrite) a document directory, publish change message
 pub async fn apply_document(
     compiled_doc: CompiledDocument,
     ctx: &AuthlyCtx,
-) -> Result<(), AuthorityError> {
-    let aid = compiled_doc.aid;
+) -> Result<(), DirectoryError> {
+    let did = compiled_doc.did;
 
     let service_ids = compiled_doc.data.service_ids.clone();
 
@@ -37,10 +37,10 @@ pub async fn apply_document(
     ctx.hql
         .txn(
             document_db::document_txn_statements(compiled_doc, &deks)
-                .map_err(AuthorityError::Context)?,
+                .map_err(DirectoryError::Context)?,
         )
         .await
-        .map_err(|err| AuthorityError::Db(err.into()))?;
+        .map_err(|err| DirectoryError::Db(err.into()))?;
 
     if ctx.export_tls_to_etc {
         for svc_eid in service_ids {
@@ -50,7 +50,7 @@ pub async fn apply_document(
         }
     }
 
-    ctx.send_broadcast(BroadcastMsgKind::AuthorityChanged { aid })
+    ctx.send_broadcast(BroadcastMsgKind::DirectoryChanged { did })
         .await?;
 
     Ok(())

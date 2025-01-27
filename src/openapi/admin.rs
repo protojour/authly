@@ -15,8 +15,8 @@ use crate::{
     access_control::{self, authorize_peer_service, VerifyAuthlyRole},
     access_token::VerifiedAccessToken,
     audit::Actor,
-    authority,
     authority_mandate::submission,
+    directory,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     AuthlyCtx,
 };
@@ -85,7 +85,7 @@ pub async fn post_document(
         .await
         .map_err(|_| (StatusCode::UNPROCESSABLE_ENTITY, "invalid document").into_response())?;
 
-    authority::apply_document(compiled_doc, &ctx)
+    directory::apply_document(compiled_doc, &ctx)
         .await
         .map_err(|_| {
             (

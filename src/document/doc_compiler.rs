@@ -48,8 +48,8 @@ impl Namespace {
 }
 
 struct CompileCtx {
-    /// Authority ID
-    aid: Eid,
+    /// Directory ID
+    did: Eid,
 
     namespace: Namespace,
 
@@ -79,7 +79,7 @@ pub async fn compile_doc(
     db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
-        aid: Eid::from_uint(doc.authly_document.id.get_ref().as_u128()),
+        did: Eid::from_uint(doc.authly_document.id.get_ref().as_u128()),
         namespace: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
@@ -205,7 +205,7 @@ pub async fn compile_doc(
         Err(comp.errors.errors)
     } else {
         Ok(CompiledDocument {
-            aid: comp.aid,
+            did: comp.did,
             meta,
             data,
         })
@@ -663,7 +663,7 @@ impl CompileCtx {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
                 let db_props =
-                    match service_db::list_service_properties(db, self.aid, svc_eid, property_kind)
+                    match service_db::list_service_properties(db, self.did, svc_eid, property_kind)
                         .await
                     {
                         Ok(db_props) => db_props,
@@ -688,7 +688,7 @@ impl CompileCtx {
         match cache.entry(svc_eid) {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
-                let db_props = match service_db::list_service_policies(db, self.aid, svc_eid).await
+                let db_props = match service_db::list_service_policies(db, self.did, svc_eid).await
                 {
                     Ok(db_props) => db_props,
                     Err(e) => {

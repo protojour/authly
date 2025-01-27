@@ -9,7 +9,7 @@ use super::{Db, DbResult, Row};
 
 struct LocalSetting {
     #[expect(unused)]
-    aid: Eid,
+    did: Eid,
     setting: Setting,
     value: String,
 }
@@ -17,7 +17,7 @@ struct LocalSetting {
 pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
     let setting_list: Vec<_> = deps
         .query_raw(
-            "SELECT aid, setting, value FROM local_setting".into(),
+            "SELECT did, setting, value FROM local_setting".into(),
             params!(),
         )
         .await?
@@ -30,7 +30,7 @@ pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
             };
 
             Some(LocalSetting {
-                aid: row.get_id("aid"),
+                did: row.get_id("did"),
                 setting,
                 value: row.get_text("value"),
             })
@@ -40,8 +40,8 @@ pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
     let mut settings = Settings::default();
 
     for LocalSetting {
-        // TODO: Sort settings based on authority importance:
-        aid: _,
+        // TODO: Sort settings based on directory importance:
+        did: _,
         setting,
         value,
     } in setting_list

@@ -5,8 +5,8 @@ use authly_common::{document::Document, id::Eid};
 use tracing::info;
 
 use crate::{
-    authority,
-    db::document_db::{self, DocumentAuthority},
+    db::document_db::{self, DocumentDirectory},
+    directory,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     AuthlyCtx, EnvConfig,
 };
@@ -51,9 +51,9 @@ pub(crate) async fn load_cfg_documents(
                 },
             };
 
-            let aid = Eid::from_uint(document.authly_document.id.get_ref().as_u128());
+            let did = Eid::from_uint(document.authly_document.id.get_ref().as_u128());
 
-            if should_process(aid, &meta, &doc_authorities) {
+            if should_process(did, &meta, &doc_authorities) {
                 info!(?path, "load");
 
                 let compiled_doc = match compile_doc(document, meta, ctx).await {
@@ -66,7 +66,7 @@ pub(crate) async fn load_cfg_documents(
                     }
                 };
 
-                authority::apply_document(compiled_doc, ctx).await?;
+                directory::apply_document(compiled_doc, ctx).await?;
             } else {
                 info!(?path, "unchanged");
             }
@@ -76,9 +76,9 @@ pub(crate) async fn load_cfg_documents(
     Ok(())
 }
 
-fn should_process(aid: Eid, meta: &DocumentMeta, doc_authorities: &[DocumentAuthority]) -> bool {
+fn should_process(did: Eid, meta: &DocumentMeta, doc_authorities: &[DocumentDirectory]) -> bool {
     for auth in doc_authorities {
-        if auth.aid != aid {
+        if auth.did != did {
             continue;
         }
 

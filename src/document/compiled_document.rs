@@ -29,8 +29,8 @@ pub enum CompileError {
 
 #[derive(Debug)]
 pub struct CompiledDocument {
-    /// authority ID
-    pub aid: Eid,
+    /// directory ID
+    pub did: Eid,
     pub meta: DocumentMeta,
     pub data: CompiledDocumentData,
 }
