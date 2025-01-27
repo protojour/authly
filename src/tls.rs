@@ -16,6 +16,7 @@ use crate::cert::{server_cert, CertificateParamsExt};
 use crate::settings::Settings;
 use crate::AuthlyInstance;
 
+#[derive(Clone, Debug)]
 pub struct AuthlyCert {
     pub kind: AuthlyCertKind,
     pub certifies: Eid,
@@ -33,7 +34,7 @@ impl AuthlyCert {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum AuthlyCertKind {
     Ca,
     Identity,

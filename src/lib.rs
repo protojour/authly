@@ -7,7 +7,7 @@ use std::{
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use axum::{response::IntoResponse, Json};
-use db::{cryptography_db, settings_db};
+use db::{cryptography_db, settings_db, IsLeaderDb};
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
@@ -188,8 +188,12 @@ async fn initialize() -> anyhow::Result<Init> {
         err
     })?;
 
-    let deks = encryption::load_decrypted_deks(&hql, hql.is_leader_db().await, &env_config).await?;
-    let instance = cryptography_db::load_authly_instance(&hql, &deks).await?;
+    let deks =
+        encryption::load_decrypted_deks(&hql, IsLeaderDb(hql.is_leader_db().await), &env_config)
+            .await?;
+    let instance =
+        cryptography_db::load_authly_instance(IsLeaderDb(hql.is_leader_db().await), &hql, &deks)
+            .await?;
 
     let ctx = AuthlyCtx {
         hql,

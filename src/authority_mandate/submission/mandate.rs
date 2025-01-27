@@ -1,11 +1,17 @@
 //! Submission, mandate side
 
+use std::borrow::Cow;
+
 use authly_common::id::Eid;
+use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 
-use crate::ctx::GetInstance;
+use crate::{
+    ctx::GetInstance,
+    db::{cryptography_db::save_tls_cert_sql, AsParam},
+};
 
-use super::SubmissionClaims;
+use super::{MandateSubmissionData, SubmissionClaims};
 
 /// unverified decode of submission token, mandate side
 pub fn mandate_decode_submission_token(
@@ -50,4 +56,28 @@ pub fn mandate_identity_signing_request(
     };
 
     Ok(params.serialize_request(deps.get_instance().private_key())?)
+}
+
+pub fn mandate_fulfill_submission_txn_statements(
+    data: MandateSubmissionData,
+) -> anyhow::Result<Vec<(Cow<'static, str>, Params)>> {
+    let mut stmts: Vec<(Cow<'static, str>, Params)> = vec![];
+
+    stmts.push((
+        "UPDATE authly_instance SET eid = $1".into(),
+        params!(data.certified_mandate.mandate_eid.as_param()),
+    ));
+
+    // Remove all TLS certs
+    stmts.push(("DELETE FROM tls_cert".into(), params!()));
+
+    // Repopulate TLS certs
+    for authly_cert in [data.certified_mandate.mandate_local_ca]
+        .into_iter()
+        .chain(data.upstream_ca_chain)
+    {
+        stmts.push(save_tls_cert_sql(&authly_cert));
+    }
+
+    Ok(stmts)
 }

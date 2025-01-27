@@ -1,11 +1,11 @@
 //! cryptography-oriented things stored in the DB (secret information is encrypted!)
 
-use std::{collections::HashMap, str::FromStr, time::Duration};
+use std::{borrow::Cow, collections::HashMap, str::FromStr, time::Duration};
 
 use aes_gcm_siv::aead::Aead;
 use anyhow::{anyhow, Context};
 use authly_common::id::{Eid, ObjId};
-use hiqlite::{params, Client, Param};
+use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -21,7 +21,7 @@ use crate::{
     AuthlyInstance,
 };
 
-use super::{AsParam, Db, DbError, Row};
+use super::{AsParam, Db, DbError, IsLeaderDb, Row};
 
 #[derive(Error, Debug)]
 pub enum CrDbError {
@@ -114,18 +114,17 @@ pub async fn insert_cr_prop_deks(
 /// If starting up for the first time, then self-signed CA and identity is generated.
 /// These can be changed after the fact, after registering an authly authority for the first time.
 pub async fn load_authly_instance(
-    db: &Client,
+    is_leader: IsLeaderDb,
+    db: &impl Db,
     deks: &DecryptedDeks,
 ) -> Result<AuthlyInstance, CrDbError> {
-    let is_leader = db.is_leader_db().await;
-
     let authly_id = load_or_generate_authly_id(is_leader, db, deks).await?;
     let mut certs = load_certs(db).await?;
 
     let missing_certs = check_missing_certs(&authly_id, &certs);
 
     if !missing_certs.is_empty() {
-        if is_leader {
+        if is_leader.0 {
             for kind in missing_certs {
                 match kind {
                     AuthlyCertKind::Ca => {
@@ -178,14 +177,14 @@ pub async fn load_authly_instance(
 }
 
 async fn load_or_generate_authly_id(
-    is_leader: bool,
-    db: &Client,
+    is_leader: IsLeaderDb,
+    db: &impl Db,
     deks: &DecryptedDeks,
 ) -> Result<AuthlyId, CrDbError> {
     match try_load_authly_id(db, deks).await? {
         Some(authly_id) => Ok(authly_id),
         None => {
-            if is_leader {
+            if is_leader.0 {
                 let eid = Eid::random();
                 let private_key = key_pair();
 
@@ -247,10 +246,10 @@ async fn try_load_authly_id(
     }))
 }
 
-async fn save_instance(
+pub async fn save_instance(
     eid: Eid,
     private_key: &KeyPair,
-    db: &Client,
+    db: &impl Db,
     deks: &DecryptedDeks,
 ) -> Result<(), CrDbError> {
     let private_key_der = private_key.serialize_der();
@@ -271,7 +270,8 @@ async fn save_instance(
             VALUES ('self', $1, $2, $3)
             ON CONFLICT DO UPDATE SET eid = $1
             "
-        },
+        }
+        .into(),
         params!(eid.as_param(), nonce.to_vec(), key_ciph),
     )
     .await?;
@@ -329,12 +329,17 @@ fn check_missing_certs(authly_id: &AuthlyId, certs: &[AuthlyCert]) -> Vec<Authly
 }
 
 async fn save_tls_cert(cert: &AuthlyCert, db: &impl Db) -> Result<(), CrDbError> {
-    let cert_der = cert.der.to_vec();
+    let (sql, params) = save_tls_cert_sql(cert);
+    db.execute(sql, params).await?;
 
+    Ok(())
+}
+
+pub fn save_tls_cert_sql(cert: &AuthlyCert) -> (Cow<'static, str>, Params) {
+    let cert_der = cert.der.to_vec();
     let now = time::OffsetDateTime::now_utc();
     let expires = cert.params.not_after;
-
-    db.execute(
+    (
         indoc! {
             "
             INSERT INTO tls_cert (kind, certifies_eid, signed_by_eid, created_at, expires_at, der)
@@ -351,9 +356,6 @@ async fn save_tls_cert(cert: &AuthlyCert, db: &impl Db) -> Result<(), CrDbError>
             cert_der
         ),
     )
-    .await?;
-
-    Ok(())
 }
 
 impl From<hiqlite::Error> for CrDbError {

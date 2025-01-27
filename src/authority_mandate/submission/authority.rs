@@ -3,22 +3,19 @@
 use anyhow::anyhow;
 use authly_common::id::Eid;
 use rand::{rngs::OsRng, Rng};
-use rcgen::{Certificate, CertificateSigningRequestParams, DnValue, PublicKeyData};
+use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
 
 use crate::{
     audit::Actor,
+    cert::authly_ca,
     ctx::GetInstance,
     db::{authority_mandate_db, Db},
     serde_util::Hex,
+    tls::{AuthlyCert, AuthlyCertKind},
 };
 
-use super::{Authly, SubmissionClaims, SUBMISSION_CODE_EXPIRATION};
-
-pub struct CertifiedMandate {
-    pub mandate_eid: Eid,
-    pub certificate: Certificate,
-}
+use super::{Authly, CertifiedMandate, SubmissionClaims, SUBMISSION_CODE_EXPIRATION};
 
 pub async fn authority_generate_submission_code(
     deps: &impl Db,
@@ -105,9 +102,20 @@ pub async fn authority_fulfill_submission(
         }
     };
 
+    let mandate_local_ca = authly_ca()
+        .signed_by(
+            &csr_params.public_key,
+            &instance.local_ca().params,
+            instance.private_key(),
+        )
+        .map_err(|err| {
+            warn!(?err, "unable to sign mandate CA");
+            anyhow!("Certificate signing problem")
+        })?;
+
     let mandate_public_key = csr_params.public_key.der_bytes().to_vec();
 
-    let identity_certificate = csr_params
+    let mandate_identity = csr_params
         .signed_by(&instance.local_ca().params, instance.private_key())
         .map_err(|err| {
             warn!(?err, "unable to sign mandate identity");
@@ -125,6 +133,19 @@ pub async fn authority_fulfill_submission(
 
     Ok(CertifiedMandate {
         mandate_eid,
-        certificate: identity_certificate,
+        mandate_identity: AuthlyCert {
+            kind: AuthlyCertKind::Identity,
+            certifies: mandate_eid,
+            signed_by: instance.authly_eid(),
+            params: mandate_identity.params().clone(),
+            der: mandate_identity.der().clone(),
+        },
+        mandate_local_ca: AuthlyCert {
+            kind: AuthlyCertKind::Ca,
+            certifies: mandate_eid,
+            signed_by: instance.authly_eid(),
+            params: mandate_local_ca.params().clone(),
+            der: mandate_local_ca.der().clone(),
+        },
     })
 }

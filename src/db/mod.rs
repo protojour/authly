@@ -18,6 +18,9 @@ pub mod sqlite;
 
 const LOG_QUERIES: bool = false;
 
+#[derive(Clone, Copy)]
+pub struct IsLeaderDb(pub bool);
+
 #[derive(Error, Debug)]
 pub enum DbError {
     #[error("db: {0}")]

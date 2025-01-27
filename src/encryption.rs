@@ -9,10 +9,11 @@ use authly_common::id::ObjId;
 use rand::{rngs::OsRng, RngCore};
 use serde::Deserialize;
 use serde_json::json;
+use time::OffsetDateTime;
 use tracing::info;
 
 use crate::{
-    db::{cryptography_db, Db},
+    db::{cryptography_db, Db, IsLeaderDb},
     id::BuiltinID,
     serde_util::Hex,
     EnvConfig,
@@ -25,6 +26,10 @@ pub struct DecryptedDeks {
 }
 
 impl DecryptedDeks {
+    pub fn new(deks: HashMap<ObjId, AesKey>) -> Self {
+        Self { deks }
+    }
+
     pub fn get(&self, id: ObjId) -> anyhow::Result<&AesKey> {
         self.deks
             .get(&id)
@@ -38,9 +43,28 @@ pub struct MasterVersion {
     pub created_at: time::OffsetDateTime,
 }
 
-struct DecryptedMaster {
+pub struct DecryptedMaster {
     encrypted: MasterVersion,
     key: AesKey,
+}
+
+impl DecryptedMaster {
+    pub fn fake_for_test() -> Self {
+        Self {
+            encrypted: MasterVersion {
+                version: vec![],
+                created_at: OffsetDateTime::now_utc(),
+            },
+            key: {
+                let mut key = [0u8; 32];
+                OsRng.fill_bytes(key.as_mut_slice());
+
+                AesKey {
+                    key: load_key(key).unwrap(),
+                }
+            },
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -83,12 +107,12 @@ struct Output {
 
 pub async fn load_decrypted_deks(
     deps: &impl Db,
-    is_leader: bool,
+    is_leader: IsLeaderDb,
     env_config: &EnvConfig,
 ) -> anyhow::Result<DecryptedDeks> {
     let mut opt_master_version = cryptography_db::load_cr_master_version(deps).await?;
 
-    let deks = if is_leader {
+    let deks = if is_leader.0 {
         match opt_master_version {
             None => {
                 let decrypted = gen_new_master(env_config).await?;
@@ -182,10 +206,10 @@ async fn decrypt_master(
     })
 }
 
-async fn gen_prop_deks(
+pub async fn gen_prop_deks(
     deps: &impl Db,
     decrypted_master: &DecryptedMaster,
-    is_leader: bool,
+    is_leader: IsLeaderDb,
 ) -> anyhow::Result<HashMap<ObjId, AesKey>> {
     let old_encrypted_deks = cryptography_db::list_all_cr_prop_deks(deps).await?;
     let mut new_encrypted_deks: HashMap<ObjId, EncryptedDek> = Default::default();
@@ -222,7 +246,7 @@ async fn gen_prop_deks(
         decrypted_deks.insert(id.to_obj_id(), decrypted_dek);
     }
 
-    if is_leader && !new_encrypted_deks.is_empty() {
+    if is_leader.0 && !new_encrypted_deks.is_empty() {
         cryptography_db::insert_cr_prop_deks(deps, new_encrypted_deks).await?;
     }
 

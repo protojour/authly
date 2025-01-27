@@ -71,7 +71,8 @@ impl AuthlyInstance {
         &self.authly_id.private_key
     }
 
-    pub fn cert_chain(&self) -> impl Iterator<Item = &AuthlyCert> {
+    /// FIXME: sort this by following Eid pointers
+    pub fn ca_chain(&self) -> impl Iterator<Item = &AuthlyCert> {
         self.certs
             .iter()
             .filter(|cert| matches!(cert.kind, AuthlyCertKind::Ca))

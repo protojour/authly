@@ -31,12 +31,12 @@ impl GetInstance for AuthlyCtx {
 pub mod test {
     use std::sync::{Arc, RwLock};
 
-    use authly_common::id::Eid;
+    use arc_swap::ArcSwap;
 
     use crate::{
-        cert::{authly_ca, client_cert, key_pair},
-        instance::{AuthlyId, AuthlyInstance},
-        tls::{AuthlyCert, AuthlyCertKind},
+        db::{cryptography_db, IsLeaderDb},
+        encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
+        instance::AuthlyInstance,
         Migrations,
     };
 
@@ -46,6 +46,7 @@ pub mod test {
     pub struct TestCtx {
         db: Option<RwLock<rusqlite::Connection>>,
         instance: Option<Arc<AuthlyInstance>>,
+        deks: Option<Arc<ArcSwap<DecryptedDeks>>>,
     }
 
     impl TestCtx {
@@ -57,39 +58,43 @@ pub mod test {
             self
         }
 
-        pub fn supreme_instance(mut self) -> Self {
-            let authly_id = AuthlyId {
-                eid: Eid::random(),
-                private_key: key_pair(),
-            };
-            let certs = vec![
-                {
-                    let certificate = authly_ca().self_signed(&authly_id.private_key).unwrap();
-                    AuthlyCert {
-                        kind: AuthlyCertKind::Ca,
-                        certifies: authly_id.eid,
-                        signed_by: authly_id.eid,
-                        params: certificate.params().clone(),
-                        der: certificate.der().clone(),
-                    }
-                },
-                {
-                    let certificate =
-                        client_cert(&authly_id.eid.to_string(), time::Duration::days(365 * 100))
-                            .self_signed(&authly_id.private_key)
-                            .unwrap();
-                    AuthlyCert {
-                        kind: AuthlyCertKind::Identity,
-                        certifies: authly_id.eid,
-                        signed_by: authly_id.eid,
-                        params: certificate.params().clone(),
-                        der: certificate.der().clone(),
-                    }
-                },
-            ];
+        pub async fn supreme_instance(mut self) -> Self {
+            let db = self.db.unwrap();
 
-            self.instance = Some(Arc::new(AuthlyInstance::new(authly_id, certs)));
+            let decrypted_master = DecryptedMaster::fake_for_test();
+            let decrypted_deks = DecryptedDeks::new(
+                gen_prop_deks(&db, &decrypted_master, IsLeaderDb(true))
+                    .await
+                    .unwrap(),
+            );
+
+            let instance =
+                cryptography_db::load_authly_instance(IsLeaderDb(true), &db, &decrypted_deks)
+                    .await
+                    .unwrap();
+
+            self.db = Some(db);
+            self.deks = Some(Arc::new(ArcSwap::new(Arc::new(decrypted_deks))));
+            self.instance = Some(Arc::new(instance));
             self
+        }
+
+        pub async fn with_db_instance(mut self) -> Self {
+            let db = self.db.unwrap();
+
+            let decrypted_master = DecryptedMaster::fake_for_test();
+            self.deks = Some(Arc::new(ArcSwap::new(Arc::new(DecryptedDeks::new(
+                gen_prop_deks(&db, &decrypted_master, IsLeaderDb(true))
+                    .await
+                    .unwrap(),
+            )))));
+
+            self.db = Some(db);
+            self
+        }
+
+        pub fn get_decrypted_deks(&self) -> Arc<DecryptedDeks> {
+            self.deks.as_ref().unwrap().load_full()
         }
     }
 

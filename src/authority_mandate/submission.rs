@@ -1,7 +1,7 @@
 use authly_common::id::Eid;
 use serde::{Deserialize, Serialize};
 
-use crate::serde_util::Hex;
+use crate::{serde_util::Hex, tls::AuthlyCert};
 
 pub mod authority;
 pub mod mandate;
@@ -32,4 +32,15 @@ pub struct Authly {
 
     /// The entity ID handed by the authority to the mandate
     pub mandate_entity_id: Eid,
+}
+
+pub struct CertifiedMandate {
+    pub mandate_eid: Eid,
+    pub mandate_identity: AuthlyCert,
+    pub mandate_local_ca: AuthlyCert,
+}
+
+pub struct MandateSubmissionData {
+    pub certified_mandate: CertifiedMandate,
+    pub upstream_ca_chain: Vec<AuthlyCert>,
 }
