@@ -1,4 +1,7 @@
-use authly::{ctx::GetDb, db::service_db};
+use authly::{
+    ctx::{test::TestCtx, GetDb},
+    db::service_db,
+};
 use authly_common::{
     document::Document,
     id::{AnyId, Eid},
@@ -7,7 +10,7 @@ use authly_common::{
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::{compile_and_apply_doc, ServiceProperties, TestCtx};
+use crate::{compile_and_apply_doc, ServiceProperties};
 
 const SVC_A: Eid = Eid::from_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
 const SVC_B: Eid = Eid::from_array(hex_literal!("015362d6655447c6b7f44865bd111c70"));

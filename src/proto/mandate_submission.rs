@@ -42,7 +42,7 @@ impl AuthlyMandateSubmission for AuthlyMandateSubmissionServerImpl {
                 })?;
 
         Ok(tonic::Response::new(proto::SubmissionResponse {
-            authority_ca: self.ctx.tls_params.local_ca.der.to_vec(),
+            authority_ca: self.ctx.instance.local_ca().der.to_vec(),
             mandate_identity_cert_der: mandate_certificate.der().to_vec(),
         }))
     }

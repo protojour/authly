@@ -1,6 +1,6 @@
 //! cryptography-oriented things stored in the DB (secret information is encrypted!)
 
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, str::FromStr, time::Duration};
 
 use aes_gcm_siv::aead::Aead;
 use anyhow::{anyhow, Context};
@@ -10,19 +10,21 @@ use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{
-    cert::{key_pair, Cert, MakeSigningRequest},
+    cert::{authly_ca, client_cert, key_pair},
     encryption::{nonce_from_slice, random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
     id::BuiltinID,
-    TlsParams,
+    instance::AuthlyId,
+    tls::{AuthlyCert, AuthlyCertKind},
+    AuthlyInstance,
 };
 
 use super::{AsParam, Db, DbError, Row};
 
 #[derive(Error, Debug)]
-pub enum ConfigDbError {
+pub enum CrDbError {
     #[error("db error: {0}")]
     Db(#[from] DbError),
 
@@ -30,9 +32,7 @@ pub enum ConfigDbError {
     Crypto(anyhow::Error),
 }
 
-pub async fn load_cr_master_version(
-    deps: &impl Db,
-) -> Result<Option<MasterVersion>, ConfigDbError> {
+pub async fn load_cr_master_version(deps: &impl Db) -> Result<Option<MasterVersion>, CrDbError> {
     let rows = deps
         .query_raw(
             "SELECT version, created_at FROM cr_master_version".into(),
@@ -50,10 +50,7 @@ pub async fn load_cr_master_version(
     }))
 }
 
-pub async fn insert_cr_master_version(
-    deps: &impl Db,
-    ver: MasterVersion,
-) -> Result<(), ConfigDbError> {
+pub async fn insert_cr_master_version(deps: &impl Db, ver: MasterVersion) -> Result<(), CrDbError> {
     deps.execute(
         "INSERT INTO cr_master_version (version, created_at) VALUES ($1, $2)".into(),
         params!(ver.version, ver.created_at.unix_timestamp()),
@@ -65,7 +62,7 @@ pub async fn insert_cr_master_version(
 
 pub async fn list_all_cr_prop_deks(
     deps: &impl Db,
-) -> Result<HashMap<BuiltinID, EncryptedDek>, ConfigDbError> {
+) -> Result<HashMap<BuiltinID, EncryptedDek>, CrDbError> {
     let rows = deps
         .query_raw(
             "SELECT prop_id, nonce, ciph, created_at FROM cr_prop_dek".into(),
@@ -94,7 +91,7 @@ pub async fn list_all_cr_prop_deks(
 pub async fn insert_cr_prop_deks(
     deps: &impl Db,
     deks: HashMap<ObjId, EncryptedDek>,
-) -> Result<(), ConfigDbError> {
+) -> Result<(), CrDbError> {
     for (id, dek) in deks {
         deps.execute(
             "INSERT INTO cr_prop_dek (prop_id, nonce, ciph, created_at) VALUES ($1, $2, $3, $4)"
@@ -112,79 +109,97 @@ pub async fn insert_cr_prop_deks(
     Ok(())
 }
 
-/// Load initial TLS params.
+/// Load the AuthlyInstance (identity and certificates)
 ///
 /// If starting up for the first time, then self-signed CA and identity is generated.
 /// These can be changed after the fact, after registering an authly authority for the first time.
-pub async fn load_tls_params(
+pub async fn load_authly_instance(
     db: &Client,
     deks: &DecryptedDeks,
-) -> Result<TlsParams, ConfigDbError> {
+) -> Result<AuthlyInstance, CrDbError> {
     let is_leader = db.is_leader_db().await;
 
-    // Load or generate the local CA
-    let local_ca = load_or_generate_tlskey(
-        is_leader,
-        BuiltinID::PropLocalCA,
-        || key_pair().authly_ca().self_signed(),
-        db,
-        deks,
-    )
-    .await?;
+    let authly_id = load_or_generate_authly_id(is_leader, db, deks).await?;
+    let mut certs = load_certs(db).await?;
 
-    // Load or generate the self-signed identity
-    let identity = load_or_generate_tlskey(
-        is_leader,
-        BuiltinID::PropTlsIdentity,
-        || {
-            let self_eid = Eid::random();
-            local_ca.sign(
-                KeyPair::generate()
-                    .unwrap()
-                    .client_cert(&self_eid.to_string(), time::Duration::days(365 * 100)),
-            )
-        },
-        db,
-        deks,
-    )
-    .await?;
+    let missing_certs = check_missing_certs(&authly_id, &certs);
 
-    Ok(TlsParams::from_keys(local_ca, identity))
+    if !missing_certs.is_empty() {
+        if is_leader {
+            for kind in missing_certs {
+                match kind {
+                    AuthlyCertKind::Ca => {
+                        let certificate = authly_ca().self_signed(&authly_id.private_key).unwrap();
+                        let cert = AuthlyCert {
+                            kind: AuthlyCertKind::Ca,
+                            certifies: authly_id.eid,
+                            signed_by: authly_id.eid,
+                            params: certificate.params().clone(),
+                            der: certificate.der().clone(),
+                        };
+
+                        save_tls_cert(&cert, db).await?;
+                        certs.push(cert);
+                    }
+                    AuthlyCertKind::Identity => {
+                        let certificate = client_cert(
+                            &authly_id.eid.to_string(),
+                            time::Duration::days(365 * 100),
+                        )
+                        .self_signed(&authly_id.private_key)
+                        .unwrap();
+                        let cert = AuthlyCert {
+                            kind: AuthlyCertKind::Identity,
+                            certifies: authly_id.eid,
+                            signed_by: authly_id.eid,
+                            params: certificate.params().clone(),
+                            der: certificate.der().clone(),
+                        };
+
+                        save_tls_cert(&cert, db).await?;
+                        certs.push(cert);
+                    }
+                }
+            }
+        } else {
+            loop {
+                info!("waiting for leader to generate certificates");
+                tokio::time::sleep(Duration::from_secs(1)).await;
+
+                certs = load_certs(db).await?;
+                if check_missing_certs(&authly_id, &certs).is_empty() {
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(AuthlyInstance::new(authly_id, certs))
 }
 
-async fn load_or_generate_tlskey(
+async fn load_or_generate_authly_id(
     is_leader: bool,
-    property: BuiltinID,
-    generator: impl FnOnce() -> Cert<KeyPair>,
     db: &Client,
     deks: &DecryptedDeks,
-) -> Result<Cert<KeyPair>, ConfigDbError> {
-    match try_load_tlskey(property, db, deks).await? {
-        Some(cert_key) => {
-            debug!(
-                "reusing {property:?}, expires at {}",
-                cert_key.params.not_after
-            );
-            Ok(cert_key)
-        }
+) -> Result<AuthlyId, CrDbError> {
+    match try_load_authly_id(db, deks).await? {
+        Some(authly_id) => Ok(authly_id),
         None => {
             if is_leader {
-                let cert_key = generator();
+                let eid = Eid::random();
+                let private_key = key_pair();
 
-                debug!(
-                    "generating new {property:?} expiring at {}",
-                    cert_key.params.not_after
-                );
+                debug!("initializing new authly ID");
 
-                save_tlskey(&cert_key, property, db, deks).await?;
+                save_instance(eid, &private_key, db, deks).await?;
 
-                Ok(cert_key)
+                Ok(AuthlyId { eid, private_key })
             } else {
                 loop {
-                    info!("waiting for leader to generate {property:?}");
+                    info!("waiting for leader to generate Authly ID");
                     tokio::time::sleep(Duration::from_secs(1)).await;
 
-                    if let Some(local_ca) = try_load_tlskey(property, db, deks).await? {
+                    if let Some(local_ca) = try_load_authly_id(db, deks).await? {
                         return Ok(local_ca);
                     }
                 }
@@ -193,15 +208,14 @@ async fn load_or_generate_tlskey(
     }
 }
 
-async fn try_load_tlskey(
-    property: BuiltinID,
-    db: &Client,
+async fn try_load_authly_id(
+    deps: &impl Db,
     deks: &DecryptedDeks,
-) -> Result<Option<Cert<KeyPair>>, ConfigDbError> {
-    let rows = db
+) -> Result<Option<AuthlyId>, CrDbError> {
+    let rows = deps
         .query_raw(
-            "SELECT cert, key_nonce, key_ciph FROM tlskey WHERE purpose = $1",
-            params!(purpose(property)),
+            "SELECT eid, private_key_nonce, private_key_ciph FROM authly_instance".into(),
+            params!(),
         )
         .await?;
 
@@ -209,65 +223,132 @@ async fn try_load_tlskey(
         return Ok(None);
     };
 
-    let cert_der = CertificateDer::from(row.get::<Vec<u8>>("cert"));
+    let eid = row.get_id("eid");
 
     let dek = deks
-        .get(property.to_obj_id())
-        .map_err(ConfigDbError::Crypto)?;
+        .get(BuiltinID::PropAuthlyInstance.to_obj_id())
+        .map_err(CrDbError::Crypto)?;
 
-    let nonce = nonce_from_slice(&row.get::<Vec<_>>("key_nonce")).map_err(ConfigDbError::Crypto)?;
-    let private_key_ciph: Vec<u8> = row.get("key_ciph");
+    let nonce = nonce_from_slice(&row.get_blob("private_key_nonce")).map_err(CrDbError::Crypto)?;
+    let private_key_ciph = row.get_blob("private_key_ciph");
 
     let private_key_plaintext = dek
         .aes()
         .decrypt(&nonce, private_key_ciph.as_ref())
-        .context("FATAL: Encryption key has changed, unable to decrypt TLS key")
-        .map_err(ConfigDbError::Crypto)?;
+        .context("FATAL: Encryption key has changed, unable to decrypt private key")
+        .map_err(CrDbError::Crypto)?;
 
     let private_key_der = PrivateKeyDer::try_from(private_key_plaintext)
-        .map_err(|msg| ConfigDbError::Crypto(anyhow!("private key: {msg}")))?;
+        .map_err(|msg| CrDbError::Crypto(anyhow!("private key: {msg}")))?;
 
-    let cert = Cert {
-        params: CertificateParams::from_ca_cert_der(&cert_der)?,
-        der: cert_der,
-        key: KeyPair::from_der_and_sign_algo(&private_key_der, &PKCS_ECDSA_P256_SHA256)?,
-    };
-
-    Ok(Some(cert))
+    Ok(Some(AuthlyId {
+        eid,
+        private_key: KeyPair::from_der_and_sign_algo(&private_key_der, &PKCS_ECDSA_P256_SHA256)?,
+    }))
 }
 
-async fn save_tlskey(
-    cert: &Cert<KeyPair>,
-    property: BuiltinID,
+async fn save_instance(
+    eid: Eid,
+    private_key: &KeyPair,
     db: &Client,
     deks: &DecryptedDeks,
-) -> Result<(), ConfigDbError> {
-    let cert_der = cert.der.to_vec();
-    let private_key_der = cert.key.serialize_der();
+) -> Result<(), CrDbError> {
+    let private_key_der = private_key.serialize_der();
 
     let dek = deks
-        .get(property.to_obj_id())
-        .map_err(ConfigDbError::Crypto)?;
+        .get(BuiltinID::PropAuthlyInstance.to_obj_id())
+        .map_err(CrDbError::Crypto)?;
     let nonce = random_nonce();
     let key_ciph = dek
         .aes()
         .encrypt(&nonce, private_key_der.as_ref())
-        .map_err(|err| ConfigDbError::Crypto(err.into()))?;
+        .map_err(|err| CrDbError::Crypto(err.into()))?;
 
     db.execute(
         indoc! {
             "
-            INSERT INTO tlskey (purpose, expires_at, cert, key_nonce, key_ciph)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT DO UPDATE SET expires_at = $2, cert = $3, key_nonce = $4, key_ciph = $5
+            INSERT INTO authly_instance (key, eid, private_key_nonce, private_key_ciph)
+            VALUES ('self', $1, $2, $3)
+            ON CONFLICT DO UPDATE SET eid = $1
             "
         },
+        params!(eid.as_param(), nonce.to_vec(), key_ciph),
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn load_certs(db: &impl Db) -> Result<Vec<AuthlyCert>, CrDbError> {
+    let rows = db
+        .query_raw(
+            "SELECT kind, certifies_eid, signed_by_eid, der FROM tls_cert".into(),
+            params!(),
+        )
+        .await?;
+
+    let mut certs = Vec::with_capacity(rows.len());
+
+    for mut row in rows {
+        let kind = row.get_text("kind");
+        let Ok(kind) = AuthlyCertKind::from_str(&kind) else {
+            warn!("invalid cert kind: {kind:?}");
+            continue;
+        };
+        let cert_der = CertificateDer::from(row.get_blob("der"));
+
+        certs.push(AuthlyCert {
+            kind,
+            certifies: row.get_id("certifies_eid"),
+            signed_by: row.get_id("signed_by_eid"),
+            params: CertificateParams::from_ca_cert_der(&cert_der)?,
+            der: cert_der,
+        })
+    }
+
+    Ok(certs)
+}
+
+fn check_missing_certs(authly_id: &AuthlyId, certs: &[AuthlyCert]) -> Vec<AuthlyCertKind> {
+    let mut missing = vec![];
+
+    if !certs
+        .iter()
+        .any(|cert| matches!(cert.kind, AuthlyCertKind::Ca) && cert.certifies == authly_id.eid)
+    {
+        missing.push(AuthlyCertKind::Ca);
+    }
+
+    if !certs.iter().any(|cert| {
+        matches!(cert.kind, AuthlyCertKind::Identity) && cert.certifies == authly_id.eid
+    }) {
+        missing.push(AuthlyCertKind::Identity);
+    }
+
+    missing
+}
+
+async fn save_tls_cert(cert: &AuthlyCert, db: &impl Db) -> Result<(), CrDbError> {
+    let cert_der = cert.der.to_vec();
+
+    let now = time::OffsetDateTime::now_utc();
+    let expires = cert.params.not_after;
+
+    db.execute(
+        indoc! {
+            "
+            INSERT INTO tls_cert (kind, certifies_eid, signed_by_eid, created_at, expires_at, der)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "
+        }
+        .into(),
         params!(
-            purpose(property),
-            cert.params.not_after.unix_timestamp(),
-            cert_der,
-            nonce.to_vec(),
-            key_ciph
+            cert.kind.to_string(),
+            cert.certifies.as_param(),
+            cert.signed_by.as_param(),
+            now.unix_timestamp(),
+            expires.unix_timestamp(),
+            cert_der
         ),
     )
     .await?;
@@ -275,22 +356,14 @@ async fn save_tlskey(
     Ok(())
 }
 
-impl From<hiqlite::Error> for ConfigDbError {
+impl From<hiqlite::Error> for CrDbError {
     fn from(value: hiqlite::Error) -> Self {
         Self::Db(DbError::Hiqlite(value))
     }
 }
 
-impl From<rcgen::Error> for ConfigDbError {
+impl From<rcgen::Error> for CrDbError {
     fn from(value: rcgen::Error) -> Self {
         Self::Crypto(value.into())
-    }
-}
-
-fn purpose(prop_id: BuiltinID) -> &'static str {
-    match prop_id {
-        BuiltinID::PropLocalCA => "local_ca",
-        BuiltinID::PropTlsIdentity => "identity",
-        _ => panic!("invalid tlskey property"),
     }
 }

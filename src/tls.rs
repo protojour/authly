@@ -1,28 +1,78 @@
+use std::fmt::Display;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
+use authly_common::id::Eid;
 use futures_util::StreamExt;
-use rcgen::KeyPair;
+use pem::{EncodeConfig, Pem};
+use rcgen::CertificateParams;
+use rustls::pki_types::CertificateDer;
 use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertStore, ServerConfig};
 use tracing::info;
 
-use crate::TlsParams;
-use crate::{cert::MakeSigningRequest, settings::Settings};
+use crate::cert::{server_cert, CertificateParamsExt};
+use crate::settings::Settings;
+use crate::AuthlyInstance;
+
+pub struct AuthlyCert {
+    pub kind: AuthlyCertKind,
+    pub certifies: Eid,
+    pub signed_by: Eid,
+    pub params: CertificateParams,
+    pub der: CertificateDer<'static>,
+}
+
+impl AuthlyCert {
+    pub fn certificate_pem(&self) -> String {
+        pem::encode_config(
+            &Pem::new("CERTIFICATE", self.der.to_vec()),
+            EncodeConfig::new().set_line_ending(pem::LineEnding::LF),
+        )
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum AuthlyCertKind {
+    Ca,
+    Identity,
+}
+
+impl Display for AuthlyCertKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ca => write!(f, "CA"),
+            Self::Identity => write!(f, "identity"),
+        }
+    }
+}
+
+impl FromStr for AuthlyCertKind {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "CA" => Ok(Self::Ca),
+            "identity" => Ok(Self::Identity),
+            _ => Err(()),
+        }
+    }
+}
 
 pub fn init_tls_ring() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 }
 
-pub fn main_service_tls_configurer(
+pub async fn main_service_tls_configurer(
     hostname: String,
     settings: Arc<ArcSwap<Settings>>,
-    tls_params: Arc<TlsParams>,
+    instance: Arc<AuthlyInstance>,
 ) -> anyhow::Result<impl tower_server::tls::TlsConfigurer> {
     // The root cert store is currently not changing
     let root_cert_store = {
         let mut store = RootCertStore::empty();
-        store.add(tls_params.local_ca.der.clone())?;
+        store.add(instance.trust_root_ca().der.clone())?;
         Arc::new(store)
     };
 
@@ -31,7 +81,7 @@ pub fn main_service_tls_configurer(
     // The first TLS config is produced immediately
     let initial = futures_util::stream::iter([generate_mutual_tls_server_config(
         &hostname,
-        &tls_params,
+        &instance,
         settings.load().server_cert_rotation_rate,
         root_cert_store.clone(),
     )?]);
@@ -39,7 +89,7 @@ pub fn main_service_tls_configurer(
     // The following configs are produced after delay
     let rotation_stream = futures_util::stream::unfold((), move |_| {
         let hostname = hostname.clone();
-        let tls_params = tls_params.clone();
+        let instance = instance.clone();
         let root_cert_store = root_cert_store.clone();
         let settings = settings.clone();
         async move {
@@ -48,7 +98,7 @@ pub fn main_service_tls_configurer(
 
             let server_config = generate_mutual_tls_server_config(
                 &hostname,
-                &tls_params,
+                &instance,
                 settings.load().server_cert_rotation_rate,
                 root_cert_store,
             )
@@ -63,16 +113,15 @@ pub fn main_service_tls_configurer(
 
 fn generate_mutual_tls_server_config(
     hostname: &str,
-    tls_params: &TlsParams,
+    instance: &AuthlyInstance,
     rotation_rate: std::time::Duration,
     root_cert_store: Arc<RootCertStore>,
 ) -> anyhow::Result<Arc<ServerConfig>> {
     // Make the certificate valid for twice the rotation rate
     let not_after = time::Duration::try_from(rotation_rate)? * 2;
 
-    let server_cert = tls_params
-        .local_ca
-        .sign(KeyPair::generate()?.server_cert(hostname, not_after));
+    let server_cert =
+        instance.sign_with_local_ca(server_cert(hostname, not_after).with_new_key_pair());
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("server private key: {err}"))?;
@@ -87,15 +136,14 @@ fn generate_mutual_tls_server_config(
 
 pub fn generate_tls_server_config(
     hostname: &str,
-    tls_params: &TlsParams,
+    instance: &AuthlyInstance,
     rotation_rate: std::time::Duration,
 ) -> anyhow::Result<Arc<ServerConfig>> {
     // Make the certificate valid for twice the rotation rate
     let not_after = time::Duration::try_from(rotation_rate)? * 2;
 
-    let server_cert = tls_params
-        .local_ca
-        .sign(KeyPair::generate()?.server_cert(hostname, not_after));
+    let server_cert =
+        instance.sign_with_local_ca(server_cert(hostname, not_after).with_new_key_pair());
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("server private key: {err}"))?;

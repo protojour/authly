@@ -1,8 +1,8 @@
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 use authly::{
-    cert::{key_pair, Cert, MakeSigningRequest},
-    ctx::{GetDb, GetTlsParams},
+    cert::Cert,
+    ctx::{test::TestCtx, GetDb},
     db::{
         document_db,
         service_db::{self, ServicePropertyKind},
@@ -10,7 +10,6 @@ use authly::{
     },
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     encryption::DecryptedDeks,
-    TlsParams,
 };
 use authly_common::{document::Document, id::Eid, service::PropertyMapping};
 use rcgen::KeyPair;
@@ -26,69 +25,6 @@ mod test_authly_connect;
 mod test_authority_mandate;
 mod test_document;
 mod test_tls;
-
-#[derive(Default)]
-struct TestCtx {
-    db: Option<RwLock<rusqlite::Connection>>,
-    identity: Option<Eid>,
-    tls_params: Option<Arc<TlsParams>>,
-}
-
-impl TestCtx {
-    pub async fn inmemory_db(mut self) -> Self {
-        use authly::Migrations;
-
-        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
-        sqlite_migrate::<Migrations>(&mut conn).await;
-
-        self.db = Some(RwLock::new(conn));
-        self
-    }
-
-    fn gen_tls_params(mut self) -> Self {
-        let ca = key_pair().authly_ca().self_signed();
-        let eid = Eid::random();
-        let identity = ca.sign(
-            KeyPair::generate()
-                .unwrap()
-                .client_cert(&eid.to_string(), time::Duration::hours(1)),
-        );
-        self.identity = Some(eid);
-        self.tls_params = Some(Arc::new(TlsParams::from_keys(ca, identity)));
-        self
-    }
-}
-
-impl GetDb for TestCtx {
-    type Db = RwLock<rusqlite::Connection>;
-
-    #[track_caller]
-    fn get_db(&self) -> &Self::Db {
-        self.db.as_ref().expect("TestCtx has no database")
-    }
-}
-
-impl GetTlsParams for TestCtx {
-    #[track_caller]
-    fn get_tls_params(&self) -> &Arc<TlsParams> {
-        self.tls_params.as_ref().expect("TestCtx has no TlsParams")
-    }
-}
-
-async fn sqlite_migrate<T: rust_embed::RustEmbed>(conn: &mut rusqlite::Connection) {
-    let mut files: Vec<_> = T::iter().collect();
-    files.sort();
-
-    let txn = conn.transaction().unwrap();
-
-    for file in files {
-        let migration = T::get(&file).unwrap();
-        txn.execute_batch(std::str::from_utf8(&migration.data).unwrap())
-            .unwrap();
-    }
-
-    txn.commit().unwrap();
-}
 
 async fn compile_and_apply_doc(
     doc: Document,

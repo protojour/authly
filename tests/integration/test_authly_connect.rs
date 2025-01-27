@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use authly::cert::{key_pair, MakeSigningRequest};
+use authly::cert::{authly_ca, client_cert, server_cert, CertificateParamsExt};
 use authly_common::{
     mtls_server::PeerServiceEntity,
     proto::connect::{
@@ -18,7 +18,6 @@ use authly_test_grpc::{
 };
 use axum::{response::IntoResponse, Extension};
 use futures_util::{stream::BoxStream, StreamExt};
-use rcgen::KeyPair;
 use rustls::{pki_types::ServerName, RootCertStore, ServerConfig};
 use test_log::test;
 use time::Duration;
@@ -36,16 +35,11 @@ use crate::rustls_server_config_mtls;
 async fn test_connect_grpc() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let ca = key_pair().authly_ca().self_signed();
-    let tunneled_server_cert = ca.sign(
-        KeyPair::generate()
-            .unwrap()
-            .server_cert("authly-connect", Duration::hours(1)),
-    );
+    let ca = authly_ca().with_new_key_pair().self_signed();
+    let tunneled_server_cert =
+        ca.sign(server_cert("authly-connect", Duration::hours(1)).with_new_key_pair());
     let client_cert = ca.sign(
-        KeyPair::generate()
-            .unwrap()
-            .client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)),
+        client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
     let cancel = CancellationToken::new();
 
@@ -156,16 +150,11 @@ impl authly_test_grpc::test_grpc_server::TestGrpc for TestGrpcServerImpl {
 async fn test_connect_http() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let ca = key_pair().authly_ca().self_signed();
-    let tunneled_server_cert = ca.sign(
-        KeyPair::generate()
-            .unwrap()
-            .server_cert("authly-connect", Duration::hours(1)),
-    );
+    let ca = authly_ca().with_new_key_pair().self_signed();
+    let tunneled_server_cert =
+        ca.sign(server_cert("authly-connect", Duration::hours(1)).with_new_key_pair());
     let client_cert = ca.sign(
-        KeyPair::generate()
-            .unwrap()
-            .client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)),
+        client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
     let cancel = CancellationToken::new();
 

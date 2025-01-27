@@ -3,13 +3,13 @@
 use authly_common::id::Eid;
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 
-use crate::ctx::GetTlsParams;
+use crate::ctx::GetInstance;
 
 use super::SubmissionClaims;
 
 /// unverified decode of submission token, mandate side
 pub fn mandate_decode_submission_token(
-    deps: &impl GetTlsParams,
+    deps: &impl GetInstance,
     token: &str,
 ) -> anyhow::Result<SubmissionClaims> {
     let mut no_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
@@ -17,14 +17,14 @@ pub fn mandate_decode_submission_token(
 
     Ok(jsonwebtoken::decode(
         token,
-        &deps.get_tls_params().jwt_decoding_key,
+        deps.get_instance().local_jwt_decoding_key(),
         &no_validation,
     )?
     .claims)
 }
 
 pub fn mandate_identity_signing_request(
-    deps: &impl GetTlsParams,
+    deps: &impl GetInstance,
     mandate_eid: Eid,
 ) -> anyhow::Result<CertificateSigningRequest> {
     let common_name = mandate_eid.to_string();
@@ -49,5 +49,5 @@ pub fn mandate_identity_signing_request(
         params
     };
 
-    Ok(params.serialize_request(&deps.get_tls_params().local_ca.key)?)
+    Ok(params.serialize_request(deps.get_instance().private_key())?)
 }

@@ -8,7 +8,7 @@ use tracing::warn;
 
 use crate::{
     audit::Actor,
-    ctx::GetTlsParams,
+    ctx::GetInstance,
     db::{authority_mandate_db, Db},
     serde_util::Hex,
 };
@@ -33,7 +33,7 @@ pub async fn authority_generate_submission_code(
 }
 
 pub async fn authority_generate_submission_token(
-    deps: &impl GetTlsParams,
+    deps: &impl GetInstance,
     submission_code: Vec<u8>,
 ) -> anyhow::Result<String> {
     let now = time::OffsetDateTime::now_utc();
@@ -54,22 +54,26 @@ pub async fn authority_generate_submission_token(
     };
 
     let jwt_header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
-    let encoding_key =
-        jsonwebtoken::EncodingKey::from_ec_der(deps.get_tls_params().local_ca.key.serialized_der());
-
-    Ok(jsonwebtoken::encode(&jwt_header, &claims, &encoding_key)?)
+    Ok(jsonwebtoken::encode(
+        &jwt_header,
+        &claims,
+        &deps.get_instance().local_jwt_encoding_key(),
+    )?)
 }
 
 pub async fn authority_fulfill_submission(
-    deps: &(impl Db + GetTlsParams),
+    deps: &(impl Db + GetInstance),
     token: &str,
     csr_params: CertificateSigningRequestParams,
 ) -> anyhow::Result<Certificate> {
-    let tls_params = deps.get_tls_params();
+    let instance = deps.get_instance();
 
     let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
-    let token_data =
-        jsonwebtoken::decode::<SubmissionClaims>(token, &tls_params.jwt_decoding_key, &validation)?;
+    let token_data = jsonwebtoken::decode::<SubmissionClaims>(
+        token,
+        instance.local_jwt_decoding_key(),
+        &validation,
+    )?;
     let claims = token_data.claims.authly;
 
     let code_created_by = authority_mandate_db::verify_then_invalidate_submission_code(
@@ -99,7 +103,7 @@ pub async fn authority_fulfill_submission(
     let mandate_public_key = csr_params.public_key.der_bytes().to_vec();
 
     let identity_certificate = csr_params
-        .signed_by(&tls_params.local_ca.params, &tls_params.local_ca.key)
+        .signed_by(&instance.local_ca().params, instance.private_key())
         .map_err(|err| {
             warn!(?err, "unable to sign mandate identity");
             anyhow!("Certificate signing problem")

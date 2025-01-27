@@ -1,8 +1,7 @@
 use authly::{
     access_token,
-    cert::{key_pair, MakeSigningRequest},
+    ctx::{test::TestCtx, GetInstance},
     session::{Session, SessionToken},
-    TlsParams,
 };
 use authly_common::id::{Eid, ObjId};
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -10,9 +9,7 @@ use fnv::FnvHashSet;
 use time::{Duration, OffsetDateTime};
 
 pub fn authly_benchmark(c: &mut Criterion) {
-    let local_ca = key_pair().authly_ca().self_signed();
-    let identity = key_pair().authly_ca().self_signed();
-    let tls_params = TlsParams::from_keys(local_ca, identity);
+    let ctx = TestCtx::default().supreme_instance();
     let session = Session {
         token: SessionToken::new_random(),
         eid: Eid::random(),
@@ -22,8 +19,12 @@ pub fn authly_benchmark(c: &mut Criterion) {
 
     c.bench_function("generate_access_token", |b| {
         b.iter(|| {
-            access_token::create_access_token(&session, user_attributes.clone(), &tls_params)
-                .unwrap();
+            access_token::create_access_token(
+                &session,
+                user_attributes.clone(),
+                ctx.get_instance(),
+            )
+            .unwrap();
         })
     });
 }

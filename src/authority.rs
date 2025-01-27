@@ -1,12 +1,11 @@
 use std::fs;
 
 use authly_common::id::Eid;
-use rcgen::KeyPair;
 use tracing::error;
 
 use crate::{
     broadcast::{BroadcastError, BroadcastMsgKind},
-    cert::MakeSigningRequest,
+    cert::{client_cert, CertificateParamsExt},
     db::{document_db, DbError},
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
@@ -59,9 +58,10 @@ pub async fn apply_document(
 
 fn export_service_identity(svc_eid: Eid, ctx: &AuthlyCtx) -> anyhow::Result<()> {
     let pem = ctx
-        .tls_params
-        .local_ca
-        .sign(KeyPair::generate()?.client_cert(&svc_eid.to_string(), time::Duration::days(7)))
+        .instance
+        .sign_with_local_ca(
+            client_cert(&svc_eid.to_string(), time::Duration::days(7)).with_new_key_pair(),
+        )
         .certificate_and_key_pem();
 
     let path = ctx.etc_dir.join(format!("service/{svc_eid}/identity.pem"));
