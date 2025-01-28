@@ -1,15 +1,16 @@
-use std::fmt;
+use std::fmt::{self, Display};
 
 use base64::{prelude::BASE64_URL_SAFE, Engine};
+use hex::{FromHex, ToHex};
 use serde::{de::Visitor, Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Hex(
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Hex<T: FromHex<Error: Display> + ToHex + AsRef<[u8]> = Vec<u8>>(
     #[serde(
         serialize_with = "hex::serde::serialize",
         deserialize_with = "hex::serde::deserialize"
     )]
-    pub Vec<u8>,
+    pub T,
 );
 
 #[derive(Clone)]

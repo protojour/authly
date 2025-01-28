@@ -6,12 +6,20 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::util::serde::Hex;
+
 /// Configuration values always read from the environment.
 ///
 /// These values are closely tied to the platform Authly runs on,
 /// and are not runtime-configurable.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EnvConfig {
+    /// A unique identifier for this Authly instance.
+    /// It should be fairly unique, should never change, and is not particularly secret.
+    /// Global uniqueness is not required, but a form of local uniqueness is required
+    /// in closed systems running several authly instances.
+    pub id: Hex<[u8; 32]>,
+
     /// The hostname against which to generate server certificates
     pub hostname: String,
 
@@ -50,12 +58,20 @@ pub struct EnvConfig {
     pub debug_web_port: Option<u16>,
 }
 
+const NULL_ID: [u8; 32] = [0; 32];
+
 impl EnvConfig {
     pub fn load() -> Self {
-        Figment::from(Serialized::defaults(Self::default()))
+        let cfg: Self = Figment::from(Serialized::defaults(Self::default()))
             .merge(Env::prefixed("AUTHLY_"))
             .extract()
-            .unwrap()
+            .unwrap();
+
+        if cfg.id.0 == NULL_ID {
+            panic!("AUTHLY_ID not specified");
+        }
+
+        cfg
     }
 
     pub fn cluster_tls_path(&self) -> ClusterTlsPath {
@@ -66,6 +82,8 @@ impl EnvConfig {
 impl Default for EnvConfig {
     fn default() -> Self {
         Self {
+            id: Hex(NULL_ID),
+
             hostname: "authly".to_string(),
             server_port: 443,
 

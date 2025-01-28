@@ -1,3 +1,5 @@
+authly_id := "bf78d3c3bf94695c43b56540ffe23beace66ec53e35eee3f5be4c9a5cda70748"
+
 # setup docker dev environment
 dev-environment:
     docker-compose -f docker-compose.dev.yml up -d
@@ -7,11 +9,13 @@ generate-testdata:
     #!/usr/bin/env bash
     if ! test -d .local; then
         mkdir .local
+        AUTHLY_ID={{ authly_id }} \
         AUTHLY_ETC_DIR=.local/etc \
         AUTHLY_HOSTNAME=localhost \
         AUTHLY_K8S=true \
             cargo run -p authly --features dev issue-cluster-key
 
+        AUTHLY_ID={{ authly_id }} \
         AUTHLY_DOCUMENT_PATH="[examples/]" \
         AUTHLY_DATA_DIR=.local/data \
         AUTHLY_ETC_DIR=.local/etc \
@@ -23,6 +27,7 @@ debug_web_port := "12345"
 
 # run debug version on localhost. Necessary for running end-to-end tests.
 rundev: dev-environment generate-testdata
+    AUTHLY_ID={{ authly_id }} \
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_SERVER_PORT=1443 \
@@ -33,6 +38,7 @@ rundev: dev-environment generate-testdata
 
 # run release version on localhost
 runrelease: dev-environment generate-testdata
+    AUTHLY_ID={{ authly_id }} \
     AUTHLY_DOCUMENT_PATH="[examples/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_SERVER_PORT=1443 \

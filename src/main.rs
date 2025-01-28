@@ -7,6 +7,7 @@ use authly::{
     serve, EnvConfig,
 };
 use clap::{Parser, Subcommand};
+use rand::{rngs::OsRng, Rng};
 use time::Duration;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -24,6 +25,9 @@ struct Cli {
 enum Command {
     /// Run Authly in server/cluster mode
     Serve,
+
+    /// Generate a new unique AUTHLY_ID.
+    GenerateAuthlyId,
 
     /// Check if an Authly server is running at localhost
     Ready,
@@ -47,6 +51,12 @@ async fn main() -> anyhow::Result<()> {
 
     match Cli::parse().command {
         Some(Command::Serve) => serve().await?,
+        Some(Command::GenerateAuthlyId) => {
+            let mut id = [0u8; 32];
+            OsRng.fill(id.as_mut_slice());
+
+            println!("Generated Authly ID: {}", hexhex::hex(&id));
+        }
         Some(Command::Ready) => {
             reqwest::Client::new()
                 .get("http://localhost:5555/health/readiness")
