@@ -28,6 +28,7 @@ use util::protocol_router::ProtocolRouter;
 pub mod access_token;
 pub mod audit;
 pub mod authority_mandate;
+pub mod bus;
 pub mod cert;
 pub mod ctx;
 pub mod db;
@@ -37,10 +38,10 @@ pub mod env_config;
 pub mod instance;
 pub mod proto;
 pub mod session;
+pub mod test_ctx;
 pub mod tls;
 
 mod access_control;
-mod broadcast;
 mod directory;
 mod id;
 mod k8s;
@@ -107,7 +108,7 @@ pub async fn serve() -> anyhow::Result<()> {
         ctx.instance.load().trust_root_ca().certificate_pem()
     );
 
-    broadcast::spawn_global_message_handler(&ctx);
+    bus::broadcast::application::spawn_global_message_handler(&ctx);
 
     if env_config.k8s {
         k8s::k8s_manager::spawn_k8s_manager(ctx.clone()).await;

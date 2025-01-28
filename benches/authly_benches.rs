@@ -1,7 +1,8 @@
 use authly::{
     access_token,
-    ctx::{test::TestCtx, LoadInstance},
+    ctx::LoadInstance,
     session::{Session, SessionToken},
+    test_ctx::TestCtx,
 };
 use authly_common::id::{Eid, ObjId};
 use criterion::{criterion_group, criterion_main, Criterion};

@@ -2,13 +2,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use authly::{
     cert::Cert,
-    ctx::{test::TestCtx, GetDb},
+    ctx::GetDb,
     db::{
         document_db,
         service_db::{self, ServicePropertyKind},
     },
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     encryption::DecryptedDeks,
+    test_ctx::TestCtx,
 };
 use authly_common::{
     document::Document, id::Eid, proto::connect::authly_connect_server::AuthlyConnectServer,

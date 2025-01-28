@@ -1,7 +1,4 @@
-use authly::{
-    ctx::{test::TestCtx, GetDb},
-    db::service_db,
-};
+use authly::{ctx::GetDb, db::service_db, test_ctx::TestCtx};
 use authly_common::{
     document::Document,
     id::{AnyId, Eid},

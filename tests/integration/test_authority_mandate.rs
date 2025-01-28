@@ -10,13 +10,11 @@ use authly::{
         },
     },
     cert::{server_cert, CertificateParamsExt},
-    ctx::{GetDb, GetInstance},
-    db::cryptography_db::load_authly_instance,
+    ctx::GetInstance,
     proto::mandate_submission::AuthlyMandateSubmissionServerImpl,
 };
 use authly_common::id::Eid;
 use authly_connect::TunnelSecurity;
-use authly_db::IsLeaderDb;
 use itertools::Itertools;
 use rcgen::CertificateSigningRequestParams;
 use test_log::test;
@@ -132,15 +130,12 @@ async fn test_mandate_registration() {
         );
     }
 
-    // Verify
+    // Verify instance reloaded
     for (m_ctx, claim) in m_ctxs.iter().zip_eq(&claims) {
-        let deks = m_ctx.get_decrypted_deks();
-        let authly_instance = load_authly_instance(IsLeaderDb(true), m_ctx.get_db(), &deks)
-            .await
-            .unwrap();
+        let reloaded_instance = m_ctx.get_instance();
 
         let expected_eid = claim.authly.mandate_entity_id;
 
-        assert_eq!(authly_instance.authly_eid(), expected_eid);
+        assert_eq!(reloaded_instance.authly_eid(), expected_eid);
     }
 }
