@@ -321,6 +321,7 @@ dependencies = [
  "authly-test-grpc",
  "axum 0.7.9",
  "axum-extra",
+ "base64 0.22.1",
  "blake3",
  "clap",
  "cookie",

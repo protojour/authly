@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     tls::{AuthlyCert, AuthlyCertKind},
-    util::serde::Hex,
+    util::serde::UrlSafeBase64,
 };
 
 pub mod authority;
@@ -37,7 +37,7 @@ pub struct Authly {
     pub authority_url: String,
 
     /// Submission code
-    pub code: Hex,
+    pub code: UrlSafeBase64,
 
     /// The entity ID handed by the authority to the mandate
     pub mandate_entity_id: Eid,

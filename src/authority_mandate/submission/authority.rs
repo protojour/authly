@@ -12,7 +12,7 @@ use crate::{
     ctx::GetInstance,
     db::authority_mandate_db::{self, AmDbError},
     tls::{AuthlyCert, AuthlyCertKind},
-    util::serde::Hex,
+    util::serde::UrlSafeBase64,
 };
 
 use super::{Authly, CertifiedMandate, SubmissionClaims, SUBMISSION_CODE_EXPIRATION};
@@ -60,7 +60,7 @@ pub async fn authority_generate_submission_token(
         exp: expiration.unix_timestamp(),
         authly: Authly {
             authority_url: self_url,
-            code: Hex(submission_code),
+            code: UrlSafeBase64(submission_code),
             mandate_entity_id,
         },
     };
