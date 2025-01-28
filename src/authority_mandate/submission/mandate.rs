@@ -21,8 +21,8 @@ use tracing::error;
 
 use crate::{
     cert::client_cert_csr,
-    ctx::{GetDb, GetDebugSettings, GetInstance},
-    db::cryptography_db::save_tls_cert_sql,
+    ctx::{GetDb, GetDecryptedDeks, GetInstance, SetInstance},
+    db::cryptography_db,
 };
 
 use super::{MandateSubmissionData, SubmissionClaims};
@@ -52,7 +52,7 @@ pub enum MandateSubmissionError {
 /// Perform submission to authority, mandate side.
 /// Talks to Authority through Authly Connect tunnel, using the AuthlyMandateSubmission protocol.
 pub async fn mandate_execute_submission(
-    deps: &(impl GetDb + GetInstance + GetDebugSettings),
+    deps: &(impl GetDb + GetInstance + SetInstance + GetDecryptedDeks),
     token: String,
 ) -> Result<(), MandateSubmissionError> {
     // read URL from token
@@ -174,7 +174,7 @@ pub fn mandate_fulfill_submission_txn_statements(
         .into_iter()
         .chain(data.upstream_ca_chain)
     {
-        stmts.push(save_tls_cert_sql(&authly_cert));
+        stmts.push(cryptography_db::save_tls_cert_sql(&authly_cert));
     }
 
     stmts

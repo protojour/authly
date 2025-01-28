@@ -9,7 +9,7 @@ use authly_db::DbError;
 use mandate_submission::AuthlyMandateSubmissionServerImpl;
 use tracing::warn;
 
-use crate::{tls, AuthlyCtx};
+use crate::{ctx::GetInstance, tls, AuthlyCtx};
 
 pub mod mandate_submission;
 pub mod service_server;
@@ -29,7 +29,7 @@ pub(crate) fn main_service_grpc_router(ctx: AuthlyCtx) -> anyhow::Result<axum::R
                         .into_axum_router(),
                     tls_server_config: tls::generate_tls_server_config(
                         "authly-connect",
-                        &ctx.instance,
+                        &ctx.get_instance(),
                         std::time::Duration::from_secs(365 * 100),
                     )?,
                 },

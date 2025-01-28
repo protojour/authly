@@ -8,7 +8,7 @@ use kube::{
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::AuthlyCtx;
+use crate::{ctx::GetInstance, AuthlyCtx};
 
 pub async fn spawn_k8s_manager(ctx: AuthlyCtx) {
     let client = Client::try_default().await.unwrap();
@@ -51,6 +51,7 @@ async fn k8s_manager_task(client: Client, _cancel: CancellationToken, ctx: Authl
 async fn write_client_configmap(client: Client, ctx: &AuthlyCtx) -> anyhow::Result<()> {
     let configmap_api: Api<ConfigMap> = Api::namespaced(client.clone(), client.default_namespace());
     let name = "authly-certs.crt";
+    let instance = ctx.get_instance();
     let configmap = ConfigMap {
         metadata: ObjectMeta {
             name: Some(name.to_string()),
@@ -69,11 +70,11 @@ async fn write_client_configmap(client: Client, ctx: &AuthlyCtx) -> anyhow::Resu
             [
                 (
                     "root.crt".to_string(),
-                    ctx.instance.trust_root_ca().certificate_pem(),
+                    instance.trust_root_ca().certificate_pem(),
                 ),
                 (
                     "local.crt".to_string(),
-                    ctx.instance.local_ca().certificate_pem(),
+                    instance.local_ca().certificate_pem(),
                 ),
             ]
             .into(),

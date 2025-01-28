@@ -21,7 +21,7 @@ use tracing::{error, info};
 
 use crate::{
     cert::{client_cert, server_cert, Cert, CertificateParamsExt},
-    ctx::GetDb,
+    ctx::{GetDb, GetInstance},
     db::service_db,
     instance::AuthlyInstance,
     AuthlyCtx, EnvConfig,
@@ -51,7 +51,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
     };
 
     let jwt_verifier = fetch_k8s_jwk_jwt_verifier().await?;
-    let rustls_config_factory = rustls_server_config(env_config, &ctx.instance)?;
+    let rustls_config_factory = rustls_server_config(env_config, &ctx.get_instance())?;
 
     let server =
         tower_server::Builder::new(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), port))
@@ -132,7 +132,7 @@ async fn v0_authenticate_handler(
         let service_public_key = SubjectPublicKeyInfo::from_der(&public_key)
             .map_err(|_err| CsrError::InvalidPublicKey(eid))?;
 
-        Ok(state.ctx.instance.sign_with_local_ca(
+        Ok(state.ctx.get_instance().sign_with_local_ca(
             client_cert(&eid.to_string(), CERT_VALIDITY_PERIOD).with_owned_key(service_public_key),
         ))
     })

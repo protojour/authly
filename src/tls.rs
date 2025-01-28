@@ -3,7 +3,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use futures_util::StreamExt;
 use pem::{EncodeConfig, Pem};
@@ -13,8 +12,8 @@ use rustls::{pki_types::PrivateKeyDer, server::WebPkiClientVerifier, RootCertSto
 use tracing::info;
 
 use crate::cert::{server_cert, CertificateParamsExt};
-use crate::settings::Settings;
-use crate::AuthlyInstance;
+use crate::ctx::GetInstance;
+use crate::{AuthlyCtx, AuthlyInstance};
 
 #[derive(Clone, Debug)]
 pub struct AuthlyCert {
@@ -65,15 +64,14 @@ pub fn init_tls_ring() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 }
 
-pub async fn main_service_tls_configurer(
+pub(super) async fn main_service_tls_configurer(
     hostname: String,
-    settings: Arc<ArcSwap<Settings>>,
-    instance: Arc<AuthlyInstance>,
+    ctx: AuthlyCtx,
 ) -> anyhow::Result<impl tower_server::tls::TlsConfigurer> {
     // The root cert store is currently not changing
     let root_cert_store = {
         let mut store = RootCertStore::empty();
-        store.add(instance.trust_root_ca().der.clone())?;
+        store.add(ctx.get_instance().trust_root_ca().der.clone())?;
         Arc::new(store)
     };
 
@@ -82,25 +80,24 @@ pub async fn main_service_tls_configurer(
     // The first TLS config is produced immediately
     let initial = futures_util::stream::iter([generate_mutual_tls_server_config(
         &hostname,
-        &instance,
-        settings.load().server_cert_rotation_rate,
+        ctx.clone(),
+        ctx.settings.load().server_cert_rotation_rate,
         root_cert_store.clone(),
     )?]);
 
     // The following configs are produced after delay
     let rotation_stream = futures_util::stream::unfold((), move |_| {
         let hostname = hostname.clone();
-        let instance = instance.clone();
+        let ctx = ctx.clone();
         let root_cert_store = root_cert_store.clone();
-        let settings = settings.clone();
         async move {
             // TODO: reset this when settings change
-            tokio::time::sleep(settings.load().server_cert_rotation_rate).await;
+            tokio::time::sleep(ctx.settings.load().server_cert_rotation_rate).await;
 
             let server_config = generate_mutual_tls_server_config(
                 &hostname,
-                &instance,
-                settings.load().server_cert_rotation_rate,
+                ctx.clone(),
+                ctx.settings.load().server_cert_rotation_rate,
                 root_cert_store,
             )
             .expect("unable to regenerate server TLS config");
@@ -114,15 +111,16 @@ pub async fn main_service_tls_configurer(
 
 fn generate_mutual_tls_server_config(
     hostname: &str,
-    instance: &AuthlyInstance,
+    ctx: AuthlyCtx,
     rotation_rate: std::time::Duration,
     root_cert_store: Arc<RootCertStore>,
 ) -> anyhow::Result<Arc<ServerConfig>> {
     // Make the certificate valid for twice the rotation rate
     let not_after = time::Duration::try_from(rotation_rate)? * 2;
 
-    let server_cert =
-        instance.sign_with_local_ca(server_cert(hostname, not_after).with_new_key_pair());
+    let server_cert = ctx
+        .get_instance()
+        .sign_with_local_ca(server_cert(hostname, not_after).with_new_key_pair());
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("server private key: {err}"))?;

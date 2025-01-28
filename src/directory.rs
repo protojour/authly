@@ -7,7 +7,7 @@ use tracing::error;
 use crate::{
     broadcast::{BroadcastError, BroadcastMsgKind},
     cert::{client_cert, CertificateParamsExt},
-    ctx::GetDb,
+    ctx::{GetDb, GetInstance},
     db::document_db,
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
@@ -59,7 +59,7 @@ pub async fn apply_document(
 
 fn export_service_identity(svc_eid: Eid, ctx: &AuthlyCtx) -> anyhow::Result<()> {
     let pem = ctx
-        .instance
+        .get_instance()
         .sign_with_local_ca(
             client_cert(&svc_eid.to_string(), time::Duration::days(7)).with_new_key_pair(),
         )

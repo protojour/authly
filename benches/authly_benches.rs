@@ -1,6 +1,6 @@
 use authly::{
     access_token,
-    ctx::{test::TestCtx, GetInstance},
+    ctx::{test::TestCtx, LoadInstance},
     session::{Session, SessionToken},
 };
 use authly_common::id::{Eid, ObjId};
@@ -16,15 +16,12 @@ pub fn authly_benchmark(c: &mut Criterion) {
         expires_at: OffsetDateTime::now_utc() + Duration::days(42),
     };
     let user_attributes = FnvHashSet::from_iter([ObjId::random(), ObjId::random()]);
+    let instance = ctx.load_instance();
 
     c.bench_function("generate_access_token", |b| {
         b.iter(|| {
-            access_token::create_access_token(
-                &session,
-                user_attributes.clone(),
-                ctx.get_instance(),
-            )
-            .unwrap();
+            access_token::create_access_token(&session, user_attributes.clone(), &instance)
+                .unwrap();
         })
     });
 }

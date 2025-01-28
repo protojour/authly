@@ -20,7 +20,7 @@ use tracing::warn;
 use crate::{
     access_control::{self, AuthorizedPeerService},
     access_token,
-    ctx::GetDb,
+    ctx::{GetDb, GetInstance},
     db::{
         entity_db,
         service_db::{self, find_service_label_by_eid, ServicePropertyKind},
@@ -82,9 +82,12 @@ impl AuthlyService for AuthlyServiceServerImpl {
                     .await
                     .map_err(grpc_db_err)?;
 
-                let token =
-                    access_token::create_access_token(&session, user_attrs, &self.ctx.instance)
-                        .map_err(|_| tonic::Status::internal("access token error"))?;
+                let token = access_token::create_access_token(
+                    &session,
+                    user_attrs,
+                    &self.ctx.get_instance(),
+                )
+                .map_err(|_| tonic::Status::internal("access token error"))?;
 
                 Result::<_, tonic::Status>::Ok(proto::AccessToken {
                     token,
@@ -223,11 +226,10 @@ impl AuthlyService for AuthlyServiceServerImpl {
         // TODO: If a server certificate: Somehow verify that the peer service does not lie about its hostname/common name?
         // Authly would have to know its hostname in that case, if it's not the same as the service label.
 
+        let instance = self.ctx.get_instance();
+
         let certificate = csr_params
-            .signed_by(
-                &self.ctx.instance.local_ca().params,
-                self.ctx.instance.private_key(),
-            )
+            .signed_by(&instance.local_ca().params, instance.private_key())
             .map_err(|err| {
                 warn!(?err, "unable to sign service certificate");
                 tonic::Status::invalid_argument("Certificate signing problem")
@@ -312,7 +314,7 @@ fn verify_bearer(
         .and_then(|bearer| bearer.strip_prefix("Bearer "))
         .ok_or_else(|| tonic::Status::unauthenticated("invalid access token encoding"))?;
 
-    access_token::verify_access_token(token, &ctx.instance)
+    access_token::verify_access_token(token, &ctx.get_instance())
         .map_err(|_| tonic::Status::unauthenticated("access token not verified"))
 }
 

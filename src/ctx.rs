@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use authly_db::Db;
 
-use crate::{instance::AuthlyInstance, AuthlyCtx};
+use crate::{encryption::DecryptedDeks, instance::AuthlyInstance, AuthlyCtx};
 
 /// Trait for getting the "database".
 ///
@@ -16,13 +16,23 @@ pub trait GetDb {
 }
 
 pub trait GetInstance {
-    fn get_instance(&self) -> &Arc<AuthlyInstance>;
+    // Gets cheap read guard for the AuthlyInstance
+    fn get_instance(&self) -> arc_swap::Guard<Arc<AuthlyInstance>>;
 }
 
-impl GetInstance for AuthlyCtx {
-    fn get_instance(&self) -> &Arc<AuthlyInstance> {
-        &self.instance
-    }
+pub trait LoadInstance {
+    // Get full load of AuthlyInstance
+    fn load_instance(&self) -> Arc<AuthlyInstance>;
+}
+
+pub trait SetInstance {
+    // Sets a new AuthlyInstance
+    fn set_instance(&self, instance: AuthlyInstance);
+}
+
+pub trait GetDecryptedDeks {
+    fn get_decrypted_deks(&self) -> arc_swap::Guard<Arc<DecryptedDeks>>;
+    fn load_decrypted_deks(&self) -> Arc<DecryptedDeks>;
 }
 
 impl GetDb for AuthlyCtx {
@@ -33,15 +43,31 @@ impl GetDb for AuthlyCtx {
     }
 }
 
-pub trait GetDebugSettings {
-    /// Whether to disable service certificate validation when
-    /// connecting to external URLs
-    fn insecure_webpki(&self) -> bool;
+impl GetInstance for AuthlyCtx {
+    fn get_instance(&self) -> arc_swap::Guard<Arc<AuthlyInstance>> {
+        self.instance.load()
+    }
 }
 
-impl GetDebugSettings for AuthlyCtx {
-    fn insecure_webpki(&self) -> bool {
-        false
+impl LoadInstance for AuthlyCtx {
+    fn load_instance(&self) -> Arc<AuthlyInstance> {
+        self.instance.load_full()
+    }
+}
+
+impl SetInstance for AuthlyCtx {
+    fn set_instance(&self, _instance: AuthlyInstance) {
+        todo!()
+    }
+}
+
+impl GetDecryptedDeks for AuthlyCtx {
+    fn get_decrypted_deks(&self) -> arc_swap::Guard<Arc<DecryptedDeks>> {
+        self.deks.load()
+    }
+
+    fn load_decrypted_deks(&self) -> Arc<DecryptedDeks> {
+        self.deks.load_full()
     }
 }
 
@@ -62,14 +88,14 @@ pub mod test {
         Migrations,
     };
 
-    use super::{GetDb, GetDebugSettings, GetInstance};
+    use super::{GetDb, GetDecryptedDeks, GetInstance, LoadInstance, SetInstance};
 
     /// The TestCtx allows writing tests that don't require the whole app running.
     /// E.g. it supports an in-memory database.
     #[derive(Clone, Default)]
     pub struct TestCtx {
         db: Option<SqliteHandle>,
-        instance: Option<Arc<AuthlyInstance>>,
+        instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
         deks: Option<Arc<ArcSwap<DecryptedDeks>>>,
     }
 
@@ -113,7 +139,9 @@ pub mod test {
                     }
                 },
             ];
-            self.instance = Some(Arc::new(AuthlyInstance::new(authly_id, certs)));
+            self.instance = Some(Arc::new(ArcSwap::new(Arc::new(AuthlyInstance::new(
+                authly_id, certs,
+            )))));
             self
         }
 
@@ -134,7 +162,7 @@ pub mod test {
 
             self.db = Some(db);
             self.deks = Some(Arc::new(ArcSwap::new(Arc::new(decrypted_deks))));
-            self.instance = Some(Arc::new(instance));
+            self.instance = Some(Arc::new(ArcSwap::new(Arc::new(instance))));
             self
         }
 
@@ -155,6 +183,16 @@ pub mod test {
         pub fn get_decrypted_deks(&self) -> Arc<DecryptedDeks> {
             self.deks.as_ref().unwrap().load_full()
         }
+
+        #[track_caller]
+        fn instance(&self) -> &ArcSwap<AuthlyInstance> {
+            self.instance.as_ref().expect("TestCtx has no instance")
+        }
+
+        #[track_caller]
+        fn deks(&self) -> &ArcSwap<DecryptedDeks> {
+            self.deks.as_ref().expect("TestCtx has no deks")
+        }
     }
 
     impl GetDb for TestCtx {
@@ -168,14 +206,34 @@ pub mod test {
 
     impl GetInstance for TestCtx {
         #[track_caller]
-        fn get_instance(&self) -> &Arc<AuthlyInstance> {
-            self.instance.as_ref().expect("TestCtx has no instance")
+        fn get_instance(&self) -> arc_swap::Guard<Arc<AuthlyInstance>> {
+            self.instance().load()
         }
     }
 
-    impl GetDebugSettings for TestCtx {
-        fn insecure_webpki(&self) -> bool {
-            true
+    impl LoadInstance for TestCtx {
+        #[track_caller]
+        fn load_instance(&self) -> Arc<AuthlyInstance> {
+            self.instance().load_full()
+        }
+    }
+
+    impl SetInstance for TestCtx {
+        #[track_caller]
+        fn set_instance(&self, instance: AuthlyInstance) {
+            self.instance().store(Arc::new(instance));
+        }
+    }
+
+    impl GetDecryptedDeks for TestCtx {
+        #[track_caller]
+        fn get_decrypted_deks(&self) -> arc_swap::Guard<Arc<DecryptedDeks>> {
+            self.deks().load()
+        }
+
+        #[track_caller]
+        fn load_decrypted_deks(&self) -> Arc<DecryptedDeks> {
+            self.deks().load_full()
         }
     }
 

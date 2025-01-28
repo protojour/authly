@@ -18,7 +18,7 @@ use axum_extra::{
 use fnv::FnvHashSet;
 use http::{request::Parts, StatusCode};
 
-use crate::{instance::AuthlyInstance, session::Session, AuthlyCtx};
+use crate::{ctx::GetInstance, instance::AuthlyInstance, session::Session, AuthlyCtx};
 
 const EXPIRATION: time::Duration = time::Duration::days(365);
 
@@ -89,7 +89,7 @@ impl axum::extract::FromRequestParts<AuthlyCtx> for VerifiedAccessToken {
             .await
             .map_err(|_| (StatusCode::UNAUTHORIZED, "no access token"))?;
 
-        let claims = verify_access_token(authorization.token(), &ctx.instance)
+        let claims = verify_access_token(authorization.token(), &ctx.get_instance())
             .map_err(|_| (StatusCode::UNAUTHORIZED, "invalid access token"))?;
 
         Ok(Self { claims })

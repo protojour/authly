@@ -1,5 +1,6 @@
 use std::{
     net::{Ipv4Addr, SocketAddr},
+    ops::Deref,
     path::PathBuf,
     sync::Arc,
 };
@@ -56,20 +57,20 @@ pub struct Migrations;
 const HIQLITE_API_PORT: u16 = 7855;
 const HIQLITE_RAFT_PORT: u16 = 7856;
 
-/// Common context for the whole application
+/// Common context for the whole application.
+///
+/// A clonable wrapper for [AuthlyState].
 #[derive(Clone)]
 struct AuthlyCtx {
-    /// The client for hiqlite, an embedded database
-    hql: hiqlite::Client,
-    instance: Arc<AuthlyInstance>,
-    /// Dynamically updatable settings:
-    settings: Arc<ArcSwap<Settings>>,
-    /// Data Encryption Keys
-    deks: Arc<ArcSwap<DecryptedDeks>>,
-    /// Signal triggered when the app is shutting down:
-    shutdown: CancellationToken,
-    etc_dir: PathBuf,
-    export_tls_to_etc: bool,
+    state: Arc<AuthlyState>,
+}
+
+impl Deref for AuthlyCtx {
+    type Target = Arc<AuthlyState>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
 }
 
 impl AuthlyCtx {
@@ -77,6 +78,20 @@ impl AuthlyCtx {
     async fn metrics_db(&self) -> RaftMetrics<u64, hiqlite::Node> {
         self.hql.metrics_db().await.expect("never fails")
     }
+}
+
+struct AuthlyState {
+    /// The client for hiqlite, an embedded database
+    hql: hiqlite::Client,
+    instance: ArcSwap<AuthlyInstance>,
+    /// Dynamically updatable settings:
+    settings: ArcSwap<Settings>,
+    /// Data Encryption Keys
+    deks: ArcSwap<DecryptedDeks>,
+    /// Signal triggered when the app is shutting down:
+    shutdown: CancellationToken,
+    etc_dir: PathBuf,
+    export_tls_to_etc: bool,
 }
 
 pub struct Init {
@@ -89,7 +104,7 @@ pub async fn serve() -> anyhow::Result<()> {
 
     info!(
         "root CA:\n{}",
-        ctx.instance.trust_root_ca().certificate_pem()
+        ctx.instance.load().trust_root_ca().certificate_pem()
     );
 
     broadcast::spawn_global_message_handler(&ctx);
@@ -106,12 +121,7 @@ pub async fn serve() -> anyhow::Result<()> {
     ))
     .with_scheme(Scheme::Https)
     .with_tls_config(
-        tls::main_service_tls_configurer(
-            env_config.hostname.clone(),
-            ctx.settings.clone(),
-            ctx.instance.clone(),
-        )
-        .await?,
+        tls::main_service_tls_configurer(env_config.hostname.clone(), ctx.clone()).await?,
     )
     .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
     .with_graceful_shutdown(ctx.shutdown.clone())
@@ -197,13 +207,15 @@ async fn initialize() -> anyhow::Result<Init> {
             .await?;
 
     let ctx = AuthlyCtx {
-        hql,
-        instance: Arc::new(instance),
-        settings: Arc::new(ArcSwap::new(Arc::new(Settings::default()))),
-        deks: Arc::new(ArcSwap::new(Arc::new(deks))),
-        shutdown: tower_server::signal::termination_signal(),
-        etc_dir: env_config.etc_dir.clone(),
-        export_tls_to_etc: env_config.export_tls_to_etc,
+        state: Arc::new(AuthlyState {
+            hql,
+            instance: ArcSwap::new(Arc::new(instance)),
+            settings: ArcSwap::new(Arc::new(Settings::default())),
+            deks: ArcSwap::new(Arc::new(deks)),
+            shutdown: tower_server::signal::termination_signal(),
+            etc_dir: env_config.etc_dir.clone(),
+            export_tls_to_etc: env_config.export_tls_to_etc,
+        }),
     };
 
     if ctx.hql.is_leader_db().await {
@@ -212,11 +224,15 @@ async fn initialize() -> anyhow::Result<Init> {
 
             std::fs::write(
                 env_config.etc_dir.join("certs/root.crt"),
-                ctx.instance.trust_root_ca().certificate_pem().as_bytes(),
+                ctx.instance
+                    .load()
+                    .trust_root_ca()
+                    .certificate_pem()
+                    .as_bytes(),
             )?;
             std::fs::write(
                 env_config.etc_dir.join("certs/local.crt"),
-                ctx.instance.local_ca().certificate_pem().as_bytes(),
+                ctx.instance.load().local_ca().certificate_pem().as_bytes(),
             )?;
         }
 
