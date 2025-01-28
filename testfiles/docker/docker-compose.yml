@@ -9,6 +9,7 @@ services:
   authly:
     image: protojour/authly:dev
     environment:
+      AUTHLY_ID: c865e85720e3c96feabdfe50c33acc75ac2069320de78d0d2c11497b092f1a8c
       AUTHLY_HOSTNAME: authly
       AUTHLY_K8S: 'false'
       AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
