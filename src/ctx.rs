@@ -5,7 +5,7 @@ use std::{future::Future, sync::Arc};
 use authly_db::Db;
 
 use crate::{
-    bus::broadcast::{BroadcastError, BroadcastMsgKind},
+    bus::{message::ClusterMessage, BusError},
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
     AuthlyCtx,
@@ -40,12 +40,22 @@ pub trait GetDecryptedDeks {
     fn load_decrypted_deks(&self) -> Arc<DecryptedDeks>;
 }
 
-pub trait SendBroadcast {
-    // Send broadcast message to the Authly cluster
-    fn send_broadcast(
+pub trait Broadcast {
+    /// Send broadcast message to the Authly cluster unconditionally
+    fn broadcast_to_cluster(
         &self,
-        message_kind: BroadcastMsgKind,
-    ) -> impl Future<Output = Result<(), BroadcastError>>;
+        message: ClusterMessage,
+    ) -> impl Future<Output = Result<(), BusError>>;
+
+    /// Send broadcast message to the Authly cluster, if this node is the leader
+    fn broadcast_to_cluster_if_leader(
+        &self,
+        message: ClusterMessage,
+    ) -> impl Future<Output = Result<(), BusError>>;
+}
+
+pub trait RedistributeCertificates {
+    fn redistribute_certificates_if_leader(&self) -> impl Future<Output = ()>;
 }
 
 impl GetDb for AuthlyCtx {
@@ -84,9 +94,26 @@ impl GetDecryptedDeks for AuthlyCtx {
     }
 }
 
-impl SendBroadcast for AuthlyCtx {
-    async fn send_broadcast(&self, message_kind: BroadcastMsgKind) -> Result<(), BroadcastError> {
-        crate::bus::broadcast::application::authly_ctx_send_broadcast(self, message_kind).await
+impl Broadcast for AuthlyCtx {
+    async fn broadcast_to_cluster(&self, message: ClusterMessage) -> Result<(), BusError> {
+        crate::bus::cluster::authly_ctx_notify_cluster_wide(self, message).await
+    }
+
+    async fn broadcast_to_cluster_if_leader(
+        &self,
+        message: ClusterMessage,
+    ) -> Result<(), BusError> {
+        if self.hql.is_leader_db().await {
+            self.broadcast_to_cluster(message).await
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl RedistributeCertificates for AuthlyCtx {
+    async fn redistribute_certificates_if_leader(&self) {
+        crate::platform::redistribute_certificates(self).await;
     }
 }
 

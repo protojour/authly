@@ -20,9 +20,9 @@ use rustls::ClientConfig;
 use tracing::error;
 
 use crate::{
-    bus::broadcast::{BroadcastError, BroadcastMsgKind},
+    bus::{message::ClusterMessage, BusError},
     cert::client_cert_csr,
-    ctx::{GetDb, GetDecryptedDeks, GetInstance, SendBroadcast, SetInstance},
+    ctx::{Broadcast, GetDb, GetDecryptedDeks, GetInstance, SetInstance},
     db::cryptography_db,
 };
 
@@ -50,13 +50,13 @@ pub enum MandateSubmissionError {
     Db,
 
     #[error("broadcast error, unable to notify the cluster: {0}")]
-    Broadcast(#[from] BroadcastError),
+    Broadcast(#[from] BusError),
 }
 
 /// Perform submission to authority, mandate side.
 /// Talks to Authority through Authly Connect tunnel, using the AuthlyMandateSubmission protocol.
 pub async fn mandate_execute_submission(
-    deps: &(impl GetDb + GetInstance + SetInstance + GetDecryptedDeks + SendBroadcast),
+    deps: &(impl GetDb + GetInstance + SetInstance + GetDecryptedDeks + Broadcast),
     token: String,
 ) -> Result<(), MandateSubmissionError> {
     // read URL from token
@@ -107,7 +107,7 @@ pub async fn mandate_execute_submission(
     })?;
 
     // notify ourselves and the rest of the cluster
-    deps.send_broadcast(BroadcastMsgKind::InstanceChanged)
+    deps.broadcast_to_cluster(ClusterMessage::InstanceChanged)
         .await?;
 
     Ok(())

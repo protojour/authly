@@ -5,9 +5,9 @@ use authly_db::{Db, DbError};
 use tracing::error;
 
 use crate::{
-    bus::broadcast::{BroadcastError, BroadcastMsgKind},
+    bus::{message::ClusterMessage, BusError},
     cert::{client_cert, CertificateParamsExt},
-    ctx::{GetDb, GetInstance, SendBroadcast},
+    ctx::{Broadcast, GetDb, GetInstance},
     db::document_db,
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
@@ -21,8 +21,8 @@ pub enum DirectoryError {
     #[error("context error: {0}")]
     Context(anyhow::Error),
 
-    #[error("broadcast error: {0}")]
-    Broadcast(#[from] BroadcastError),
+    #[error("bus error: {0}")]
+    Bus(#[from] BusError),
 }
 
 /// Apply (write or overwrite) a document directory, publish change message
@@ -51,7 +51,7 @@ pub async fn apply_document(
         }
     }
 
-    ctx.send_broadcast(BroadcastMsgKind::DirectoryChanged { did })
+    ctx.broadcast_to_cluster(ClusterMessage::DirectoryChanged { did })
         .await?;
 
     Ok(())

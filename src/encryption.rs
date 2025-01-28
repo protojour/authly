@@ -6,14 +6,14 @@ use aes_gcm_siv::{
 };
 use anyhow::{anyhow, Context};
 use authly_common::id::ObjId;
-use authly_db::{Db, IsLeaderDb};
+use authly_db::Db;
 use rand::{rngs::OsRng, RngCore};
 use serde::Deserialize;
 use serde_json::json;
 use time::OffsetDateTime;
 use tracing::info;
 
-use crate::{db::cryptography_db, id::BuiltinID, util::serde::Hex, EnvConfig};
+use crate::{db::cryptography_db, id::BuiltinID, util::serde::Hex, EnvConfig, IsLeaderDb};
 
 /// The set of Data Encryption Keys used by authly
 #[derive(Default, Debug)]

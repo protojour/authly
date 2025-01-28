@@ -7,7 +7,6 @@ use std::{
 
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
-use authly_db::IsLeaderDb;
 use axum::{response::IntoResponse, Json};
 use ctx::GetDb;
 use db::{cryptography_db, settings_db};
@@ -16,6 +15,7 @@ use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
 use instance::AuthlyInstance;
 use openraft::RaftMetrics;
+use platform::CertificateDistributionPlatform;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use settings::Settings;
@@ -36,6 +36,7 @@ pub mod document;
 pub mod encryption;
 pub mod env_config;
 pub mod instance;
+pub mod platform;
 pub mod proto;
 pub mod session;
 pub mod test_ctx;
@@ -57,6 +58,9 @@ pub struct Migrations;
 
 const HIQLITE_API_PORT: u16 = 7855;
 const HIQLITE_RAFT_PORT: u16 = 7856;
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+pub struct IsLeaderDb(pub bool);
 
 /// Common context for the whole application.
 ///
@@ -91,6 +95,7 @@ struct AuthlyState {
     deks: ArcSwap<DecryptedDeks>,
     /// Signal triggered when the app is shutting down:
     shutdown: CancellationToken,
+    cert_distribution_platform: CertificateDistributionPlatform,
     etc_dir: PathBuf,
     export_tls_to_etc: bool,
 }
@@ -108,11 +113,9 @@ pub async fn serve() -> anyhow::Result<()> {
         ctx.instance.load().trust_root_ca().certificate_pem()
     );
 
-    bus::broadcast::application::spawn_global_message_handler(&ctx);
+    bus::cluster::spawn_global_cluster_message_handler(&ctx);
 
     if env_config.k8s {
-        k8s::k8s_manager::spawn_k8s_manager(ctx.clone()).await;
-
         k8s::k8s_auth_server::spawn_k8s_auth_server(&env_config, &ctx).await?;
     }
 
@@ -207,36 +210,28 @@ async fn initialize() -> anyhow::Result<Init> {
         cryptography_db::load_authly_instance(IsLeaderDb(hql.is_leader_db().await), &hql, &deks)
             .await?;
 
+    let cert_distribution_platform = if env_config.k8s {
+        CertificateDistributionPlatform::KubernetesConfigMap
+    } else {
+        CertificateDistributionPlatform::EtcDir
+    };
+
     let ctx = AuthlyCtx {
         state: Arc::new(AuthlyState {
             hql,
             instance: ArcSwap::new(Arc::new(instance)),
             settings: ArcSwap::new(Arc::new(Settings::default())),
             deks: ArcSwap::new(Arc::new(deks)),
+            cert_distribution_platform,
             shutdown: tower_server::signal::termination_signal(),
             etc_dir: env_config.etc_dir.clone(),
             export_tls_to_etc: env_config.export_tls_to_etc,
         }),
     };
 
+    platform::redistribute_certificates(&ctx).await;
+
     if ctx.hql.is_leader_db().await {
-        if env_config.export_tls_to_etc {
-            std::fs::create_dir_all(env_config.etc_dir.join("certs"))?;
-
-            std::fs::write(
-                env_config.etc_dir.join("certs/root.crt"),
-                ctx.instance
-                    .load()
-                    .trust_root_ca()
-                    .certificate_pem()
-                    .as_bytes(),
-            )?;
-            std::fs::write(
-                env_config.etc_dir.join("certs/local.crt"),
-                ctx.instance.load().local_ca().certificate_pem().as_bytes(),
-            )?;
-        }
-
         load_cfg_documents(&env_config, &ctx).await?;
     }
 

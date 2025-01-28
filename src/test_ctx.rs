@@ -2,17 +2,21 @@ use std::sync::{Arc, Mutex};
 
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
-use authly_db::{sqlite_handle::SqliteHandle, IsLeaderDb};
+use authly_db::sqlite_handle::SqliteHandle;
+use tracing::info;
 
 use crate::{
-    bus::broadcast::{authly_handle_broadcast, BroadcastError, BroadcastMsgKind},
+    bus::{handler::authly_node_handle_incoming_message, message::ClusterMessage, BusError},
     cert::{authly_ca, client_cert, key_pair},
-    ctx::{GetDb, GetDecryptedDeks, GetInstance, LoadInstance, SendBroadcast, SetInstance},
+    ctx::{
+        Broadcast, GetDb, GetDecryptedDeks, GetInstance, LoadInstance, RedistributeCertificates,
+        SetInstance,
+    },
     db::cryptography_db,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
     instance::{AuthlyId, AuthlyInstance},
     tls::{AuthlyCert, AuthlyCertKind},
-    Migrations,
+    IsLeaderDb, Migrations,
 };
 
 /// The TestCtx allows writing tests that don't require the whole app running.
@@ -23,7 +27,7 @@ pub struct TestCtx {
     instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
     deks: Option<Arc<ArcSwap<DecryptedDeks>>>,
 
-    broadcast_log: Arc<Mutex<Vec<BroadcastMsgKind>>>,
+    cluster_message_log: Arc<Mutex<Vec<ClusterMessage>>>,
 }
 
 impl TestCtx {
@@ -164,20 +168,34 @@ impl GetDecryptedDeks for TestCtx {
     }
 }
 
-impl SendBroadcast for TestCtx {
+impl Broadcast for TestCtx {
     /// There isn't actually any broadcasting being done for the TestCtx,
-    /// it's all done synchronously:
-    async fn send_broadcast(&self, message_kind: BroadcastMsgKind) -> Result<(), BroadcastError> {
-        self.broadcast_log
+    /// it's all done "synchronously":
+    async fn broadcast_to_cluster(&self, message: ClusterMessage) -> Result<(), BusError> {
+        self.cluster_message_log
             .lock()
             .unwrap()
-            .push(message_kind.clone());
+            .push(message.clone());
 
-        if let Err(err) = authly_handle_broadcast(self, &message_kind).await {
-            panic!("Failed to handle broadcast message {message_kind:?}: {err:?}");
+        if let Err(err) = Box::pin(authly_node_handle_incoming_message(self, message.clone())).await
+        {
+            panic!("Failed to handle cluster-wide message {message:?}: {err:?}");
         }
 
         Ok(())
+    }
+
+    async fn broadcast_to_cluster_if_leader(
+        &self,
+        message: ClusterMessage,
+    ) -> Result<(), BusError> {
+        self.broadcast_to_cluster(message).await
+    }
+}
+
+impl RedistributeCertificates for TestCtx {
+    async fn redistribute_certificates_if_leader(&self) {
+        info!("TestCtx redistribute certificates: ignored");
     }
 }
 
