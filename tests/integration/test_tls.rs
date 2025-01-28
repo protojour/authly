@@ -8,7 +8,7 @@ use axum::{response::IntoResponse, Extension};
 use rcgen::CertificateSigningRequestParams;
 use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
 use time::Duration;
-use tokio_util::sync::CancellationToken;
+use tokio_util::sync::{CancellationToken, DropGuard};
 
 use crate::{rustls_server_config_mtls, rustls_server_config_no_client_auth};
 
@@ -18,7 +18,7 @@ async fn test_tls_localhost_cert_ok() {
     let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -35,8 +35,6 @@ async fn test_tls_localhost_cert_ok() {
         .unwrap();
 
     assert_eq!(text_response, "it works: no client auth");
-
-    cancel.cancel();
 }
 
 #[tokio::test]
@@ -48,7 +46,7 @@ async fn test_tls_localhost_intermediate_cert_ok() {
 
     let rustls_config_factory =
         rustls_server_config_no_client_auth(&[&server_cert, &intermediate_ca]).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&root_ca).into())
@@ -65,8 +63,6 @@ async fn test_tls_localhost_intermediate_cert_ok() {
         .unwrap();
 
     assert_eq!(text_response, "it works: no client auth");
-
-    cancel.cancel();
 }
 
 #[tokio::test]
@@ -75,7 +71,7 @@ async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
     let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
         .build()
@@ -91,8 +87,6 @@ async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
         "Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(UnknownIssuer) } }))",
         format!("{error_source:?}"),
     );
-
-    cancel.cancel();
 }
 
 #[tokio::test]
@@ -101,7 +95,7 @@ async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
     let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&authly_ca().with_new_key_pair().self_signed()).into())
@@ -118,8 +112,6 @@ async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
         "Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(BadSignature) } }))",
         format!("{error_source:?}"),
     );
-
-    cancel.cancel();
 }
 
 #[tokio::test]
@@ -128,7 +120,7 @@ async fn test_tls_invalid_host_cert() {
     let server_cert = ca.sign(server_cert("gooofy", Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -145,8 +137,6 @@ async fn test_tls_invalid_host_cert() {
         "Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(NotValidForName) } }))",
         format!("{error_source:?}"),
     );
-
-    cancel.cancel();
 }
 
 #[tokio::test]
@@ -158,7 +148,7 @@ async fn test_mtls_verified() {
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -179,8 +169,6 @@ async fn test_mtls_verified() {
         text_response,
         "it works: peer_service_eid=cf2e74c3f26240908e1b4e8817bfde7c"
     );
-
-    cancel.cancel();
 }
 
 #[tokio::test]
@@ -215,7 +203,7 @@ async fn test_mtls_server_cert_through_csr() {
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -236,8 +224,6 @@ async fn test_mtls_server_cert_through_csr() {
         text_response,
         "it works: peer_service_eid=cf2e74c3f26240908e1b4e8817bfde7c"
     );
-
-    cancel.cancel();
 }
 
 // TODO: It should be possible to use optional client auth?
@@ -247,7 +233,7 @@ async fn test_mtls_missing_client_identity() {
     let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
-    let (server_port, cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -264,8 +250,6 @@ async fn test_mtls_missing_client_identity() {
         "Some(hyper_util::client::legacy::Error(SendRequest, hyper::Error(Io, Custom { kind: InvalidData, error: \"received fatal alert: CertificateRequired\" })))",
         format!("{error_source:?}"),
     );
-
-    cancel.cancel();
 }
 
 #[tokio::test]
@@ -297,7 +281,7 @@ async fn test_mtls_invalid_issuer() {
     );
 }
 
-async fn spawn_server(rustls_config: Arc<ServerConfig>) -> (u16, CancellationToken) {
+async fn spawn_server(rustls_config: Arc<ServerConfig>) -> (u16, DropGuard) {
     let cancel = CancellationToken::new();
     let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
         .with_scheme(tower_server::Scheme::Https)
@@ -313,7 +297,7 @@ async fn spawn_server(rustls_config: Arc<ServerConfig>) -> (u16, CancellationTok
 
     tokio::spawn(server.serve(app));
 
-    (server_port, cancel)
+    (server_port, cancel.drop_guard())
 }
 
 async fn test_handler(

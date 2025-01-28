@@ -25,7 +25,7 @@ use rustls::{
     server::WebPkiClientVerifier,
     RootCertStore, ServerConfig,
 };
-use tokio_util::sync::CancellationToken;
+use tokio_util::sync::{CancellationToken, DropGuard};
 
 mod end2end;
 mod test_access_control;
@@ -97,27 +97,22 @@ fn rustls_server_config_mtls(
     Ok(Arc::new(config))
 }
 
-/// Returns URL
-async fn spawn_test_server(service: axum::Router, cancel: CancellationToken) -> String {
-    let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
-        .with_graceful_shutdown(cancel.clone())
-        .bind()
-        .await
-        .unwrap();
-    let port = server.local_addr().unwrap().port();
-
-    tokio::spawn(server.serve(service));
-
-    format!("http://localhost:{port}")
+/// Returns URL and drop guard
+#[expect(unused)]
+async fn spawn_test_server(service: axum::Router) -> (String, DropGuard) {
+    let cancel = CancellationToken::new();
+    let url = spawn_test_server_cancellable(service, cancel.clone()).await;
+    (url, cancel.drop_guard())
 }
 
+// Spawn a server with Authly Connect service
 async fn spawn_test_connect_server(
     tls_config: Arc<ServerConfig>,
     security: TunnelSecurity,
     service: axum::Router,
-    cancel: CancellationToken,
-) -> String {
-    spawn_test_server(
+) -> (String, DropGuard) {
+    let cancel = CancellationToken::new();
+    let url = spawn_test_server_cancellable(
         tonic::service::Routes::default()
             .add_service(AuthlyConnectServer::new(AuthlyConnectServerImpl {
                 services: HashMap::from([(
@@ -130,9 +125,24 @@ async fn spawn_test_connect_server(
                 cancel: cancel.clone(),
             }))
             .into_axum_router(),
-        cancel,
+        cancel.clone(),
     )
-    .await
+    .await;
+
+    (url, cancel.drop_guard())
+}
+
+async fn spawn_test_server_cancellable(service: axum::Router, cancel: CancellationToken) -> String {
+    let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
+        .with_graceful_shutdown(cancel.clone())
+        .bind()
+        .await
+        .unwrap();
+    let port = server.local_addr().unwrap().port();
+
+    tokio::spawn(server.serve(service));
+
+    format!("http://localhost:{port}")
 }
 
 struct ServiceProperties {

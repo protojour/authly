@@ -20,7 +20,6 @@ use authly_db::IsLeaderDb;
 use itertools::Itertools;
 use rcgen::CertificateSigningRequestParams;
 use test_log::test;
-use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use crate::{rustls_server_config_no_client_auth, spawn_test_connect_server, TestCtx};
@@ -81,9 +80,7 @@ async fn test_mandate_registration() {
             .await,
     ];
 
-    let cancel = CancellationToken::new();
-
-    let server_connect_uri = spawn_test_connect_server(
+    let (server_connect_uri, _drop) = spawn_test_connect_server(
         rustls_server_config_no_client_auth(&[&authority_ctx.get_instance().sign_with_local_ca(
             server_cert("localhost", time::Duration::hours(1)).with_new_key_pair(),
         )])
@@ -94,7 +91,6 @@ async fn test_mandate_registration() {
                 authority_ctx.clone(),
             ))
             .into_axum_router(),
-        cancel.clone(),
     )
     .await;
 

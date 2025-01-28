@@ -36,18 +36,17 @@ async fn test_connect_grpc() {
     let client_cert = ca.sign(
         client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
-    let cancel = CancellationToken::new();
 
-    let local_url = spawn_test_connect_server(
+    let (local_url, _drop) = spawn_test_connect_server(
         rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
         TunnelSecurity::MutuallySecure,
         tonic::service::Routes::default()
             .add_service(TestGrpcServer::new(TestGrpcServerImpl))
             .into_axum_router(),
-        cancel.clone(),
     )
     .await;
 
+    let cancel = CancellationToken::new();
     let mut authority_client = TestGrpcClient::new(
         new_authly_connect_grpc_client_service(
             local_url.into(),
@@ -68,6 +67,7 @@ async fn test_connect_grpc() {
         .await
         .unwrap(),
     );
+    let _drop = cancel.drop_guard();
 
     let response = authority_client
         .echo(tonic::Request::new(TestMsg {
@@ -94,8 +94,6 @@ async fn test_connect_grpc() {
     println!("duplex messages: {messages:?}");
 
     assert_eq!(4, messages.len());
-
-    cancel.cancel();
 }
 
 struct TestGrpcServerImpl;
@@ -150,9 +148,7 @@ async fn test_connect_http() {
     let client_cert = ca.sign(
         client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
-    let cancel = CancellationToken::new();
-
-    let local_url = spawn_test_connect_server(
+    let (local_url, _drop) = spawn_test_connect_server(
         rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
         TunnelSecurity::MutuallySecure,
         axum::Router::new().route(
@@ -162,12 +158,12 @@ async fn test_connect_http() {
                 format!("HELLO {eid}!").into_response()
             }),
         ),
-        cancel.clone(),
     )
     .await;
 
     // wraps mutual https over an insecure HTTP channel:
     info!("setting up connect tunnel");
+    let cancel = CancellationToken::new();
     let tunnel = authly_connect_client_tunnel(
         AuthlyConnectClient::connect(local_url).await.unwrap(),
         TunnelSecurity::MutuallySecure,
@@ -175,6 +171,7 @@ async fn test_connect_http() {
     )
     .await
     .unwrap();
+    let _drop = cancel.drop_guard();
 
     let tls_client_config = {
         let mut root_store = RootCertStore::empty();
@@ -214,6 +211,4 @@ async fn test_connect_http() {
     info!("response: {response}");
 
     assert!(response.ends_with("HELLO cf2e74c3f26240908e1b4e8817bfde7c!"));
-
-    cancel.cancel();
 }

@@ -17,7 +17,6 @@ use axum::body::Bytes;
 use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 use rustls::ClientConfig;
-use tokio_util::sync::CancellationToken;
 use tracing::error;
 
 use crate::{
@@ -70,7 +69,7 @@ pub async fn mandate_execute_submission(
                     .with_custom_certificate_verifier(Arc::new(NoTrustVerifier))
                     .with_no_client_auth(),
             ),
-            CancellationToken::default(),
+            Default::default(),
         )
         .await
         .map_err(MandateSubmissionError::Connect)?,
