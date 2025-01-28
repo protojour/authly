@@ -32,7 +32,7 @@ impl<'de> Deserialize<'de> for UrlSafeBase64 {
     {
         struct Visit;
 
-        impl<'de> Visitor<'de> for Visit {
+        impl Visitor<'_> for Visit {
             type Value = UrlSafeBase64;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
