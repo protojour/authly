@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use authly::{
     cert::Cert,
-    ctx::test::TestCtx,
+    ctx::{test::TestCtx, GetDb},
     db::{
         document_db,
         service_db::{self, ServicePropertyKind},
@@ -39,10 +39,11 @@ async fn compile_and_apply_doc(
     deks: &DecryptedDeks,
     ctx: &TestCtx,
 ) -> anyhow::Result<()> {
-    let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx)
+    let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
         .await
         .unwrap();
-    ctx.txn(document_db::document_txn_statements(compiled_doc, deks)?)
+    ctx.get_db()
+        .transact(document_db::document_txn_statements(compiled_doc, deks)?)
         .await
         .unwrap();
 

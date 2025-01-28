@@ -1,10 +1,12 @@
-use authly::{ctx::test::TestCtx, db::service_db};
+use authly::{
+    ctx::{test::TestCtx, GetDb},
+    db::service_db,
+};
 use authly_common::{
     document::Document,
     id::{AnyId, Eid},
     policy::{code::Outcome, engine::AccessControlParams},
 };
-use authly_db::GetDb;
 use hexhex::hex_literal;
 use indoc::indoc;
 
@@ -62,7 +64,9 @@ async fn test_access_control_basic() {
         .unwrap();
 
     {
-        let engine = service_db::load_policy_engine(&ctx, SVC_A).await.unwrap();
+        let engine = service_db::load_policy_engine(ctx.get_db(), SVC_A)
+            .await
+            .unwrap();
         let props = ServiceProperties::load(SVC_A, ctx.get_db()).await;
 
         assert_eq!(1, engine.get_policy_count());
@@ -132,7 +136,9 @@ async fn test_access_control_basic() {
     }
 
     {
-        let svc_b_policy_engine = service_db::load_policy_engine(&ctx, SVC_B).await.unwrap();
+        let svc_b_policy_engine = service_db::load_policy_engine(ctx.get_db(), SVC_B)
+            .await
+            .unwrap();
         assert_eq!(0, svc_b_policy_engine.get_policy_count());
         assert_eq!(0, svc_b_policy_engine.get_trigger_count());
     }

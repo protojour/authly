@@ -2,7 +2,7 @@ use authly_common::id::{Eid, ObjId};
 use authly_db::DbError;
 use fnv::FnvHashSet;
 
-use crate::{db::entity_db, id::BuiltinID, AuthlyCtx};
+use crate::{ctx::GetDb, db::entity_db, id::BuiltinID, AuthlyCtx};
 
 pub enum SvcAccessControlError {
     Denied,
@@ -67,7 +67,7 @@ pub async fn authorize_peer_service(
     required_authly_roles: &[BuiltinID],
     ctx: &AuthlyCtx,
 ) -> Result<AuthorizedPeerService, SvcAccessControlError> {
-    let attributes = entity_db::list_entity_attrs(ctx, svc_eid)
+    let attributes = entity_db::list_entity_attrs(ctx.get_db(), svc_eid)
         .await
         .map_err(SvcAccessControlError::Db)?;
 

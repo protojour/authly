@@ -2,13 +2,15 @@ use authly_common::proto::mandate_submission::{
     self as proto,
     authly_mandate_submission_server::{AuthlyMandateSubmission, AuthlyMandateSubmissionServer},
 };
-use authly_db::GetDb;
 use rcgen::CertificateSigningRequestParams;
 use rustls::pki_types::CertificateSigningRequestDer;
 use tonic::{Request, Response};
 use tracing::warn;
 
-use crate::{authority_mandate::submission, ctx::GetInstance};
+use crate::{
+    authority_mandate::submission,
+    ctx::{GetDb, GetInstance},
+};
 
 pub struct AuthlyMandateSubmissionServerImpl<Ctx> {
     ctx: Ctx,

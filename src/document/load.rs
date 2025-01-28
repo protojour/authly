@@ -5,6 +5,7 @@ use authly_common::{document::Document, id::Eid};
 use tracing::info;
 
 use crate::{
+    ctx::GetDb,
     db::document_db::{self, DocumentDirectory},
     directory,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
@@ -16,7 +17,7 @@ pub(crate) async fn load_cfg_documents(
     env_config: &EnvConfig,
     ctx: &AuthlyCtx,
 ) -> anyhow::Result<()> {
-    let doc_authorities = document_db::get_documents(ctx).await?;
+    let doc_authorities = document_db::get_documents(ctx.get_db()).await?;
 
     for dir_path in &env_config.document_path {
         let Ok(entries) = fs::read_dir(dir_path) else {
@@ -56,7 +57,7 @@ pub(crate) async fn load_cfg_documents(
             if should_process(did, &meta, &doc_authorities) {
                 info!(?path, "load");
 
-                let compiled_doc = match compile_doc(document, meta, ctx).await {
+                let compiled_doc = match compile_doc(document, meta, ctx.get_db()).await {
                     Ok(doc) => doc,
                     Err(errors) => {
                         for error in errors {

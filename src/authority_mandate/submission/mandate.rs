@@ -12,7 +12,7 @@ use authly_connect::{
     client::new_authly_connect_grpc_client_service, no_trust_verifier::NoTrustVerifier,
     TunnelSecurity,
 };
-use authly_db::{param::AsParam, Db, GetDb};
+use authly_db::{param::AsParam, Db};
 use axum::body::Bytes;
 use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
@@ -21,7 +21,7 @@ use tracing::error;
 
 use crate::{
     cert::client_cert_csr,
-    ctx::{GetDebugSettings, GetInstance},
+    ctx::{GetDb, GetDebugSettings, GetInstance},
     db::cryptography_db::save_tls_cert_sql,
 };
 
@@ -97,7 +97,7 @@ pub async fn mandate_execute_submission(
     let mandate_submission_data =
         MandateSubmissionData::try_from(response).map_err(MandateSubmissionError::Protobuf)?;
     let stmts = mandate_fulfill_submission_txn_statements(mandate_submission_data);
-    deps.get_db().txn(stmts).await.map_err(|err| {
+    deps.get_db().transact(stmts).await.map_err(|err| {
         error!(?err, "submission transaction error");
         MandateSubmissionError::Db
     })?;

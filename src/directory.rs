@@ -7,6 +7,7 @@ use tracing::error;
 use crate::{
     broadcast::{BroadcastError, BroadcastMsgKind},
     cert::{client_cert, CertificateParamsExt},
+    ctx::GetDb,
     db::document_db,
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
@@ -35,11 +36,12 @@ pub async fn apply_document(
 
     let deks = ctx.deks.load_full();
 
-    ctx.txn(
-        document_db::document_txn_statements(compiled_doc, &deks)
-            .map_err(DirectoryError::Context)?,
-    )
-    .await?;
+    ctx.get_db()
+        .transact(
+            document_db::document_txn_statements(compiled_doc, &deks)
+                .map_err(DirectoryError::Context)?,
+        )
+        .await?;
 
     if ctx.export_tls_to_etc {
         for svc_eid in service_ids {

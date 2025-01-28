@@ -8,6 +8,7 @@ use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use authly_db::IsLeaderDb;
 use axum::{response::IntoResponse, Json};
+use ctx::GetDb;
 use db::{cryptography_db, settings_db};
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
@@ -222,7 +223,7 @@ async fn initialize() -> anyhow::Result<Init> {
         load_cfg_documents(&env_config, &ctx).await?;
     }
 
-    let settings = settings_db::load_local_settings(&ctx).await?;
+    let settings = settings_db::load_local_settings(ctx.get_db()).await?;
 
     info!("local settings: {settings:#?}");
 

@@ -8,6 +8,7 @@ use tracing::warn;
 
 use crate::{
     access_control::{authorize_peer_service, SvcAccessControlError},
+    ctx::GetDb,
     db::{
         entity_db::{self, EntityPasswordHash},
         session_db,
@@ -96,7 +97,7 @@ pub async fn authenticate(
             };
 
             let ehash = entity_db::find_local_directory_entity_password_hash_by_entity_ident(
-                &ctx,
+                ctx.get_db(),
                 BuiltinID::PropUsername.to_obj_id(),
                 &ident_fingerprint,
             )
@@ -134,7 +135,7 @@ async fn init_session(eid: Eid, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
         expires_at: time::OffsetDateTime::now_utc() + SESSION_TTL,
     };
 
-    session_db::store_session(ctx, &session).await?;
+    session_db::store_session(ctx.get_db(), &session).await?;
 
     Ok(session)
 }

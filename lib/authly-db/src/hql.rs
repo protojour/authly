@@ -28,7 +28,7 @@ impl Db for hiqlite::Client {
         Ok(hiqlite::Client::execute(self, sql, params).await?)
     }
 
-    async fn txn(
+    async fn transact(
         &self,
         sql: Vec<(Cow<'static, str>, Params)>,
     ) -> Result<Vec<Result<usize, DbError>>, DbError> {

@@ -1,4 +1,7 @@
-use authly::db::{entity_db, service_db};
+use authly::{
+    ctx::GetDb,
+    db::{entity_db, service_db},
+};
 use authly_common::document::Document;
 use hexhex::hex_literal;
 use indoc::indoc;
@@ -32,7 +35,7 @@ async fn test_store_doc_trivial() {
 
     assert_eq!(
         entity_db::list_entity_attrs(
-            &ctx,
+            ctx.get_db(),
             hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b").into()
         )
         .await
@@ -43,7 +46,7 @@ async fn test_store_doc_trivial() {
 
     assert_eq!(
         entity_db::list_entity_attrs(
-            &ctx,
+            ctx.get_db(),
             hex_literal!("015362d6655447c6b7f44865bd111c70").into()
         )
         .await
@@ -53,7 +56,7 @@ async fn test_store_doc_trivial() {
     );
 
     let eid = service_db::find_service_eid_by_k8s_service_account_name(
-        &ctx,
+        ctx.get_db(),
         "authly-test",
         "testservice",
     )

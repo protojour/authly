@@ -61,7 +61,7 @@ pub trait Db: Send + Sync + 'static {
     ) -> impl Future<Output = Result<usize, DbError>> + Send;
 
     /// Execute multiple statements in a transaction
-    fn txn(
+    fn transact(
         &self,
         sql: Vec<(Cow<'static, str>, Params)>,
     ) -> impl Future<Output = Result<Vec<Result<usize, DbError>>, DbError>> + Send;
@@ -84,38 +84,5 @@ pub trait Row {
 
     fn get_id<K>(&mut self, idx: &str) -> Id128<K> {
         Id128::from_bytes(&self.get_blob(idx)).unwrap()
-    }
-}
-
-/// Trait for getting the "database".
-///
-/// This trait can be used with in "entrait-pattern" style dependency injection.
-pub trait GetDb: Send + Sync + 'static {
-    type Db: Db;
-
-    fn get_db(&self) -> &Self::Db;
-}
-
-/// Every GetDb is also a Db:
-impl<T: GetDb + Send + Sync + 'static> Db for T {
-    type Row<'a> = <<T as GetDb>::Db as Db>::Row<'a>;
-
-    async fn query_raw(
-        &self,
-        stmt: Cow<'static, str>,
-        params: Params,
-    ) -> Result<Vec<Self::Row<'_>>, DbError> {
-        Db::query_raw(self.get_db(), stmt, params).await
-    }
-
-    async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
-        Db::execute(self.get_db(), sql, params).await
-    }
-
-    async fn txn(
-        &self,
-        sql: Vec<(Cow<'static, str>, Params)>,
-    ) -> Result<Vec<Result<usize, DbError>>, DbError> {
-        Db::txn(self.get_db(), sql).await
     }
 }

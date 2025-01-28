@@ -2,9 +2,18 @@
 
 use std::sync::Arc;
 
-use authly_db::GetDb;
+use authly_db::Db;
 
 use crate::{instance::AuthlyInstance, AuthlyCtx};
+
+/// Trait for getting the "database".
+///
+/// This trait can be used with in "entrait-pattern" style dependency injection.
+pub trait GetDb {
+    type Db: Db;
+
+    fn get_db(&self) -> &Self::Db;
+}
 
 pub trait GetInstance {
     fn get_instance(&self) -> &Arc<AuthlyInstance>;

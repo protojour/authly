@@ -10,7 +10,7 @@ use authly::{
         },
     },
     cert::{server_cert, CertificateParamsExt},
-    ctx::GetInstance,
+    ctx::{GetDb, GetInstance},
     db::cryptography_db::load_authly_instance,
     proto::mandate_submission::AuthlyMandateSubmissionServerImpl,
 };
@@ -135,7 +135,7 @@ async fn test_mandate_registration() {
     // Verify
     for (m_ctx, claim) in m_ctxs.iter().zip_eq(&claims) {
         let deks = m_ctx.get_decrypted_deks();
-        let authly_instance = load_authly_instance(IsLeaderDb(true), m_ctx, &deks)
+        let authly_instance = load_authly_instance(IsLeaderDb(true), m_ctx.get_db(), &deks)
             .await
             .unwrap();
 
