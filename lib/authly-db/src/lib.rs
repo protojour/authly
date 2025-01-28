@@ -43,9 +43,7 @@ impl From<hiqlite::Error> for DbError {
 pub type DbResult<T> = Result<T, DbError>;
 
 /// Db abstraction around SQLite that works with both rusqlite and hiqlite.
-///
-/// Does not support transactions, so transactions must be tested agains the various concrete connection types.
-pub trait Db {
+pub trait Db: Send + Sync + 'static {
     type Row<'a>: Row
     where
         Self: 'a;
@@ -92,7 +90,7 @@ pub trait Row {
 /// Trait for getting the "database".
 ///
 /// This trait can be used with in "entrait-pattern" style dependency injection.
-pub trait GetDb {
+pub trait GetDb: Send + Sync + 'static {
     type Db: Db;
 
     fn get_db(&self) -> &Self::Db;

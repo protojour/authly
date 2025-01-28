@@ -2,25 +2,28 @@ use authly::{
     audit::Actor,
     authority_mandate::submission::{
         authority::{
-            authority_fulfill_submission, authority_generate_submission_code,
-            authority_generate_submission_token,
+            authority_fulfill_submission, authority_generate_submission_token, PreissuedCode,
         },
         mandate::{
-            mandate_decode_submission_token, mandate_fulfill_submission_txn_statements,
+            mandate_decode_submission_token, mandate_execute_submission,
             mandate_identity_signing_request,
         },
-        MandateSubmissionData,
     },
+    cert::{server_cert, CertificateParamsExt},
     ctx::GetInstance,
     db::cryptography_db::load_authly_instance,
+    proto::mandate_submission::AuthlyMandateSubmissionServerImpl,
 };
 use authly_common::id::Eid;
-use authly_db::{Db, IsLeaderDb};
+use authly_connect::TunnelSecurity;
+use authly_db::IsLeaderDb;
+use itertools::Itertools;
 use rcgen::CertificateSigningRequestParams;
 use test_log::test;
+use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::TestCtx;
+use crate::{rustls_server_config_no_client_auth, spawn_test_connect_server, TestCtx};
 
 #[test(tokio::test)]
 async fn test_mandate_registration_failure() {
@@ -35,9 +38,15 @@ async fn test_mandate_registration_failure() {
         .supreme_instance()
         .await;
 
-    let token = authority_generate_submission_token(&a_ctx, b"INVALID CODE".to_vec())
-        .await
-        .unwrap();
+    let actor = Actor(Eid::random());
+    let token = authority_generate_submission_token(
+        &a_ctx,
+        "http://localhost".to_string(),
+        actor,
+        Some(PreissuedCode(b"INVALID CODE".to_vec())),
+    )
+    .await
+    .unwrap();
     let submission_claims = mandate_decode_submission_token(&m_ctx, &token).unwrap();
     let csr = mandate_identity_signing_request(&m_ctx, submission_claims.authly.mandate_entity_id)
         .unwrap();
@@ -53,7 +62,7 @@ async fn test_mandate_registration_failure() {
 
 #[test(tokio::test)]
 async fn test_mandate_registration() {
-    let a_ctx = TestCtx::default()
+    let authority_ctx = TestCtx::default()
         .inmemory_db()
         .await
         .supreme_instance()
@@ -72,71 +81,70 @@ async fn test_mandate_registration() {
             .await,
     ];
 
+    let cancel = CancellationToken::new();
+
+    let server_connect_uri = spawn_test_connect_server(
+        rustls_server_config_no_client_auth(&[&authority_ctx.get_instance().sign_with_local_ca(
+            server_cert("localhost", time::Duration::hours(1)).with_new_key_pair(),
+        )])
+        .unwrap(),
+        TunnelSecurity::Secure,
+        tonic::service::Routes::default()
+            .add_service(AuthlyMandateSubmissionServerImpl::new_service(
+                authority_ctx.clone(),
+            ))
+            .into_axum_router(),
+        cancel.clone(),
+    )
+    .await;
+
     let actor = Actor(Eid::random());
     let mut tokens = vec![];
+    let mut claims = vec![];
 
     // Generate tokens for each of the mandates
-    for _ in &m_ctxs {
-        let code = authority_generate_submission_code(&a_ctx, actor)
-            .await
-            .unwrap();
-        let token = authority_generate_submission_token(&a_ctx, code)
-            .await
-            .unwrap();
+    for m_ctx in &m_ctxs {
+        let token = authority_generate_submission_token(
+            &authority_ctx,
+            server_connect_uri.clone(),
+            actor,
+            None,
+        )
+        .await
+        .unwrap();
+
+        claims.push(mandate_decode_submission_token(m_ctx, &token).unwrap());
 
         info!("token: {}", token);
 
         tokens.push(token);
     }
 
-    let mut certified_mandates = vec![];
-
-    for (token, m_ctx) in tokens.iter().zip(&m_ctxs) {
-        let submission_claims = mandate_decode_submission_token(m_ctx, token).unwrap();
-        let csr =
-            mandate_identity_signing_request(m_ctx, submission_claims.authly.mandate_entity_id)
-                .unwrap();
-
-        certified_mandates.push(
-            authority_fulfill_submission(
-                &a_ctx,
-                token,
-                CertificateSigningRequestParams::from_der(csr.der()).unwrap(),
-            )
-            .await
-            .unwrap(),
-        );
-
-        assert!(
-            authority_fulfill_submission(
-                &a_ctx,
-                token,
-                CertificateSigningRequestParams::from_der(csr.der()).unwrap()
-            )
-            .await
-            .is_err(),
-            "cannot reuse token code"
-        );
-    }
-
-    for (certified_mandate, m_ctx) in certified_mandates.into_iter().zip(m_ctxs) {
-        let mandate_eid = certified_mandate.mandate_eid;
-
-        let data = MandateSubmissionData {
-            certified_mandate,
-            upstream_ca_chain: vec![a_ctx.get_instance().trust_root_ca().clone()],
-        };
-
-        // update mandate database
-        let stmts = mandate_fulfill_submission_txn_statements(data);
-        m_ctx.txn(stmts).await.unwrap();
-
-        // reload instance
-        let deks = m_ctx.get_decrypted_deks();
-        let authly_instance = load_authly_instance(IsLeaderDb(true), &m_ctx, &deks)
+    // Execute submission in each of the mandates
+    for (m_ctx, token) in m_ctxs.iter().zip_eq(&tokens) {
+        mandate_execute_submission(m_ctx, token.to_string())
             .await
             .unwrap();
 
-        assert_eq!(authly_instance.authly_eid(), mandate_eid);
+        assert!(
+            mandate_execute_submission(m_ctx, token.to_string())
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("message: \"submission failed\""),
+            "replay is not possible"
+        );
+    }
+
+    // Verify
+    for (m_ctx, claim) in m_ctxs.iter().zip_eq(&claims) {
+        let deks = m_ctx.get_decrypted_deks();
+        let authly_instance = load_authly_instance(IsLeaderDb(true), m_ctx, &deks)
+            .await
+            .unwrap();
+
+        let expected_eid = claim.authly.mandate_entity_id;
+
+        assert_eq!(authly_instance.authly_eid(), expected_eid);
     }
 }

@@ -10,6 +10,12 @@ pub trait GetInstance {
     fn get_instance(&self) -> &Arc<AuthlyInstance>;
 }
 
+impl GetInstance for AuthlyCtx {
+    fn get_instance(&self) -> &Arc<AuthlyInstance> {
+        &self.instance
+    }
+}
+
 impl GetDb for AuthlyCtx {
     type Db = hiqlite::Client;
 
@@ -18,12 +24,19 @@ impl GetDb for AuthlyCtx {
     }
 }
 
-impl GetInstance for AuthlyCtx {
-    fn get_instance(&self) -> &Arc<AuthlyInstance> {
-        &self.instance
+pub trait GetDebugSettings {
+    /// Whether to disable service certificate validation when
+    /// connecting to external URLs
+    fn insecure_webpki(&self) -> bool;
+}
+
+impl GetDebugSettings for AuthlyCtx {
+    fn insecure_webpki(&self) -> bool {
+        false
     }
 }
 
+/// test context
 pub mod test {
     use std::sync::Arc;
 
@@ -40,9 +53,11 @@ pub mod test {
         Migrations,
     };
 
-    use super::{GetDb, GetInstance};
+    use super::{GetDb, GetDebugSettings, GetInstance};
 
-    #[derive(Default)]
+    /// The TestCtx allows writing tests that don't require the whole app running.
+    /// E.g. it supports an in-memory database.
+    #[derive(Clone, Default)]
     pub struct TestCtx {
         db: Option<SqliteHandle>,
         instance: Option<Arc<AuthlyInstance>>,
@@ -146,6 +161,12 @@ pub mod test {
         #[track_caller]
         fn get_instance(&self) -> &Arc<AuthlyInstance> {
             self.instance.as_ref().expect("TestCtx has no instance")
+        }
+    }
+
+    impl GetDebugSettings for TestCtx {
+        fn insecure_webpki(&self) -> bool {
+            true
         }
     }
 

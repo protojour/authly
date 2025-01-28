@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::Arc};
+
 use authly::{
     cert::Cert,
     ctx::test::TestCtx,
@@ -8,14 +10,22 @@ use authly::{
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     encryption::DecryptedDeks,
 };
-use authly_common::{document::Document, id::Eid, service::PropertyMapping};
+use authly_common::{
+    document::Document, id::Eid, proto::connect::authly_connect_server::AuthlyConnectServer,
+    service::PropertyMapping,
+};
+use authly_connect::{
+    server::{AuthlyConnectServerImpl, ConnectService},
+    TunnelSecurity,
+};
 use authly_db::{sqlite_handle::SqliteHandle, Db};
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
     server::WebPkiClientVerifier,
-    RootCertStore,
+    RootCertStore, ServerConfig,
 };
+use tokio_util::sync::CancellationToken;
 
 mod end2end;
 mod test_access_control;
@@ -41,7 +51,7 @@ async fn compile_and_apply_doc(
 
 fn rustls_server_config_no_client_auth(
     server_cert_chain: &[&Cert<KeyPair>],
-) -> anyhow::Result<rustls::ServerConfig> {
+) -> anyhow::Result<Arc<rustls::ServerConfig>> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let private_key_der =
@@ -58,13 +68,13 @@ fn rustls_server_config_no_client_auth(
         )?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    Ok(config)
+    Ok(Arc::new(config))
 }
 
 fn rustls_server_config_mtls(
     server_cert_chain: &[&Cert<KeyPair>],
     root_ca: &CertificateDer,
-) -> anyhow::Result<rustls::ServerConfig> {
+) -> anyhow::Result<Arc<rustls::ServerConfig>> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let private_key_der =
@@ -84,7 +94,45 @@ fn rustls_server_config_mtls(
         )?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
-    Ok(config)
+    Ok(Arc::new(config))
+}
+
+/// Returns URL
+async fn spawn_test_server(service: axum::Router, cancel: CancellationToken) -> String {
+    let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
+        .with_graceful_shutdown(cancel.clone())
+        .bind()
+        .await
+        .unwrap();
+    let port = server.local_addr().unwrap().port();
+
+    tokio::spawn(server.serve(service));
+
+    format!("http://localhost:{port}")
+}
+
+async fn spawn_test_connect_server(
+    tls_config: Arc<ServerConfig>,
+    security: TunnelSecurity,
+    service: axum::Router,
+    cancel: CancellationToken,
+) -> String {
+    spawn_test_server(
+        tonic::service::Routes::default()
+            .add_service(AuthlyConnectServer::new(AuthlyConnectServerImpl {
+                services: HashMap::from([(
+                    security,
+                    ConnectService {
+                        tls_server_config: tls_config,
+                        service: service.clone(),
+                    },
+                )]),
+                cancel: cancel.clone(),
+            }))
+            .into_axum_router(),
+        cancel,
+    )
+    .await
 }
 
 struct ServiceProperties {

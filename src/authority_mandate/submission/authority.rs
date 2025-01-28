@@ -1,8 +1,7 @@
 //! Submission, authority side
 
-use anyhow::anyhow;
 use authly_common::id::Eid;
-use authly_db::Db;
+use authly_db::GetDb;
 use rand::{rngs::OsRng, Rng};
 use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
@@ -11,34 +10,45 @@ use crate::{
     audit::Actor,
     cert::authly_ca,
     ctx::GetInstance,
-    db::authority_mandate_db,
-    serde_util::Hex,
+    db::authority_mandate_db::{self, AmDbError},
     tls::{AuthlyCert, AuthlyCertKind},
+    util::serde::Hex,
 };
 
 use super::{Authly, CertifiedMandate, SubmissionClaims, SUBMISSION_CODE_EXPIRATION};
 
-pub async fn authority_generate_submission_code(
-    deps: &impl Db,
-    created_by: Actor,
-) -> anyhow::Result<Vec<u8>> {
-    let mut code: Vec<u8> = vec![0; 256];
-    OsRng.fill(code.as_mut_slice());
+/// Errors that may occur on the authority/server side
+#[derive(thiserror::Error, Debug)]
+pub enum AuthoritySubmissionError {
+    #[error("token generation problem: {0}")]
+    Token(#[from] jsonwebtoken::errors::Error),
 
-    authority_mandate_db::insert_mandate_submission_code(
-        deps,
-        blake3::hash(&code).as_bytes().to_vec(),
-        created_by,
-    )
-    .await?;
+    #[error("csr missing common name")]
+    CsrMissingCommonName,
 
-    Ok(code.to_vec())
+    #[error("csr common name mismatch")]
+    CsrCommonNameMismatch,
+
+    #[error("csr error: {0}")]
+    CsrOther(rcgen::Error),
+
+    #[error("database error")]
+    Db(#[from] AmDbError),
 }
 
+pub struct PreissuedCode(pub Vec<u8>);
+
 pub async fn authority_generate_submission_token(
-    deps: &impl GetInstance,
-    submission_code: Vec<u8>,
-) -> anyhow::Result<String> {
+    deps: &(impl GetDb + GetInstance),
+    self_url: String,
+    actor: Actor,
+    preissued_code: Option<PreissuedCode>,
+) -> Result<String, AuthoritySubmissionError> {
+    let submission_code = match preissued_code {
+        Some(PreissuedCode(code)) => code,
+        None => save_new_submission_code(deps, actor).await?,
+    };
+
     let now = time::OffsetDateTime::now_utc();
     let expiration = now + SUBMISSION_CODE_EXPIRATION;
 
@@ -49,8 +59,7 @@ pub async fn authority_generate_submission_token(
         iat: now.unix_timestamp(),
         exp: expiration.unix_timestamp(),
         authly: Authly {
-            // FIXME: Proper URL
-            authority_url: "https://authly-internet.com".to_string(),
+            authority_url: self_url,
             code: Hex(submission_code),
             mandate_entity_id,
         },
@@ -64,11 +73,28 @@ pub async fn authority_generate_submission_token(
     )?)
 }
 
+async fn save_new_submission_code(
+    deps: &impl GetDb,
+    created_by: Actor,
+) -> Result<Vec<u8>, AuthoritySubmissionError> {
+    let mut code: Vec<u8> = vec![0; 128];
+    OsRng.fill(code.as_mut_slice());
+
+    authority_mandate_db::insert_mandate_submission_code(
+        deps.get_db(),
+        blake3::hash(&code).as_bytes().to_vec(),
+        created_by,
+    )
+    .await?;
+
+    Ok(code.to_vec())
+}
+
 pub async fn authority_fulfill_submission(
-    deps: &(impl Db + GetInstance),
+    deps: &(impl GetDb + GetInstance),
     token: &str,
     csr_params: CertificateSigningRequestParams,
-) -> anyhow::Result<CertifiedMandate> {
+) -> Result<CertifiedMandate, AuthoritySubmissionError> {
     let instance = deps.get_instance();
 
     let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
@@ -80,7 +106,7 @@ pub async fn authority_fulfill_submission(
     let claims = token_data.claims.authly;
 
     let code_created_by = authority_mandate_db::verify_then_invalidate_submission_code(
-        deps,
+        deps.get_db(),
         blake3::hash(&claims.code.0).as_bytes().to_vec(),
     )
     .await?;
@@ -96,10 +122,10 @@ pub async fn authority_fulfill_submission(
                 DnValue::Utf8String(cn) => Some(cn),
                 _ => None,
             })
-            .ok_or_else(|| anyhow!("No common name in CSR"))?;
+            .ok_or_else(|| AuthoritySubmissionError::CsrMissingCommonName)?;
 
         if common_name != &mandate_eid.to_string() {
-            return Err(anyhow!("Common name in CSR does not match mandate EID"));
+            return Err(AuthoritySubmissionError::CsrCommonNameMismatch);
         }
     };
 
@@ -111,7 +137,7 @@ pub async fn authority_fulfill_submission(
         )
         .map_err(|err| {
             warn!(?err, "unable to sign mandate CA");
-            anyhow!("Certificate signing problem")
+            AuthoritySubmissionError::CsrOther(err)
         })?;
 
     let mandate_public_key = csr_params.public_key.der_bytes().to_vec();
@@ -120,11 +146,11 @@ pub async fn authority_fulfill_submission(
         .signed_by(&instance.local_ca().params, instance.private_key())
         .map_err(|err| {
             warn!(?err, "unable to sign mandate identity");
-            anyhow!("Certificate signing problem")
+            AuthoritySubmissionError::CsrOther(err)
         })?;
 
     authority_mandate_db::insert_authority_mandate(
-        deps,
+        deps.get_db(),
         mandate_eid,
         code_created_by,
         mandate_public_key,

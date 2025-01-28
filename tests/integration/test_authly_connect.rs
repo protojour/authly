@@ -1,16 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use authly::cert::{authly_ca, client_cert, server_cert, CertificateParamsExt};
 use authly_common::{
-    mtls_server::PeerServiceEntity,
-    proto::connect::{
-        authly_connect_client::AuthlyConnectClient, authly_connect_server::AuthlyConnectServer,
-    },
+    mtls_server::PeerServiceEntity, proto::connect::authly_connect_client::AuthlyConnectClient,
 };
 use authly_connect::{
-    client::new_authly_connect_grpc_client_service,
-    server::{AuthlyConnectServerImpl, ConnectService},
-    tunnel::authly_connect_client_tunnel,
+    client::new_authly_connect_grpc_client_service, tunnel::authly_connect_client_tunnel,
     TunnelSecurity,
 };
 use authly_test_grpc::{
@@ -18,7 +13,7 @@ use authly_test_grpc::{
 };
 use axum::{response::IntoResponse, Extension};
 use futures_util::{stream::BoxStream, StreamExt};
-use rustls::{pki_types::ServerName, RootCertStore, ServerConfig};
+use rustls::{pki_types::ServerName, RootCertStore};
 use test_log::test;
 use time::Duration;
 use tokio::{
@@ -29,7 +24,7 @@ use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::rustls_server_config_mtls;
+use crate::{rustls_server_config_mtls, spawn_test_connect_server};
 
 #[test(tokio::test)]
 async fn test_connect_grpc() {
@@ -43,20 +38,19 @@ async fn test_connect_grpc() {
     );
     let cancel = CancellationToken::new();
 
-    let port = spawn_connect_server(
+    let local_url = spawn_test_connect_server(
         rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
-        {
-            let mut grpc_routes = tonic::service::RoutesBuilder::default();
-            grpc_routes.add_service(TestGrpcServer::new(TestGrpcServerImpl));
-            grpc_routes.routes().into_axum_router()
-        },
+        TunnelSecurity::MutuallySecure,
+        tonic::service::Routes::default()
+            .add_service(TestGrpcServer::new(TestGrpcServerImpl))
+            .into_axum_router(),
         cancel.clone(),
     )
     .await;
 
     let mut authority_client = TestGrpcClient::new(
         new_authly_connect_grpc_client_service(
-            format!("http://localhost:{port}").into(),
+            local_url.into(),
             TunnelSecurity::MutuallySecure,
             Arc::new({
                 let mut root_store = RootCertStore::empty();
@@ -158,8 +152,9 @@ async fn test_connect_http() {
     );
     let cancel = CancellationToken::new();
 
-    let port = spawn_connect_server(
+    let local_url = spawn_test_connect_server(
         rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
+        TunnelSecurity::MutuallySecure,
         axum::Router::new().route(
             "/hello",
             axum::routing::get(|ext: Extension<PeerServiceEntity>| async move {
@@ -174,9 +169,7 @@ async fn test_connect_http() {
     // wraps mutual https over an insecure HTTP channel:
     info!("setting up connect tunnel");
     let tunnel = authly_connect_client_tunnel(
-        AuthlyConnectClient::connect(format!("http://localhost:{port}"))
-            .await
-            .unwrap(),
+        AuthlyConnectClient::connect(local_url).await.unwrap(),
         TunnelSecurity::MutuallySecure,
         cancel.clone(),
     )
@@ -223,34 +216,4 @@ async fn test_connect_http() {
     assert!(response.ends_with("HELLO cf2e74c3f26240908e1b4e8817bfde7c!"));
 
     cancel.cancel();
-}
-
-async fn spawn_connect_server(
-    tls_config: ServerConfig,
-    service: axum::Router,
-    cancel: CancellationToken,
-) -> u16 {
-    let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
-        .with_graceful_shutdown(cancel.clone())
-        .bind()
-        .await
-        .unwrap();
-    let port = server.local_addr().unwrap().port();
-    let tls_config = Arc::new(tls_config);
-
-    let mut grpc_routes = tonic::service::RoutesBuilder::default();
-    grpc_routes.add_service(AuthlyConnectServer::new(AuthlyConnectServerImpl {
-        services: HashMap::from([(
-            TunnelSecurity::MutuallySecure,
-            ConnectService {
-                tls_server_config: tls_config.clone(),
-                service: service.clone(),
-            },
-        )]),
-        cancel,
-    }));
-
-    tokio::spawn(server.serve(grpc_routes.routes().into_axum_router()));
-
-    port
 }

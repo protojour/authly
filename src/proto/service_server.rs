@@ -34,15 +34,9 @@ pub struct AuthlyServiceServerImpl {
     ctx: AuthlyCtx,
 }
 
-impl From<AuthlyCtx> for AuthlyServiceServerImpl {
-    fn from(value: AuthlyCtx) -> Self {
-        Self { ctx: value }
-    }
-}
-
 impl AuthlyServiceServerImpl {
-    pub fn into_service(self) -> AuthlyServiceServer<Self> {
-        AuthlyServiceServer::new(self)
+    pub(crate) fn new_service(ctx: AuthlyCtx) -> AuthlyServiceServer<Self> {
+        AuthlyServiceServer::new(Self { ctx })
     }
 }
 

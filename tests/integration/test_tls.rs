@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use authly::cert::{
     authly_ca, client_cert, server_cert, server_cert_csr, Cert, CertificateParamsExt,
@@ -297,7 +297,7 @@ async fn test_mtls_invalid_issuer() {
     );
 }
 
-async fn spawn_server(rustls_config: ServerConfig) -> (u16, CancellationToken) {
+async fn spawn_server(rustls_config: Arc<ServerConfig>) -> (u16, CancellationToken) {
     let cancel = CancellationToken::new();
     let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
         .with_scheme(tower_server::Scheme::Https)

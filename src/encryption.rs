@@ -13,7 +13,7 @@ use serde_json::json;
 use time::OffsetDateTime;
 use tracing::info;
 
-use crate::{db::cryptography_db, id::BuiltinID, serde_util::Hex, EnvConfig};
+use crate::{db::cryptography_db, id::BuiltinID, util::serde::Hex, EnvConfig};
 
 /// The set of Data Encryption Keys used by authly
 #[derive(Default, Debug)]

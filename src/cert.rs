@@ -179,6 +179,22 @@ pub fn client_cert(common_name: &str, not_after: Duration) -> CertificateParams 
     params
 }
 
+pub fn client_cert_csr(common_name: &str, not_after: Duration) -> CertificateParams {
+    let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
+    params
+        .distinguished_name
+        .push(DnType::CommonName, common_name);
+    params.use_authority_key_identifier_extension = false;
+    params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+    params
+        .extended_key_usages
+        .push(ExtendedKeyUsagePurpose::ClientAuth);
+    params.not_before = past(Duration::days(1));
+    params.not_after = future(not_after);
+
+    params
+}
+
 impl<K> From<&Cert<'_, K>> for reqwest::Certificate {
     fn from(value: &Cert<K>) -> Self {
         reqwest::tls::Certificate::from_der(&value.der).unwrap()

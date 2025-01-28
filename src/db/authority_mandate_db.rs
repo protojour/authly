@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 use crate::{audit::Actor, authority_mandate::submission::SUBMISSION_CODE_EXPIRATION};
 
 #[derive(Error, Debug)]
-pub enum AmError {
+pub enum AmDbError {
     #[error("invalid or expired code")]
     InvalidOrExpiredCode,
 
@@ -21,7 +21,7 @@ pub async fn insert_mandate_submission_code(
     deps: &impl Db,
     code_fingerprint: Vec<u8>,
     created_by: Actor,
-) -> Result<(), AmError> {
+) -> Result<(), AmDbError> {
     deps.execute(
         "INSERT INTO am_mandate_submission_code (code_fingerprint, created_at, created_by_eid) VALUES ($1, $2, $3)".into(),
         params!(code_fingerprint, time::OffsetDateTime::now_utc().unix_timestamp(), created_by.0.as_param()),
@@ -34,7 +34,7 @@ pub async fn insert_mandate_submission_code(
 pub async fn verify_then_invalidate_submission_code(
     deps: &impl Db,
     code_fingerprint: Vec<u8>,
-) -> Result<Actor, AmError> {
+) -> Result<Actor, AmDbError> {
     let (created_at, created_by) = {
         let mut row = deps
             .query_raw(
@@ -45,7 +45,7 @@ pub async fn verify_then_invalidate_submission_code(
             .await?
             .into_iter()
             .next()
-            .ok_or(AmError::InvalidOrExpiredCode)?;
+            .ok_or(AmDbError::InvalidOrExpiredCode)?;
 
         (
             row.get_datetime("created_at")?,
@@ -60,7 +60,7 @@ pub async fn verify_then_invalidate_submission_code(
     .await?;
 
     if created_at + SUBMISSION_CODE_EXPIRATION < OffsetDateTime::now_utc() {
-        Err(AmError::InvalidOrExpiredCode)
+        Err(AmDbError::InvalidOrExpiredCode)
     } else {
         Ok(created_by)
     }
@@ -72,7 +72,7 @@ pub async fn insert_authority_mandate(
     granted_by: Actor,
     public_key: Vec<u8>,
     mandate_type: &'static str,
-) -> Result<(), AmError> {
+) -> Result<(), AmDbError> {
     let now = time::OffsetDateTime::now_utc();
     deps.execute(
         indoc! {

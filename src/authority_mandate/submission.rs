@@ -8,8 +8,8 @@ use rustls::pki_types::CertificateDer;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    serde_util::Hex,
     tls::{AuthlyCert, AuthlyCertKind},
+    util::serde::Hex,
 };
 
 pub mod authority;

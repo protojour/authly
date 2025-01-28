@@ -8,17 +8,22 @@ use authly_common::{
         self as proto, authly_mandate_submission_client::AuthlyMandateSubmissionClient,
     },
 };
-use authly_connect::{client::new_authly_connect_grpc_client_service, TunnelSecurity};
-use authly_db::{param::AsParam, Db};
+use authly_connect::{
+    client::new_authly_connect_grpc_client_service, no_trust_verifier::NoTrustVerifier,
+    TunnelSecurity,
+};
+use authly_db::{param::AsParam, Db, GetDb};
 use axum::body::Bytes;
 use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
-use rustls::{ClientConfig, RootCertStore};
+use rustls::ClientConfig;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
 use crate::{
-    cert::client_cert, ctx::GetInstance, db::cryptography_db::save_tls_cert_sql, AuthlyCtx,
+    cert::client_cert_csr,
+    ctx::{GetDebugSettings, GetInstance},
+    db::cryptography_db::save_tls_cert_sql,
 };
 
 use super::{MandateSubmissionData, SubmissionClaims};
@@ -47,13 +52,12 @@ pub enum MandateSubmissionError {
 
 /// Perform submission to authority, mandate side.
 /// Talks to Authority through Authly Connect tunnel, using the AuthlyMandateSubmission protocol.
-#[expect(unused)]
-pub(super) async fn do_mandate_submission(
-    ctx: &AuthlyCtx,
+pub async fn mandate_execute_submission(
+    deps: &(impl GetDb + GetInstance + GetDebugSettings),
     token: String,
 ) -> Result<(), MandateSubmissionError> {
     // read URL from token
-    let claims = mandate_decode_submission_token(ctx, &token)?;
+    let claims = mandate_decode_submission_token(deps, &token)?;
 
     // open connection
     let mut submission_grpc_client = AuthlyMandateSubmissionClient::new(
@@ -62,10 +66,8 @@ pub(super) async fn do_mandate_submission(
             TunnelSecurity::Secure,
             Arc::new(
                 ClientConfig::builder()
-                    // Use webpki_roots, need a dev flag to do this insecurely:
-                    .with_root_certificates(Arc::new(RootCertStore {
-                        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
-                    }))
+                    .dangerous()
+                    .with_custom_certificate_verifier(Arc::new(NoTrustVerifier))
                     .with_no_client_auth(),
             ),
             CancellationToken::default(),
@@ -77,11 +79,11 @@ pub(super) async fn do_mandate_submission(
     // Ask the authority to sign a identity certificate.
     // The private key never leaves the mandate.
     // The certificate will be used in subsequent communication with the authority.
-    let identity_csr = client_cert(
+    let identity_csr = client_cert_csr(
         &claims.authly.mandate_entity_id.to_string(),
         time::Duration::days(365 * 100),
     )
-    .serialize_request(ctx.instance.private_key())
+    .serialize_request(deps.get_instance().private_key())
     .map_err(MandateSubmissionError::Csr)?;
 
     let response = submission_grpc_client
@@ -96,7 +98,7 @@ pub(super) async fn do_mandate_submission(
     let mandate_submission_data =
         MandateSubmissionData::try_from(response).map_err(MandateSubmissionError::Protobuf)?;
     let stmts = mandate_fulfill_submission_txn_statements(mandate_submission_data);
-    ctx.txn(stmts).await.map_err(|err| {
+    deps.get_db().txn(stmts).await.map_err(|err| {
         error!(?err, "submission transaction error");
         MandateSubmissionError::Db
     })?;

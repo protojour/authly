@@ -1,5 +1,6 @@
 use authly_common::proto::mandate_submission::{
-    self as proto, authly_mandate_submission_server::AuthlyMandateSubmission,
+    self as proto,
+    authly_mandate_submission_server::{AuthlyMandateSubmission, AuthlyMandateSubmissionServer},
 };
 use authly_db::GetDb;
 use rcgen::CertificateSigningRequestParams;
@@ -10,7 +11,13 @@ use tracing::warn;
 use crate::{authority_mandate::submission, ctx::GetInstance};
 
 pub struct AuthlyMandateSubmissionServerImpl<Ctx> {
-    pub(crate) ctx: Ctx,
+    ctx: Ctx,
+}
+
+impl<Ctx> AuthlyMandateSubmissionServerImpl<Ctx> {
+    pub fn new_service(ctx: Ctx) -> AuthlyMandateSubmissionServer<Self> {
+        AuthlyMandateSubmissionServer::new(Self { ctx })
+    }
 }
 
 #[tonic::async_trait]

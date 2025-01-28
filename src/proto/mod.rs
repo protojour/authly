@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use authly_common::proto::{
-    connect::authly_connect_server::AuthlyConnectServer,
-    mandate_submission::authly_mandate_submission_server::AuthlyMandateSubmissionServer,
-};
+use authly_common::proto::connect::authly_connect_server::AuthlyConnectServer;
 use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
@@ -20,15 +17,15 @@ pub mod service_server;
 // gRPC entry point
 pub(crate) fn main_service_grpc_router(ctx: AuthlyCtx) -> anyhow::Result<axum::Router> {
     Ok(tonic::service::Routes::default()
-        .add_service(service_server::AuthlyServiceServerImpl::from(ctx.clone()).into_service())
+        .add_service(service_server::AuthlyServiceServerImpl::new_service(
+            ctx.clone(),
+        ))
         .add_service(AuthlyConnectServer::new(AuthlyConnectServerImpl {
             services: HashMap::from([(
                 TunnelSecurity::Secure,
                 ConnectService {
                     service: tonic::service::Routes::default()
-                        .add_service(AuthlyMandateSubmissionServer::new(
-                            AuthlyMandateSubmissionServerImpl { ctx: ctx.clone() },
-                        ))
+                        .add_service(AuthlyMandateSubmissionServerImpl::new_service(ctx.clone()))
                         .into_axum_router(),
                     tls_server_config: tls::generate_tls_server_config(
                         "authly-connect",

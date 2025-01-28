@@ -18,6 +18,7 @@ use crate::{
     authority_mandate::submission,
     directory,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
+    util::base_uri::ProxiedBaseUri,
     AuthlyCtx,
 };
 
@@ -101,23 +102,19 @@ pub async fn post_document(
 pub async fn post_authority_mandate_submission_token(
     State(ctx): State<AuthlyCtx>,
     auth: AdminAuth<access_control::role::GrantMandate>,
+    proxied_base_uri: ProxiedBaseUri,
 ) -> Result<Response, Response> {
-    let code = submission::authority::authority_generate_submission_code(
+    let token = submission::authority::authority_generate_submission_token(
         &ctx,
+        proxied_base_uri.uri.to_string(),
         Actor(auth.user_claims.authly.entity_id),
+        None,
     )
     .await
     .map_err(|err| {
-        warn!(?err, "unable to create submission code");
+        warn!(?err, "unable to create submission token");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     })?;
-
-    let token = submission::authority::authority_generate_submission_token(&ctx, code)
-        .await
-        .map_err(|err| {
-            warn!(?err, "unable to create submission token");
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        })?;
 
     Ok(token.into_response())
 }
