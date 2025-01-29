@@ -1,0 +1,15 @@
+[package]
+name = "authly-webstatic"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum = { version = "0.7", features = ["macros"] }
+http = "1"
+mime_guess = "2"
+rust-embed = { version = "8", features = ["debug-embed"] }

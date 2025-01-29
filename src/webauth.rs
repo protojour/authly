@@ -1,3 +1,4 @@
+use authly_webstatic::static_folder;
 use axum::{extract::State, routing::get};
 use http::request::Parts;
 use indoc::indoc;
@@ -11,6 +12,7 @@ pub fn router() -> axum::Router<AuthlyCtx> {
         // (`/` is appended by the gateway because /web/auth is a "matcher", => /web/auth/)
         .route("/web/auth", get(index))
         .route("/web/auth/", get(index))
+        .nest_service("/web/static", static_folder())
 }
 
 pub async fn index(
@@ -30,23 +32,7 @@ pub async fn index(
         });
         "#
     };
-    let css = indoc! {
-        r#"
-        #root {
-            min-height: 100vh;
-            height: fit-content;
-            max-width: 100vw;
-            display: grid;
-            align-items: center;
-            justify-content: center;
-            grid-template-columns: minmax(auto, 960px);
-        }
-        main {
-            display: grid;
-            place-items: center;
-        }
-        "#
-    };
+
     html! {
         (DOCTYPE)
         html {
@@ -54,25 +40,37 @@ pub async fn index(
                 meta charset="utf-8";
                 meta name="viewport" content="device-width, intial-scale=1";
                 meta name="color-scheme" content="light dark";
-                title { "Authly" }
-                script src="https://unpkg.com/htmx.org@2.0.4" {}
-                script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js" {}
-                link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.classless.min.css" {}
-                style { (PreEscaped(css)) }
+                title { "Authly sign in" }
+                script src={(prefix)"/web/static/vendor/htmx.min.js"} {}
+                script src={(prefix)"/web/static/vendor/json-enc.js"} {}
+                link rel="shortcut icon" href={(prefix)"/web/static/favicon.svg"} type="image/svg+xml";
+                link rel="stylesheet" href={(prefix)"/web/static/vendor/pico.classless.min.css"};
+                link rel="stylesheet" href={(prefix)"/web/static/style.css"};
             }
             body {
                 div id="root" {
                     main {
-                        h1 { "Sign in with Authly" }
-                        form hx-post={(prefix)"/api/auth/authenticate"} hx-ext="json-enc" {
-                            input id="username" name="username" type="text" aria-label="Username" required {}
-                            input id="password" name="password" type="password" aria-label="Password" required {}
-                            button type="submit" { "Login" }
+                        img alt="Authly" src={(prefix)"/web/static/logo.svg"};
+                        div class="card" {
+                            h2 { "Sign in" }
+                            form hx-post={(prefix)"/api/auth/authenticate"} hx-ext="json-enc" {
+                                div class="inputs" {
+                                    input id="username" name="username" type="text" aria-label="Username" placeholder="Username" required autofocus {}
+                                    input id="password" name="password" type="password" aria-label="Password" placeholder="Password" required {}
+                                }
+                                div {
+                                    button type="submit" {
+                                        svg {
+                                            use href={(prefix)"/web/static/vendor/login.svg#icon"};
+                                        }
+                                        "Sign in"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
-
             script { (PreEscaped(js)) }
         }
     }

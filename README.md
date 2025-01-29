@@ -51,7 +51,7 @@ Authly is beta software, currently with a minimal feature set, but several high-
 - [x] mTLS provisioning for services
 - [x] Kubernetes example setup
 - [x] Docker example setup
-- [ ] Minimal login UI
+- [x] Minimal login UI
 - [ ] Federation and authority/mandate relations
 - [ ] `authly-client` language bindings
 - [ ] `authly-client`-based minimalist sidecar proxy
