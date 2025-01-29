@@ -50,6 +50,10 @@ runrelease: dev-environment generate-testdata
 cleanlocal:
     -rm -r .local
 
+# run end2end tests, these are dependent on `rundev` running in the background
+end2end:
+    cargo test -- --include-ignored
+
 # default target
 target := "x86_64-unknown-linux-musl"
 
