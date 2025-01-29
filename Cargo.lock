@@ -319,6 +319,7 @@ dependencies = [
  "authly-connect",
  "authly-db",
  "authly-test-grpc",
+ "authly-webstatic",
  "axum 0.7.9",
  "axum-extra",
  "base64 0.22.1",
@@ -344,7 +345,6 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "maud",
- "mime_guess",
  "num-derive",
  "num-traits",
  "openraft",
@@ -491,6 +491,16 @@ dependencies = [
  "tower-server",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "authly-webstatic"
+version = "0.0.0"
+dependencies = [
+ "axum 0.7.9",
+ "http",
+ "mime_guess",
+ "rust-embed",
 ]
 
 [[package]]
