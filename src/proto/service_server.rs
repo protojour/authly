@@ -1,3 +1,5 @@
+use std::{net::SocketAddr, time::Duration};
+
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
     id::{Eid, Id128},
@@ -8,6 +10,7 @@ use authly_common::{
         authly_service_server::{AuthlyService, AuthlyServiceServer},
     },
 };
+use futures_util::{stream::BoxStream, StreamExt};
 use http::header::{AUTHORIZATION, COOKIE};
 use rcgen::CertificateSigningRequestParams;
 use rustls::pki_types::CertificateSigningRequestDer;
@@ -15,7 +18,7 @@ use tonic::{
     metadata::{Ascii, MetadataMap},
     Request, Response,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::{
     access_control::{self, AuthorizedPeerService},
@@ -28,6 +31,7 @@ use crate::{
     id::BuiltinID,
     proto::grpc_db_err,
     session::{authenticate_session_cookie, find_session_cookie, Session},
+    util::remote_addr::RemoteAddr,
     AuthlyCtx,
 };
 
@@ -43,6 +47,8 @@ impl AuthlyServiceServerImpl {
 
 #[tonic::async_trait]
 impl AuthlyService for AuthlyServiceServerImpl {
+    type MessagesStream = BoxStream<'static, tonic::Result<proto::ServiceMessage>>;
+
     async fn get_metadata(
         &self,
         request: Request<proto::Empty>,
@@ -239,6 +245,44 @@ impl AuthlyService for AuthlyServiceServerImpl {
             der: certificate.der().to_vec(),
         }))
     }
+
+    async fn messages(
+        &self,
+        request: Request<proto::Empty>,
+    ) -> tonic::Result<tonic::Response<Self::MessagesStream>> {
+        let eid = svc_mtls_auth_trivial(request.extensions())?;
+        let remote_addr = svc_remote_addr(request.extensions())?;
+
+        info!(?eid, ?remote_addr, "service subscribing to messages");
+
+        Ok(tonic::Response::new(
+            futures_util::stream::unfold((), |_| async move {
+                tokio::time::sleep(Duration::from_secs(60 * 5)).await;
+
+                Some((
+                    Ok(proto::ServiceMessage {
+                        service_message_kind: Some(
+                            proto::service_message::ServiceMessageKind::Ping(proto::Empty {}),
+                        ),
+                    }),
+                    (),
+                ))
+            })
+            .boxed(),
+        ))
+    }
+
+    async fn pong(
+        &self,
+        request: Request<proto::Empty>,
+    ) -> tonic::Result<tonic::Response<proto::Empty>> {
+        let eid = svc_mtls_auth_trivial(request.extensions())?;
+        let remote_addr = svc_remote_addr(request.extensions())?;
+
+        info!(?eid, ?remote_addr, "received pong");
+
+        Ok(tonic::Response::new(proto::Empty {}))
+    }
 }
 
 /// Just extract the peer entity id without checking any required roles
@@ -248,6 +292,14 @@ fn svc_mtls_auth_trivial(extensions: &tonic::Extensions) -> tonic::Result<Eid> {
         .ok_or_else(|| tonic::Status::unauthenticated("invalid service identity"))?;
 
     Ok(peer_svc_eid.0)
+}
+
+fn svc_remote_addr(extensions: &tonic::Extensions) -> tonic::Result<SocketAddr> {
+    let remote_addr = extensions
+        .get::<RemoteAddr>()
+        .ok_or_else(|| tonic::Status::unknown("remote addr missing"))?;
+
+    Ok(remote_addr.0)
 }
 
 /// Authenticate and authorize the client

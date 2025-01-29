@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-authly-client.workspace = true
+authly-client = { workspace = true, features = ["rustls_023"] }
 authly-common = { workspace = true, features = ["mtls_server"] }
 axum = "0.7"
 axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }

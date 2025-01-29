@@ -13,10 +13,6 @@ use axum_extra::TypedHeader;
 use indoc::indoc;
 use maud::{html, DOCTYPE};
 use maud::{Markup, PreEscaped};
-use rustls::pki_types::pem::PemObject;
-use rustls::pki_types::CertificateDer;
-use rustls::server::WebPkiClientVerifier;
-use rustls::RootCertStore;
 use tower_server::Scheme;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
@@ -45,40 +41,22 @@ async fn main() {
             .await
             .unwrap();
 
-        let mut root_cert_store = RootCertStore::empty();
-        root_cert_store
-            .add(
-                CertificateDer::from_pem_slice(client_builder.get_local_ca_pem().unwrap().as_ref())
-                    .unwrap(),
-            )
-            .unwrap();
-
         let client = client_builder.connect().await.unwrap();
         let entity_id = client.entity_id().await.unwrap();
         let label = client.label().await.unwrap();
 
         info!("client running, entity_id={entity_id} label={label}, binding server to port 443");
 
-        let (cert, private_key) = client
-            .generate_server_tls_params("testservice")
-            .await
-            .unwrap();
-
-        let mut rustls_config = rustls::server::ServerConfig::builder()
-            .with_client_cert_verifier(
-                WebPkiClientVerifier::builder(root_cert_store.into())
-                    .build()
-                    .unwrap(),
-            )
-            .with_single_cert(vec![cert], private_key)
-            .unwrap();
-        rustls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-
         tower_server::Builder::new("0.0.0.0:443".parse().unwrap())
             .with_graceful_shutdown(tower_server::signal::termination_signal())
             .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
             .with_scheme(Scheme::Https)
-            .with_tls_config(rustls_config)
+            .with_tls_config(
+                client
+                    .rustls_server_configurer("testservice")
+                    .await
+                    .unwrap(),
+            )
             .bind()
             .await
             .unwrap()

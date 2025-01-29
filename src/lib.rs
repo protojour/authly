@@ -22,7 +22,7 @@ use settings::Settings;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
 use tracing::info;
-use util::protocol_router::ProtocolRouter;
+use util::{protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
 
 // These are public for the integration test crate
 pub mod access_token;
@@ -127,6 +127,7 @@ pub async fn serve() -> anyhow::Result<()> {
     .with_tls_config(
         tls::main_service_tls_configurer(env_config.hostname.clone(), ctx.clone()).await?,
     )
+    .with_connection_middleware(remote_addr_middleware)
     .with_tls_connection_middleware(authly_common::mtls_server::MTLSMiddleware)
     .with_graceful_shutdown(ctx.shutdown.clone())
     .bind()
