@@ -13,6 +13,8 @@ generate-testdata:
         AUTHLY_ETC_DIR=.local/etc \
         AUTHLY_HOSTNAME=localhost \
         AUTHLY_K8S=true \
+        AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
+        AUTHLY_BAO_URL=http://localhost:8200 \
             cargo run -p authly --features dev issue-cluster-key
 
         AUTHLY_ID={{ authly_id }} \
@@ -20,6 +22,8 @@ generate-testdata:
         AUTHLY_DATA_DIR=.local/data \
         AUTHLY_ETC_DIR=.local/etc \
         AUTHLY_EXPORT_TLS_TO_ETC=true \
+        AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
+        AUTHLY_BAO_URL=http://localhost:8200 \
             cargo run -p authly --features dev configure
     fi
 
@@ -33,6 +37,8 @@ rundev: dev-environment generate-testdata
     AUTHLY_SERVER_PORT=1443 \
     AUTHLY_DATA_DIR=.local/data \
     AUTHLY_ETC_DIR=.local/etc \
+    AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
+    AUTHLY_BAO_URL=http://localhost:8200 \
     AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
         cargo run -p authly --features dev serve
 
@@ -44,6 +50,8 @@ runrelease: dev-environment generate-testdata
     AUTHLY_SERVER_PORT=1443 \
     AUTHLY_DATA_DIR=.local/data \
     AUTHLY_ETC_DIR=.local/etc \
+    AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
+    AUTHLY_BAO_URL=http://localhost:8200 \
         cargo run --release -p authly serve
 
 # clean up data files used for local run

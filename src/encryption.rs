@@ -7,7 +7,7 @@ use aes_gcm_siv::{
 use anyhow::{anyhow, Context};
 use authly_common::id::ObjId;
 use authly_db::Db;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::OsRng, Rng, RngCore};
 use serde::Deserialize;
 use serde_json::json;
 use time::OffsetDateTime;
@@ -96,9 +96,34 @@ impl AesKey {
 }
 
 #[derive(Deserialize)]
-struct Output {
+struct PalOutput {
     pub version: Hex,
     pub plaintext: Hex,
+}
+
+#[derive(Deserialize)]
+struct BaoCreateSecretOutput {
+    pub data: BaoCreateSecretData,
+}
+
+#[derive(Deserialize)]
+struct BaoCreateSecretData {
+    version: u64,
+}
+
+#[derive(Deserialize)]
+struct BaoReadSecretOutput {
+    pub data: BaoReadSecretData,
+}
+
+#[derive(Deserialize)]
+struct BaoReadSecretData {
+    pub data: BaoReadSecretDataData,
+}
+
+#[derive(Deserialize)]
+struct BaoReadSecretDataData {
+    pub master_key: Hex<[u8; 32]>,
 }
 
 pub async fn load_decrypted_deks(
@@ -152,54 +177,121 @@ pub async fn load_decrypted_deks(
 }
 
 async fn gen_new_master(env_config: &EnvConfig) -> anyhow::Result<DecryptedMaster> {
-    let pal_url = &env_config.pal_url;
-    let output: Output = reqwest::Client::new()
-        .post(format!("{pal_url}/api/v0/key"))
-        .json(&json!({
-            "key_id": "authly-master",
-        }))
-        .send()
-        .await?
-        .error_for_status()
-        .context("fatal: authly-pal error")?
-        .json()
-        .await?;
+    if let Some(bao_url) = &env_config.bao_url {
+        let id = &env_config.id;
+        let Some(bao_token) = &env_config.bao_token else {
+            return Err(anyhow!("fatal: no bao token set"));
+        };
+        let mut plaintext: [u8; 32] = [0; 32];
 
-    Ok(DecryptedMaster {
-        encrypted: MasterVersion {
-            version: output.version.0,
-            created_at: time::OffsetDateTime::now_utc(),
-        },
-        key: AesKey {
-            key: load_key(output.plaintext.0)?,
-        },
-    })
+        OsRng.fill(plaintext.as_mut_slice());
+
+        let master = Hex(plaintext.to_vec());
+
+        let vault_output: BaoCreateSecretOutput = reqwest::Client::new()
+            .post(format!("{bao_url}/v1/secret/data/authly-master-key-{id}"))
+            .header("x-vault-token", bao_token.clone())
+            .json(&json!({
+                "data": {
+                    "master_key": master,
+                }
+            }))
+            .send()
+            .await?
+            .error_for_status()
+            .context("fatal: vault error")?
+            .json()
+            .await?;
+
+        let version = vault_output.data.version;
+
+        Ok(DecryptedMaster {
+            encrypted: MasterVersion {
+                version: version.to_be_bytes().to_vec(),
+                created_at: time::OffsetDateTime::now_utc(),
+            },
+            key: AesKey {
+                key: load_key(master.0)?,
+            },
+        })
+    } else if let Some(pal_url) = &env_config.pal_url {
+        let pal_output: PalOutput = reqwest::Client::new()
+            .post(format!("{pal_url}/api/v0/key"))
+            .json(&json!({
+                "key_id": "authly-master",
+            }))
+            .send()
+            .await?
+            .error_for_status()
+            .context("fatal: authly-pal error")?
+            .json()
+            .await?;
+
+        Ok(DecryptedMaster {
+            encrypted: MasterVersion {
+                version: pal_output.version.0,
+                created_at: time::OffsetDateTime::now_utc(),
+            },
+            key: AesKey {
+                key: load_key(pal_output.plaintext.0)?,
+            },
+        })
+    } else {
+        Err(anyhow!("fatal: no secret store configured"))
+    }
 }
 
 async fn decrypt_master(
     encrypted: MasterVersion,
     env_config: &EnvConfig,
 ) -> anyhow::Result<DecryptedMaster> {
-    let pal_url = &env_config.pal_url;
-    let output: Output = reqwest::Client::new()
-        .post(format!("{pal_url}/api/v0/key"))
-        .json(&json!({
-            "key_id": "authly-master",
-            "version": hexhex::hex(&encrypted.version).to_string(),
-        }))
-        .send()
-        .await?
-        .error_for_status()
-        .context("fatal: authly-crypt error")?
-        .json()
-        .await?;
+    if let Some(bao_url) = &env_config.bao_url {
+        let id = &env_config.id;
+        let version: [u8; 8] = encrypted.version.as_slice().try_into().expect("");
+        let version = u64::from_be_bytes(version);
+        let Some(bao_token) = &env_config.bao_token else {
+            return Err(anyhow!("fatal: no bao token set"));
+        };
+        let vault_output: BaoReadSecretOutput = reqwest::Client::new()
+            .get(format!(
+                "{bao_url}/v1/secret/data/authly-master-key-{id}?version={version}"
+            ))
+            .header("x-vault-token", bao_token.clone())
+            .send()
+            .await?
+            .error_for_status()
+            .context("fatal: vault error")?
+            .json()
+            .await?;
+        Ok(DecryptedMaster {
+            encrypted,
+            key: AesKey {
+                key: load_key(vault_output.data.data.master_key.0.into_iter())?,
+            },
+        })
+    } else if let Some(pal_url) = &env_config.pal_url {
+        let pal_output: PalOutput = reqwest::Client::new()
+            .post(format!("{pal_url}/api/v0/key"))
+            .json(&json!({
+                "key_id": "authly-master",
+                "version": hexhex::hex(&encrypted.version).to_string(),
+            }))
+            .send()
+            .await?
+            .error_for_status()
+            .context("fatal: authly-crypt error")?
+            .json()
+            .await?;
 
-    Ok(DecryptedMaster {
-        encrypted,
-        key: AesKey {
-            key: load_key(output.plaintext.0)?,
-        },
-    })
+        Ok(DecryptedMaster {
+            encrypted,
+            key: AesKey {
+                key: load_key(pal_output.plaintext.0)?,
+            },
+        })
+    } else {
+        Err(anyhow!("fatal: no secret store configured"))
+    }
 }
 
 pub async fn gen_prop_deks(

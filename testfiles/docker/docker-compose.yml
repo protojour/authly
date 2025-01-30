@@ -1,21 +1,16 @@
 services:
-  # Authly Platform Abstraction Layer for secrets
-  authly-pal:
-    image: protojour/authly-pal:dev
-    environment:
-      DANGER_ENCRYPTION_DISABLED: 'true'
-
   # Authly itself
   authly:
     image: protojour/authly:dev
     environment:
       AUTHLY_ID: c865e85720e3c96feabdfe50c33acc75ac2069320de78d0d2c11497b092f1a8c
+      AUTHLY_BAO_TOKEN: theenigmaticbaobunofancientsecrets
+      AUTHLY_BAO_URL: http://openbao:8200
       AUTHLY_HOSTNAME: authly
       AUTHLY_K8S: 'false'
       AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
       AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
       AUTHLY_EXPORT_TLS_TO_ETC: 'true'
-      AUTHLY_PAL_URL: http://authly-pal:6666
     ports:
       - 1443:443
     volumes:
@@ -30,12 +25,21 @@ services:
       retries: 10
       interval: 2s
     depends_on:
-      authly-pal:
+      openbao:
         condition: service_started
+
+  # Example supported secret store
+  openbao:
+    image: ghcr.io/openbao/openbao
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: theenigmaticbaobunofancientsecrets
+    command: server -dev
 
   # Example service for verifying connection
   testservice:
     image: protojour/authly-testservice:dev
+    ports:
+      - 2443:443
     volumes:
       - authly-certs:/etc/authly/certs:ro
       - testservice-identity:/etc/authly/identity:ro
