@@ -22,13 +22,13 @@ spec:
           port: 443
     - matches:
         - path:
-            value: /authly/web/auth
+            value: /authly/web
       filters:
         - type: URLRewrite
           urlRewrite:
             path:
               type: ReplacePrefixMatch
-              replacePrefixMatch: /web/auth
+              replacePrefixMatch: /web
       backendRefs:
         - name: authly
           port: 443
