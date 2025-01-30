@@ -24,13 +24,23 @@ It uses an embedded database and _can_ run independently, _in principle_. Howeve
 
 ## Quickstart
 
+Examples should be run using our `justfile` tasks. Refer to the [just](https://just.systems/man/en/introduction.html) documentation for how to install it.
+
 ### Kubernetes example (recommended)
 
 An example Kubernetes deployment is available in [`testfiles/k8s`](testfiles/k8s), which includes the Authly-compatible [Arx gateway](https://github.com/protojour/arx), a [Platform Abstraction Layer](https://github.com/protojour/authly-pal) for secrets, the correct routing and setup for Authly to provision an example service with mTLS, and uses the Kubernetes Secrets for its core identity.
 
+```bash
+just k8s-test-deploy
+```
+
 ### Docker example
 
 A minimal `docker compose` development example is available in [`testfiles/docker/docker-compose.yml`](testfiles/docker/docker-compose.yml).
+
+```bash
+just docker-test
+```
 
 ## Security features
 
@@ -38,7 +48,7 @@ The Authly server relies on mTLS for service client authentication, and can prov
 
 It uses an embedded [`hiqlite`](https://github.com/sebadob/hiqlite) database with envelope encrypted user data for encryption-at-rest.
 
-Authly is not yet audited. We invite anyone to examine or critique its security model and report any vulnerabilities.
+Authly is not yet audited. We invite anyone to examine or critique its security model, and report any vulnerabilities.
 
 ## Feature roadmap
 
@@ -53,6 +63,7 @@ Authly is beta software, currently with a minimal feature set, but several high-
 - [x] Docker example setup
 - [x] Minimal login UI
 - [ ] Federation and authority/mandate relations
+- [ ] OAuth 2.0 (2.1) support
 - [ ] `authly-client` language bindings
 - [ ] `authly-client`-based minimalist sidecar proxy
 - [ ] Detailed documentation
@@ -61,6 +72,7 @@ Authly is beta software, currently with a minimal feature set, but several high-
 - [ ] SMTP email support
 - [ ] OATH TOTP support for authenticator apps
 - [ ] OATH HOTP support for recovery codes
+- [ ] OpenID Connect support
 - [ ] WebAuthn/Passkeys support
 
 ## License
