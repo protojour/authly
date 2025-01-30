@@ -13,6 +13,12 @@ pub struct Hex<T: FromHex<Error: Display> + ToHex + AsRef<[u8]> = Vec<u8>>(
     pub T,
 );
 
+impl<T: FromHex<Error: Display> + ToHex + AsRef<[u8]>> Display for Hex<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hexhex::hex(&self.0))
+    }
+}
+
 #[derive(Clone)]
 pub struct UrlSafeBase64(pub Vec<u8>);
 

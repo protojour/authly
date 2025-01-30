@@ -319,6 +319,7 @@ dependencies = [
  "authly-connect",
  "authly-db",
  "authly-test-grpc",
+ "authly-webstatic",
  "axum 0.7.9",
  "axum-extra",
  "base64 0.22.1",
@@ -490,6 +491,16 @@ dependencies = [
  "tower-server",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "authly-webstatic"
+version = "0.0.0"
+dependencies = [
+ "axum 0.7.9",
+ "http",
+ "mime_guess",
+ "rust-embed",
 ]
 
 [[package]]
@@ -2571,6 +2582,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
+name = "mime_guess"
+version = "2.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7c44f8e672c00fe5308fa235f821cb4198414e1c77935c1ab6948d3fd78550e"
+dependencies = [
+ "mime",
+ "unicase",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4479,6 +4500,12 @@ checksum = "e1b88fcfe09e89d3866a5c11019378088af2d24c3fbd4f0543f96b479ec90697"
 dependencies = [
  "version_check",
 ]
+
+[[package]]
+name = "unicase"
+version = "2.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75b844d17643ee918803943289730bec8aac480150456169e647ed0b576ba539"
 
 [[package]]
 name = "unicode-ident"

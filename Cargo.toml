@@ -28,6 +28,7 @@ authly-common = { workspace = true, features = [
 ] }
 authly-connect = { path = "lib/authly-connect" }
 authly-db = { path = "lib/authly-db" }
+authly-webstatic = { path = "lib/authly-webstatic" }
 
 aes-gcm-siv = "0.11"
 anyhow = "1"
@@ -117,6 +118,7 @@ members = [
     "lib/authly-connect",
     "lib/authly-db",
     "lib/authly-test-grpc",
+    "lib/authly-webstatic",
 ]
 resolver = "2"
 
