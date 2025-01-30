@@ -1,9 +1,9 @@
 # This docker-compose file is used for local development.
 
 services:
-  authly-pal:
-    image: protojour/authly-pal:dev
+  openbao:
+    image: ghcr.io/openbao/openbao
     environment:
-      DANGER_ENCRYPTION_DISABLED: 'true'
+      BAO_DEV_ROOT_TOKEN_ID: theenigmaticbaobunofancientsecrets
     ports:
-      - 6666:6666
+      - 8200:8200
