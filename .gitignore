@@ -1,5 +1,4 @@
 /target
 /target-musl
 .vscode
-*.sublime-*
 .local
