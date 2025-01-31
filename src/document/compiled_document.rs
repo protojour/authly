@@ -3,10 +3,14 @@ use std::{
     ops::Range,
 };
 
-use authly_common::id::{Eid, ObjId};
+use authly_common::id::{AnyId, Eid, ObjId};
+use authly_db::DbError;
 
 use crate::{
-    db::service_db, id::BuiltinID, policy::error::PolicyCompileErrorKind, settings::Setting,
+    db::{policy_db, Identified},
+    id::BuiltinID,
+    policy::error::PolicyCompileErrorKind,
+    settings::Setting,
 };
 
 #[derive(Debug)]
@@ -28,10 +32,16 @@ pub enum CompileError {
     Db(String),
 }
 
+impl From<DbError> for CompileError {
+    fn from(value: DbError) -> Self {
+        Self::Db(value.to_string())
+    }
+}
+
 #[derive(Debug)]
 pub struct CompiledDocument {
     /// directory ID
-    pub did: Eid,
+    pub dir_id: ObjId,
     pub meta: DocumentMeta,
     pub data: CompiledDocumentData,
 }
@@ -55,13 +65,16 @@ pub struct CompiledDocumentData {
 
     pub service_ids: BTreeSet<Eid>,
 
+    pub domains: Vec<Identified<ObjId, String>>,
+    pub service_domains: Vec<(Eid, AnyId)>,
+
     pub entity_relations: Vec<CompiledEntityRelation>,
 
-    pub svc_ent_props: Vec<CompiledProperty>,
-    pub svc_res_props: Vec<CompiledProperty>,
+    pub domain_ent_props: Vec<CompiledProperty>,
+    pub domain_res_props: Vec<CompiledProperty>,
 
-    pub svc_policies: Vec<service_db::ServicePolicy>,
-    pub svc_policy_bindings: Vec<service_db::ServicePolicyBinding>,
+    pub policies: Vec<Identified<ObjId, policy_db::DbPolicy>>,
+    pub policy_bindings: Vec<Identified<ObjId, policy_db::DbPolicyBinding>>,
 }
 
 #[derive(Debug)]
@@ -100,7 +113,7 @@ pub struct CompiledEntityRelation {
 #[derive(Debug)]
 pub struct CompiledProperty {
     pub id: ObjId,
-    pub svc_eid: Eid,
+    pub dom_id: AnyId,
     pub label: String,
 
     pub attributes: Vec<CompiledAttribute>,
@@ -119,9 +132,9 @@ pub enum AttrLookupError {
 
 impl CompiledDocumentData {
     pub fn find_property(&self, prop_id: ObjId) -> Option<&CompiledProperty> {
-        self.svc_ent_props
+        self.domain_ent_props
             .iter()
-            .chain(self.svc_res_props.iter())
+            .chain(self.domain_res_props.iter())
             .find(|prop| prop.id == prop_id)
     }
 

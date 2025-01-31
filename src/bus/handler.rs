@@ -32,8 +32,8 @@ pub async fn authly_node_handle_incoming_message(
             ))
             .await?;
         }
-        ClusterMessage::DirectoryChanged { did } => {
-            info!(?did, "directory changed");
+        ClusterMessage::DirectoryChanged { dir_id } => {
+            info!(?dir_id, "directory changed");
         }
         ClusterMessage::ClientBroadcast(client_message) => {
             info!(?client_message, "TODO: client broadcast");

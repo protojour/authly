@@ -30,18 +30,22 @@ pub async fn apply_document(
     compiled_doc: CompiledDocument,
     ctx: &AuthlyCtx,
 ) -> Result<(), DirectoryError> {
-    let did = compiled_doc.did;
+    let dir_id = compiled_doc.dir_id;
 
     let service_ids = compiled_doc.data.service_ids.clone();
 
     let deks = ctx.deks.load_full();
 
-    ctx.get_db()
+    for result in ctx
+        .get_db()
         .transact(
             document_db::document_txn_statements(compiled_doc, &deks)
                 .map_err(DirectoryError::Context)?,
         )
-        .await?;
+        .await?
+    {
+        result?;
+    }
 
     if ctx.export_tls_to_etc {
         for svc_eid in service_ids {
@@ -51,7 +55,7 @@ pub async fn apply_document(
         }
     }
 
-    ctx.broadcast_to_cluster(ClusterMessage::DirectoryChanged { did })
+    ctx.broadcast_to_cluster(ClusterMessage::DirectoryChanged { dir_id })
         .await?;
 
     Ok(())

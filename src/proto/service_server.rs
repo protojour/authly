@@ -25,7 +25,7 @@ use crate::{
     access_token,
     ctx::{GetDb, GetInstance},
     db::{
-        entity_db,
+        entity_db, policy_db,
         service_db::{self, find_service_label_by_eid, ServicePropertyKind},
     },
     id::BuiltinID,
@@ -197,7 +197,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
         }
 
         // TODO: Should definitely cache service policy engine in memory
-        let policy_engine = service_db::load_policy_engine(self.ctx.get_db(), peer_svc_eid)
+        let policy_engine = policy_db::load_svc_policy_engine(self.ctx.get_db(), peer_svc_eid)
             .await
             .map_err(grpc_db_err)?;
 

@@ -65,7 +65,7 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
 #[expect(unused)]
 pub async fn try_insert_entity_credentials(
     deps: &impl Db,
-    did: Eid,
+    dir_id: Eid,
     eid: Eid,
     ident: String,
     secret: String,
@@ -82,8 +82,8 @@ pub async fn try_insert_entity_credentials(
 
     deps
         .execute(
-            "INSERT INTO entity_password (did, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3".into(),
-            params!(did.as_param(), eid.as_param(), secret_hash),
+            "INSERT INTO entity_password (dir_id, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3".into(),
+            params!(dir_id.as_param(), eid.as_param(), secret_hash),
         )
         .await?;
 

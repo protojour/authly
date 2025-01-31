@@ -112,7 +112,7 @@ impl RusqliteRow {
 
         for (idx, col) in columns.iter().enumerate() {
             let val = match &col.ty {
-                RusqliteColumnType::Expr => todo!("expr"),
+                RusqliteColumnType::Expr => row.get(idx).unwrap_or(Value::Null),
                 RusqliteColumnType::Integer => {
                     row.get(idx).map(Value::Integer).unwrap_or(Value::Null)
                 }

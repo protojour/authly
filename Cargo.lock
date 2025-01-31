@@ -383,7 +383,7 @@ dependencies = [
 [[package]]
 name = "authly-client"
 version = "0.0.5"
-source = "git+https://github.com/protojour/authly-lib.git?branch=authly-domain#7d7f6adcb04f214af2a4ad69c538b79453b211b1"
+source = "git+https://github.com/protojour/authly-lib.git?branch=authly-domain#166a4b106a1087aabb797271cffe27c68459ee16"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -409,7 +409,7 @@ dependencies = [
 [[package]]
 name = "authly-common"
 version = "0.0.5"
-source = "git+https://github.com/protojour/authly-lib.git?branch=authly-domain#7d7f6adcb04f214af2a4ad69c538b79453b211b1"
+source = "git+https://github.com/protojour/authly-lib.git?branch=authly-domain#166a4b106a1087aabb797271cffe27c68459ee16"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -463,6 +463,7 @@ dependencies = [
  "authly-common",
  "hexhex",
  "hiqlite",
+ "itertools 0.14.0",
  "rusqlite",
  "thiserror 2.0.11",
  "time",

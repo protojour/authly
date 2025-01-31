@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use authly_common::id::Eid;
+use authly_common::id::ObjId;
 use authly_db::{Db, DbResult, Row};
 use hiqlite::params;
 
@@ -8,7 +8,7 @@ use crate::settings::{Setting, Settings};
 
 struct LocalSetting {
     #[expect(unused)]
-    did: Eid,
+    dir_id: ObjId,
     setting: Setting,
     value: String,
 }
@@ -16,7 +16,7 @@ struct LocalSetting {
 pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
     let setting_list: Vec<_> = deps
         .query_raw(
-            "SELECT did, setting, value FROM local_setting".into(),
+            "SELECT dir_id, setting, value FROM local_setting".into(),
             params!(),
         )
         .await?
@@ -29,7 +29,7 @@ pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
             };
 
             Some(LocalSetting {
-                did: row.get_id("did"),
+                dir_id: row.get_id("dir_id"),
                 setting,
                 value: row.get_text("value"),
             })
@@ -40,7 +40,7 @@ pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
 
     for LocalSetting {
         // TODO: Sort settings based on directory importance:
-        did: _,
+        dir_id: _,
         setting,
         value,
     } in setting_list

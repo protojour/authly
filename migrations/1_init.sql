@@ -31,14 +31,14 @@ CREATE TABLE tls_cert (
 
 -- Any kind of directory, including other Authly Authorities
 CREATE TABLE directory (
-    did BLOB NOT NULL PRIMARY KEY,
+    dir_id BLOB NOT NULL PRIMARY KEY,
     kind TEXT NOT NULL,
     url TEXT,
     hash BLOB
 );
 
 CREATE TABLE local_setting (
-    did BLOB NOT NULL,
+    dir_id BLOB NOT NULL,
     setting INTEGER NOT NULL,
     value TEXT NOT NULL
 );
@@ -50,7 +50,7 @@ CREATE TABLE session (
 );
 
 CREATE TABLE ent_attr (
-    did BLOB NOT NULL,
+    dir_id BLOB NOT NULL,
     eid BLOB NOT NULL,
     attrid BLOB NOT NULL,
 
@@ -58,7 +58,7 @@ CREATE TABLE ent_attr (
 );
 
 CREATE TABLE ent_text_attr (
-    did BLOB NOT NULL,
+    dir_id BLOB NOT NULL,
     eid BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     value TEXT NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE ent_text_attr (
 );
 
 CREATE TABLE ent_ident (
-    did BLOB NOT NULL,
+    dir_id BLOB NOT NULL,
     eid BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     fingerprint BLOB NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE ent_ident (
 );
 
 CREATE TABLE ent_rel (
-    did BLOB NOT NULL,
+    dir_id BLOB NOT NULL,
     rel_id BLOB NOT NULL,
     subject_eid BLOB NOT NULL,
     object_eid BLOB NOT NULL,
@@ -87,17 +87,26 @@ CREATE TABLE ent_rel (
     PRIMARY KEY (rel_id, subject_eid, object_eid)
 );
 
-CREATE TABLE svc_ent_prop (
-    did BLOB NOT NULL,
+-- Domain: Property namespaces (not entities)
+CREATE TABLE domain (
+    dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
-    svc_eid BLOB NOT NULL,
-    label TEXT NOT NULL,
-
-    UNIQUE (svc_eid, label)
+    label TEXT NOT NULL
 );
 
-CREATE TABLE svc_ent_attrlabel (
-    did BLOB NOT NULL,
+-- Domain: entity property
+CREATE TABLE dom_ent_prop (
+    dir_id BLOB NOT NULL,
+    id BLOB NOT NULL PRIMARY KEY,
+    dom_id BLOB NOT NULL,
+    label TEXT NOT NULL,
+
+    UNIQUE (dom_id, label)
+);
+
+-- Domain: entity property attribute label
+CREATE TABLE dom_ent_attrlabel (
+    dir_id BLOB NOT NULL,
     id BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     label TEXT NOT NULL,
@@ -105,17 +114,19 @@ CREATE TABLE svc_ent_attrlabel (
     UNIQUE (prop_id, label)
 );
 
-CREATE TABLE svc_res_prop (
-    did BLOB NOT NULL,
+-- Domain: resource property
+CREATE TABLE dom_res_prop (
+    dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
-    svc_eid BLOB NOT NULL,
+    dom_id BLOB NOT NULL,
     label TEXT NOT NULL,
 
-    UNIQUE (svc_eid, label)
+    UNIQUE (dom_id, label)
 );
 
-CREATE TABLE svc_res_attrlabel (
-    did BLOB NOT NULL,
+-- Domain: resource attribute label
+CREATE TABLE dom_res_attrlabel (
+    dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     prop_id BLOB NOT NULL,
     label TEXT NOT NULL,
@@ -123,21 +134,41 @@ CREATE TABLE svc_res_attrlabel (
     UNIQUE (prop_id, label)
 );
 
-CREATE TABLE svc_policy (
-    did BLOB NOT NULL,
-    id BLOB NOT NULL PRIMARY KEY,
+-- Service: domain participation
+CREATE TABLE svc_domain (
+    dir_id BLOB NOT NULL,
     svc_eid BLOB NOT NULL,
+    dom_id BLOB NOT NULL,
+
+    PRIMARY KEY (svc_eid, dom_id)
+);
+
+-- TODO: Should policies be associated to domains (as a namespace)?
+CREATE TABLE policy (
+    dir_id BLOB NOT NULL,
+    id BLOB NOT NULL PRIMARY KEY,
     label TEXT NOT NULL,
     policy_pc BLOB NOT NULL,
 
-    UNIQUE (svc_eid, label)
+    UNIQUE (label)
 );
 
-CREATE TABLE svc_policy_binding (
-    did BLOB NOT NULL,
-    svc_eid BLOB NOT NULL,
-    attr_matcher_pc BLOB NOT NULL,
-    policy_ids_pc BLOB NOT NULL
+-- Policy binding - attribute matchers
+CREATE TABLE polbind_attr_match (
+    dir_id BLOB NOT NULL,
+    polbind_id BLOB NOT NULL,
+    attr_id BLOB NOT NULL,
+
+    PRIMARY KEY (polbind_id, attr_id)
+);
+
+-- Policy binding - policy implication
+CREATE TABLE polbind_policy (
+    dir_id BLOB NOT NULL,
+    polbind_id BLOB NOT NULL,
+    policy_id BLOB NOT NULL,
+
+    PRIMARY KEY (polbind_id, policy_id)
 );
 
 -- This table has one entry if Authly is trying to become a mandate of an authority

@@ -1,4 +1,8 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    fs,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
@@ -33,6 +37,16 @@ pub struct TestCtx {
 impl TestCtx {
     pub async fn inmemory_db(mut self) -> Self {
         let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        sqlite_migrate::<Migrations>(&mut conn).await;
+
+        self.db = Some(SqliteHandle::new(conn));
+        self
+    }
+
+    /// Run test with a file DB, so the the file can be inspected after the test
+    pub async fn new_file_db(mut self, path: impl AsRef<Path>) -> Self {
+        let _ = fs::remove_file(path.as_ref());
+        let mut conn = rusqlite::Connection::open(path).unwrap();
         sqlite_migrate::<Migrations>(&mut conn).await;
 
         self.db = Some(SqliteHandle::new(conn));

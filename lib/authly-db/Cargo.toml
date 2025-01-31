@@ -15,6 +15,7 @@ doctest = false
 [dependencies]
 authly-common.workspace = true
 hexhex = "1"
+itertools = "0.14"
 hiqlite.workspace = true
 rusqlite = "0.33"
 thiserror = "2"

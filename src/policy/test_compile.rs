@@ -3,7 +3,7 @@ use super::compiler::{
     PolicyCompiler,
 };
 use authly_common::{
-    id::{Eid, ObjId},
+    id::{AnyId, Eid, ObjId},
     policy::code::OpCode,
 };
 
@@ -38,9 +38,9 @@ fn test_env() -> (Namespaces, CompiledDocumentData) {
         ),
     ]);
     let mut doc_data = CompiledDocumentData::default();
-    doc_data.svc_ent_props.push(CompiledProperty {
+    doc_data.domain_ent_props.push(CompiledProperty {
         id: ROLE,
-        svc_eid: SVC,
+        dom_id: AnyId::from_array(&SVC.to_bytes()),
         label: "role".to_string(),
         attributes: vec![CompiledAttribute {
             id: ROLE_ROOT,

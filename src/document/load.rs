@@ -1,7 +1,7 @@
 use std::{fs, os::unix::ffi::OsStrExt};
 
 use anyhow::anyhow;
-use authly_common::{document::Document, id::Eid};
+use authly_common::{document::Document, id::ObjId};
 use tracing::info;
 
 use crate::{
@@ -52,9 +52,9 @@ pub(crate) async fn load_cfg_documents(
                 },
             };
 
-            let did = Eid::from_uint(document.authly_document.id.get_ref().as_u128());
+            let dir_id = ObjId::from_uint(document.authly_document.id.get_ref().as_u128());
 
-            if should_process(did, &meta, &doc_authorities) {
+            if should_process(dir_id, &meta, &doc_authorities) {
                 info!(?path, "load");
 
                 let compiled_doc = match compile_doc(document, meta, ctx.get_db()).await {
@@ -77,13 +77,17 @@ pub(crate) async fn load_cfg_documents(
     Ok(())
 }
 
-fn should_process(did: Eid, meta: &DocumentMeta, doc_authorities: &[DocumentDirectory]) -> bool {
-    for auth in doc_authorities {
-        if auth.did != did {
+fn should_process(
+    dir_id: ObjId,
+    meta: &DocumentMeta,
+    doc_directories: &[DocumentDirectory],
+) -> bool {
+    for dir in doc_directories {
+        if dir.dir_id != dir_id {
             continue;
         }
 
-        if auth.hash == meta.hash {
+        if dir.hash == meta.hash {
             return false;
         }
     }
