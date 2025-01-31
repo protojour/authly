@@ -20,8 +20,8 @@ unary_not = { "not" }
 
 // terms
 term = _{ term_field | term_attr | label }
-term_field = { global ~ "." ~ label }
-term_attr = { label ~ "/" ~ label }
+term_field = { global ~ "." ~ label ~ ":" ~ label }
+term_attr = { label ~ ":" ~ label ~ ":" ~ label }
 
 // Global symbols start with with uppercase
 global = @{ "Subject" | "Resource" }
@@ -31,7 +31,7 @@ global = @{ "Subject" | "Resource" }
 label = @{ ASCII_ALPHA_LOWER ~ label_infix_char* }
 
 // Valid characters in a symbol
-label_infix_char = { ASCII_ALPHANUMERIC | "_" | ":" }
+label_infix_char = { ASCII_ALPHANUMERIC | "_" | "/" }
 
 // Special whitespace rule
 WHITESPACE = _{ " " }

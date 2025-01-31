@@ -14,6 +14,7 @@ pub enum CompileError {
     LocalSettingNotFound,
     InvalidSettingValue(String),
     NameDefinedMultipleTimes(Range<usize>, String),
+    UnresolvedNamespace,
     UnresolvedEntity,
     UnresolvedProfile,
     UnresolvedGroup,

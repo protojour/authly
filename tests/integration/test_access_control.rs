@@ -46,11 +46,11 @@ async fn test_access_control_basic() {
         [[policy]]
         service = "svc_a"
         label = "allow for legged creatures"
-        allow = "Subject.trait == trait/has_legs"
+        allow = "Subject.svc_a:trait == svc_a:trait:has_legs"
 
         [[policy-binding]]
         service = "svc_a"
-        attributes = ["kind/trousers", "verb/wear"]
+        attributes = ["svc_a:kind:trousers", "svc_a:verb:wear"]
         policies = ["allow for legged creatures"]
         "#
     })

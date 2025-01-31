@@ -19,7 +19,7 @@ async fn test_store_doc_trivial() {
         [[service-entity]]
         eid = "e5462a0d22b54d9f9ca37bd96e9b9d8b"
         label = "service1"
-        attributes = ["authly:role/authenticate", "authly:role/get_access_token"]
+        attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
         kubernetes-account = { name = "testservice", namespace = "authly-test" }
 
         [[service-entity]]

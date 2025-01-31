@@ -29,29 +29,61 @@ use super::compiled_document::{
 };
 
 #[derive(Default)]
-pub struct Namespace {
-    table: HashMap<String, Spanned<NamespaceEntry>>,
+pub struct Namespaces {
+    // table: HashMap<String, Spanned<NamespaceEntry>>,
+    table: HashMap<String, Spanned<Namespace>>,
 }
 
-impl Namespace {
-    pub fn get_entry(&self, key: &str) -> Option<&NamespaceEntry> {
-        let spanned = self.table.get(key)?;
+impl Namespaces {
+    pub fn get_namespace(&self, ns: &str) -> Option<&Namespace> {
+        let spanned = self.table.get(ns)?;
         Some(spanned.as_ref())
     }
 
+    pub fn get_entry(&self, ns: &str, key: &str) -> Result<&NamespaceEntry, NsLookupErr> {
+        let namespace = self.table.get(ns).ok_or(NsLookupErr::Namespace)?;
+        let spanned = namespace
+            .as_ref()
+            .entries
+            .get(key)
+            .ok_or(NsLookupErr::Entry)?;
+        Ok(spanned.as_ref())
+    }
+
     fn insert_builtin_property(&mut self, builtin: BuiltinID) {
-        self.table.insert(
+        let namespace = self.table.get_mut("authly").unwrap();
+        namespace.as_mut().entries.insert(
             builtin.label().unwrap().to_string(),
             Spanned::new(0..0, NamespaceEntry::PropertyLabel(builtin.to_obj_id())),
         );
     }
 }
 
+pub enum NsLookupErr {
+    Namespace,
+    Entry,
+}
+
+#[derive(Debug)]
+pub struct Namespace {
+    pub kind: NamespaceKind,
+    pub entries: HashMap<String, Spanned<NamespaceEntry>>,
+}
+
+#[derive(Debug)]
+pub enum NamespaceKind {
+    Authly,
+    Entity(Eid),
+    Service(Eid),
+    Domain,
+    Policy(ObjId),
+}
+
 struct CompileCtx {
     /// Directory ID
     did: Eid,
 
-    namespace: Namespace,
+    namespaces: Namespaces,
 
     eprop_cache: HashMap<Eid, Vec<service_db::ServiceProperty>>,
     rprop_cache: HashMap<Eid, Vec<service_db::ServiceProperty>>,
@@ -62,10 +94,7 @@ struct CompileCtx {
 
 #[derive(Debug)]
 pub enum NamespaceEntry {
-    Entity(Eid),
-    Service(Eid),
     PropertyLabel(ObjId),
-    PolicyLabel(ObjId),
 }
 
 #[derive(Default)]
@@ -80,7 +109,7 @@ pub async fn compile_doc(
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
         did: Eid::from_uint(doc.authly_document.id.get_ref().as_u128()),
-        namespace: Default::default(),
+        namespaces: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
         policy_cache: Default::default(),
@@ -121,7 +150,7 @@ pub async fn compile_doc(
 
     seed_namespace(&doc, &mut comp);
 
-    debug!("namespace: {:#?}", comp.namespace.table);
+    debug!("namespace: {:#?}", comp.namespaces.table);
 
     for entity in &mut doc.entity {
         if let Some(username) = entity.username.take() {
@@ -213,19 +242,29 @@ pub async fn compile_doc(
 }
 
 fn seed_namespace(doc: &document::Document, comp: &mut CompileCtx) {
+    comp.namespaces.table.insert(
+        "authly".to_string(),
+        Spanned::new(
+            0..0,
+            Namespace {
+                kind: NamespaceKind::Authly,
+                entries: Default::default(),
+            },
+        ),
+    );
     for builtin_prop in [BuiltinID::PropEntity, BuiltinID::PropAuthlyRole] {
-        comp.namespace.insert_builtin_property(builtin_prop);
+        comp.namespaces.insert_builtin_property(builtin_prop);
     }
 
     for entity in &doc.entity {
         if let Some(label) = &entity.label {
-            comp.ns_add(label, NamespaceEntry::Entity(*entity.eid.get_ref()));
+            comp.ns_add(label, NamespaceKind::Entity(*entity.eid.get_ref()));
         }
     }
 
     for entity in &doc.service_entity {
         if let Some(label) = &entity.label {
-            comp.ns_add(label, NamespaceEntry::Service(*entity.eid.get_ref()));
+            comp.ns_add(label, NamespaceKind::Service(*entity.eid.get_ref()));
         }
     }
 }
@@ -281,10 +320,10 @@ async fn process_entity_attribute_bindings(
         // TODO: Somehow check eid exists?
 
         for spanned_qattr in binding.attributes {
-            let Some(prop_id) = comp.ns_property_lookup(&Spanned::new(
-                spanned_qattr.span(),
-                &spanned_qattr.as_ref().property,
-            )) else {
+            let Some(prop_id) = comp.ns_property_lookup(
+                &Spanned::new(spanned_qattr.span(), &spanned_qattr.as_ref().namespace),
+                &Spanned::new(spanned_qattr.span(), &spanned_qattr.as_ref().property),
+            ) else {
                 continue;
             };
 
@@ -318,6 +357,7 @@ async fn process_service_properties(
             };
 
             if let Some(compiled_property) = compile_service_property(
+                &svc_label,
                 svc_eid,
                 service_db::ServicePropertyKind::Entity,
                 &doc_eprop.label,
@@ -338,6 +378,7 @@ async fn process_service_properties(
         };
 
         if let Some(compiled_property) = compile_service_property(
+            &doc_rprop.service,
             svc_eid,
             service_db::ServicePropertyKind::Resource,
             &doc_rprop.label,
@@ -353,6 +394,7 @@ async fn process_service_properties(
 }
 
 async fn compile_service_property(
+    svc_namespace: &Spanned<String>,
     svc_eid: Eid,
     property_kind: service_db::ServicePropertyKind,
     doc_property_label: &Spanned<String>,
@@ -395,7 +437,8 @@ async fn compile_service_property(
         });
     }
 
-    comp.ns_add(
+    comp.ns_add_entry(
+        svc_namespace,
         doc_property_label,
         NamespaceEntry::PropertyLabel(compiled_property.id),
     );
@@ -424,10 +467,10 @@ fn process_attribute_assignments(
     }
 
     for (eid, spanned_qattr) in assignments {
-        let Some(prop_id) = comp.ns_property_lookup(&Spanned::new(
-            spanned_qattr.span(),
-            &spanned_qattr.as_ref().property,
-        )) else {
+        let Some(prop_id) = comp.ns_property_lookup(
+            &Spanned::new(spanned_qattr.span(), &spanned_qattr.as_ref().namespace),
+            &Spanned::new(spanned_qattr.span(), &spanned_qattr.as_ref().property),
+        ) else {
             continue;
         };
 
@@ -472,7 +515,7 @@ async fn process_policies(
             }
         };
 
-        let mut policy_compiler = PolicyCompiler::new(&comp.namespace, data, outcome);
+        let mut policy_compiler = PolicyCompiler::new(&comp.namespaces, data, outcome);
 
         let (expr, _bytecode) = match policy_compiler.compile(src.as_ref()) {
             Ok(compiled_policy) => compiled_policy,
@@ -518,9 +561,15 @@ async fn process_policies(
             }
         };
 
-        comp.namespace.table.insert(
+        comp.namespaces.table.insert(
             namespace_label,
-            Spanned::new(label_span, NamespaceEntry::PolicyLabel(service_policy.id)),
+            Spanned::new(
+                label_span,
+                Namespace {
+                    kind: NamespaceKind::Policy(service_policy.id),
+                    entries: Default::default(),
+                },
+            ),
         );
 
         data.svc_policies.push(service_policy);
@@ -544,10 +593,10 @@ fn process_policy_bindings(
         };
 
         for spanned_qattr in binding.attributes {
-            let Some(prop_id) = comp.ns_property_lookup(&Spanned::new(
-                spanned_qattr.span(),
-                &spanned_qattr.as_ref().property,
-            )) else {
+            let Some(prop_id) = comp.ns_property_lookup(
+                &Spanned::new(spanned_qattr.span(), &spanned_qattr.as_ref().namespace),
+                &Spanned::new(spanned_qattr.span(), &spanned_qattr.as_ref().property),
+            ) else {
                 continue;
             };
 
@@ -577,15 +626,54 @@ fn process_policy_bindings(
 }
 
 impl CompileCtx {
-    fn ns_add(&mut self, name: &Spanned<String>, entry: NamespaceEntry) -> bool {
-        if let Some(entry) = self
-            .namespace
-            .table
-            .insert(name.get_ref().to_string(), Spanned::new(name.span(), entry))
+    fn ns_add(&mut self, namespace: &Spanned<String>, kind: NamespaceKind) -> bool {
+        if let Some(entry) = self.namespaces.table.insert(
+            namespace.get_ref().to_string(),
+            Spanned::new(
+                namespace.span(),
+                Namespace {
+                    kind,
+                    entries: Default::default(),
+                },
+            ),
+        ) {
+            self.errors.errors.push(Spanned::new(
+                namespace.span(),
+                CompileError::NameDefinedMultipleTimes(
+                    entry.span(),
+                    namespace.get_ref().to_string(),
+                ),
+            ));
+
+            false
+        } else {
+            true
+        }
+    }
+
+    fn ns_add_entry(
+        &mut self,
+        namespace: &Spanned<String>,
+        key: &Spanned<String>,
+        entry: NamespaceEntry,
+    ) -> bool {
+        let Some(namespace) = self.namespaces.table.get_mut(namespace.as_ref()) else {
+            self.errors.errors.push(Spanned::new(
+                namespace.span(),
+                CompileError::UnresolvedNamespace,
+            ));
+
+            return false;
+        };
+
+        if let Some(entry) = namespace
+            .as_mut()
+            .entries
+            .insert(key.get_ref().to_string(), Spanned::new(key.span(), entry))
         {
             self.errors.errors.push(Spanned::new(
-                name.span(),
-                CompileError::NameDefinedMultipleTimes(entry.span(), name.get_ref().to_string()),
+                namespace.span(),
+                CompileError::NameDefinedMultipleTimes(entry.span(), key.get_ref().to_string()),
             ));
 
             false
@@ -595,16 +683,16 @@ impl CompileCtx {
     }
 
     fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
-        match self.ns_lookup(key, CompileError::UnresolvedEntity)? {
-            NamespaceEntry::Entity(eid) => Some(*eid),
-            NamespaceEntry::Service(eid) => Some(*eid),
+        match self.ns_lookup_kind(key, CompileError::UnresolvedEntity)? {
+            NamespaceKind::Entity(eid) => Some(*eid),
+            NamespaceKind::Service(eid) => Some(*eid),
             _ => None,
         }
     }
 
     fn ns_service_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
-        match self.ns_lookup(key, CompileError::UnresolvedService)? {
-            NamespaceEntry::Service(eid) => Some(*eid),
+        match self.ns_lookup_kind(key, CompileError::UnresolvedService)? {
+            NamespaceKind::Service(eid) => Some(*eid),
             _ => {
                 self.errors
                     .push(key.span(), CompileError::UnresolvedService);
@@ -613,20 +701,19 @@ impl CompileCtx {
         }
     }
 
-    fn ns_property_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<ObjId> {
-        match self.ns_lookup(key, CompileError::UnresolvedProperty)? {
-            NamespaceEntry::PropertyLabel(objid) => Some(*objid),
-            _ => {
-                self.errors
-                    .push(key.span(), CompileError::UnresolvedProperty);
-                None
-            }
+    fn ns_property_lookup(
+        &mut self,
+        namespace: &Spanned<impl AsRef<str>>,
+        key: &Spanned<impl AsRef<str>>,
+    ) -> Option<ObjId> {
+        match self.ns_lookup_entry(namespace, key, CompileError::UnresolvedProperty)? {
+            NamespaceEntry::PropertyLabel(obj_id) => Some(*obj_id),
         }
     }
 
     fn ns_policy_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<ObjId> {
-        match self.ns_lookup(key, CompileError::UnresolvedProperty)? {
-            NamespaceEntry::PolicyLabel(objid) => Some(*objid),
+        match self.ns_lookup_kind(key, CompileError::UnresolvedProperty)? {
+            NamespaceKind::Policy(obj_id) => Some(*obj_id),
             _ => {
                 self.errors.push(key.span(), CompileError::UnresolvedPolicy);
                 None
@@ -634,14 +721,37 @@ impl CompileCtx {
         }
     }
 
-    fn ns_lookup(
+    fn ns_lookup_kind(
         &mut self,
         key: &Spanned<impl AsRef<str>>,
         error: CompileError,
-    ) -> Option<&NamespaceEntry> {
-        match self.namespace.table.get(key.get_ref().as_ref()) {
-            Some(entry) => Some(entry.get_ref()),
+    ) -> Option<&NamespaceKind> {
+        match self.namespaces.table.get(key.get_ref().as_ref()) {
+            Some(namespace) => Some(&namespace.get_ref().kind),
             None => {
+                self.errors.push(key.span(), error);
+                None
+            }
+        }
+    }
+
+    fn ns_lookup_entry(
+        &mut self,
+        namespace: &Spanned<impl AsRef<str>>,
+        key: &Spanned<impl AsRef<str>>,
+        error: CompileError,
+    ) -> Option<&NamespaceEntry> {
+        match self
+            .namespaces
+            .get_entry(namespace.as_ref().as_ref(), key.as_ref().as_ref())
+        {
+            Ok(entry) => Some(entry),
+            Err(NsLookupErr::Namespace) => {
+                self.errors
+                    .push(namespace.span(), CompileError::UnresolvedNamespace);
+                None
+            }
+            Err(NsLookupErr::Entry) => {
                 self.errors.push(key.span(), error);
                 None
             }
@@ -709,21 +819,26 @@ impl Errors {
     }
 }
 
-impl FromIterator<(String, Spanned<NamespaceEntry>)> for Namespace {
-    fn from_iter<T: IntoIterator<Item = (String, Spanned<NamespaceEntry>)>>(iter: T) -> Self {
+impl FromIterator<(String, NamespaceKind, Vec<(String, NamespaceEntry)>)> for Namespaces {
+    fn from_iter<T: IntoIterator<Item = (String, NamespaceKind, Vec<(String, NamespaceEntry)>)>>(
+        iter: T,
+    ) -> Self {
         Self {
-            table: FromIterator::from_iter(iter),
-        }
-    }
-}
-
-impl FromIterator<(String, NamespaceEntry)> for Namespace {
-    fn from_iter<T: IntoIterator<Item = (String, NamespaceEntry)>>(iter: T) -> Self {
-        Self {
-            table: FromIterator::from_iter(
-                iter.into_iter()
-                    .map(|(key, entry)| (key, Spanned::new(0..0, entry))),
-            ),
+            table: FromIterator::from_iter(iter.into_iter().map(|(key, kind, entries)| {
+                (
+                    key,
+                    Spanned::new(
+                        0..0,
+                        Namespace {
+                            kind,
+                            entries: entries
+                                .into_iter()
+                                .map(|(key, entry)| (key, Spanned::new(0..0, entry)))
+                                .collect(),
+                        },
+                    ),
+                )
+            })),
         }
     }
 }
