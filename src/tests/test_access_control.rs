@@ -1,8 +1,3 @@
-use authly::{
-    ctx::GetDb,
-    db::policy_db::{self, load_svc_policies_with_bindings},
-    test_ctx::TestCtx,
-};
 use authly_common::{
     id::{AnyId, Eid},
     policy::{code::Outcome, engine::AccessControlParams},
@@ -10,7 +5,12 @@ use authly_common::{
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::{compile_and_apply_doc, ServiceProperties};
+use crate::{
+    ctx::GetDb,
+    db::policy_db::{self, load_svc_policies_with_bindings},
+    test_support::TestCtx,
+    tests::{compile_and_apply_doc, ServiceProperties},
+};
 
 const SVC_A: Eid = Eid::from_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
 const SVC_B: Eid = Eid::from_array(hex_literal!("015362d6655447c6b7f44865bd111c70"));

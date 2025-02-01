@@ -1,8 +1,5 @@
 use std::{error::Error, sync::Arc};
 
-use authly::cert::{
-    authly_ca, client_cert, server_cert, server_cert_csr, Cert, CertificateParamsExt,
-};
 use authly_common::mtls_server::PeerServiceEntity;
 use axum::{response::IntoResponse, Extension};
 use rcgen::CertificateSigningRequestParams;
@@ -10,7 +7,10 @@ use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
 use time::Duration;
 use tokio_util::sync::{CancellationToken, DropGuard};
 
-use crate::{rustls_server_config_mtls, rustls_server_config_no_client_auth};
+use crate::{
+    cert::{authly_ca, client_cert, server_cert, server_cert_csr, Cert, CertificateParamsExt},
+    tests::{rustls_server_config_mtls, rustls_server_config_no_client_auth},
+};
 
 #[tokio::test]
 async fn test_tls_localhost_cert_ok() {

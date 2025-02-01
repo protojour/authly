@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use authly::cert::{authly_ca, client_cert, server_cert, CertificateParamsExt};
 use authly_common::{
     mtls_server::PeerServiceEntity, proto::connect::authly_connect_client::AuthlyConnectClient,
 };
@@ -24,7 +23,10 @@ use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::{rustls_server_config_mtls, spawn_test_connect_server};
+use crate::{
+    cert::{authly_ca, client_cert, server_cert, CertificateParamsExt},
+    tests::{rustls_server_config_mtls, spawn_test_connect_server},
+};
 
 #[test(tokio::test)]
 async fn test_connect_grpc() {

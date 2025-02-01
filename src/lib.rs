@@ -39,7 +39,7 @@ pub mod instance;
 pub mod platform;
 pub mod proto;
 pub mod session;
-pub mod test_ctx;
+pub mod test_support;
 pub mod tls;
 
 mod access_control;
@@ -51,6 +51,11 @@ mod policy;
 mod settings;
 mod util;
 mod webauth;
+
+/// The tests are currently part of `authly` src/ as this is a binary crate.
+/// Rust "integration" tests outside the src tree are more fitted for libraries.
+#[cfg(test)]
+mod tests;
 
 #[derive(rust_embed::Embed)]
 #[folder = "migrations"]

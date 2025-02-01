@@ -2,7 +2,7 @@ use authly::{
     access_token,
     ctx::LoadInstance,
     session::{Session, SessionToken},
-    test_ctx::TestCtx,
+    test_support::TestCtx,
 };
 use authly_common::id::{Eid, ObjId};
 use criterion::{criterion_group, criterion_main, Criterion};

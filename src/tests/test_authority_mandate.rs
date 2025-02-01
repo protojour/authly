@@ -1,4 +1,11 @@
-use authly::{
+use authly_common::id::Eid;
+use authly_connect::TunnelSecurity;
+use itertools::Itertools;
+use rcgen::CertificateSigningRequestParams;
+use test_log::test;
+use tracing::info;
+
+use crate::{
     audit::Actor,
     authority_mandate::submission::{
         authority::{
@@ -12,15 +19,8 @@ use authly::{
     cert::{server_cert, CertificateParamsExt},
     ctx::GetInstance,
     proto::mandate_submission::AuthlyMandateSubmissionServerImpl,
+    tests::{rustls_server_config_no_client_auth, spawn_test_connect_server, TestCtx},
 };
-use authly_common::id::Eid;
-use authly_connect::TunnelSecurity;
-use itertools::Itertools;
-use rcgen::CertificateSigningRequestParams;
-use test_log::test;
-use tracing::info;
-
-use crate::{rustls_server_config_no_client_auth, spawn_test_connect_server, TestCtx};
 
 #[test(tokio::test)]
 async fn test_mandate_registration_failure() {

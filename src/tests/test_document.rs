@@ -1,11 +1,12 @@
-use authly::{
-    ctx::GetDb,
-    db::{entity_db, service_db},
-};
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::{compile_and_apply_doc, TestCtx};
+use crate::{
+    ctx::GetDb,
+    db::{entity_db, service_db},
+    test_support::TestCtx,
+    tests::compile_and_apply_doc,
+};
 
 #[tokio::test]
 async fn test_store_doc_trivial() {

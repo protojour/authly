@@ -1,17 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::anyhow;
-use authly::{
-    cert::Cert,
-    ctx::GetDb,
-    db::{
-        document_db,
-        service_db::{self, ServicePropertyKind},
-    },
-    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
-    encryption::DecryptedDeks,
-    test_ctx::TestCtx,
-};
 use authly_common::{
     document::Document, id::Eid, proto::connect::authly_connect_server::AuthlyConnectServer,
     service::NamespacePropertyMapping,
@@ -28,6 +17,18 @@ use rustls::{
     RootCertStore, ServerConfig,
 };
 use tokio_util::sync::{CancellationToken, DropGuard};
+
+use crate::{
+    cert::Cert,
+    ctx::GetDb,
+    db::{
+        document_db,
+        service_db::{self, ServicePropertyKind},
+    },
+    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
+    encryption::DecryptedDeks,
+    test_support::TestCtx,
+};
 
 mod end2end;
 mod test_access_control;
@@ -182,5 +183,3 @@ impl ServiceProperties {
         Self { resource, entity }
     }
 }
-
-fn main() {}
