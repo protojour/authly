@@ -57,15 +57,6 @@ CREATE TABLE ent_attr (
     PRIMARY KEY (eid, attrid)
 );
 
-CREATE TABLE ent_text_attr (
-    dir_id BLOB NOT NULL,
-    eid BLOB NOT NULL,
-    prop_id BLOB NOT NULL,
-    value TEXT NOT NULL,
-
-    PRIMARY KEY (eid, prop_id)
-);
-
 CREATE TABLE ent_ident (
     dir_id BLOB NOT NULL,
     eid BLOB NOT NULL,
@@ -87,7 +78,17 @@ CREATE TABLE ent_rel (
     PRIMARY KEY (rel_id, subject_eid, object_eid)
 );
 
+CREATE TABLE obj_text_attr (
+    dir_id BLOB NOT NULL,
+    obj_id BLOB NOT NULL,
+    prop_id BLOB NOT NULL,
+    value TEXT NOT NULL,
+
+    PRIMARY KEY (obj_id, prop_id)
+);
+
 -- Domain: Property namespaces (not entities)
+-- TODO: This table is not needed (obj_text_attr will be enough when ID can tag the underlying type)
 CREATE TABLE domain (
     dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,

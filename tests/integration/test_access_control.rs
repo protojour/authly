@@ -96,8 +96,8 @@ async fn test_access_control_basic() {
             Outcome::Deny,
             engine
                 .eval(&AccessControlParams {
-                    resource_attrs: props.resource.translate([("kind", "trousers")]),
-                    subject_attrs: props.entity.translate([("trait", "has_legs")]),
+                    resource_attrs: props.resource.translate([("svc_a", "kind", "trousers")]),
+                    subject_attrs: props.entity.translate([("svc_a", "trait", "has_legs")]),
                     ..Default::default()
                 })
                 .unwrap(),
@@ -110,7 +110,7 @@ async fn test_access_control_basic() {
                 .eval(&AccessControlParams {
                     resource_attrs: props
                         .resource
-                        .translate([("kind", "trousers"), ("verb", "wear")]),
+                        .translate([("svc_a", "kind", "trousers"), ("svc_a", "verb", "wear")]),
                     ..Default::default()
                 })
                 .unwrap(),
@@ -123,8 +123,8 @@ async fn test_access_control_basic() {
                 .eval(&AccessControlParams {
                     resource_attrs: props
                         .resource
-                        .translate([("kind", "trousers"), ("verb", "wear")]),
-                    subject_attrs: props.entity.translate([("trait", "has_legs")]),
+                        .translate([("svc_a", "kind", "trousers"), ("svc_a", "verb", "wear")]),
+                    subject_attrs: props.entity.translate([("svc_a", "trait", "has_legs")]),
                     ..Default::default()
                 })
                 .unwrap(),

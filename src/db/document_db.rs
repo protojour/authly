@@ -100,14 +100,14 @@ pub fn document_txn_statements(
 
         // not sure how to "GC" this?
         stmts.push((
-            "DELETE FROM ent_text_attr WHERE dir_id = $1".into(),
+            "DELETE FROM obj_text_attr WHERE dir_id = $1".into(),
             params!(dir_id.as_param()),
         ));
 
-        for text_prop in data.entity_text_attrs {
+        for text_prop in data.obj_text_attrs {
             stmts.push((
-                "INSERT INTO ent_text_attr (dir_id, eid, prop_id, value) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
-                params!(dir_id.as_param(), text_prop.eid.as_param(), text_prop.prop_id.as_param(), text_prop.value),
+                "INSERT INTO obj_text_attr (dir_id, obj_id, prop_id, value) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
+                params!(dir_id.as_param(), text_prop.obj_id.as_param(), text_prop.prop_id.as_param(), text_prop.value),
             ));
         }
     }

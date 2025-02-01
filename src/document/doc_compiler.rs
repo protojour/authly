@@ -18,7 +18,7 @@ use tracing::debug;
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
 use crate::document::compiled_document::{
-    CompiledEntityAttributeAssignment, EntityIdent, EntityTextAttr,
+    CompiledEntityAttributeAssignment, EntityIdent, ObjectTextAttr,
 };
 use crate::id::BuiltinID;
 use crate::policy::compiler::PolicyCompiler;
@@ -168,6 +168,11 @@ pub async fn compile_doc(
 
             comp.ns_add(&domain.label, NamespaceKind::Domain(id));
 
+            data.obj_text_attrs.push(ObjectTextAttr {
+                obj_id: AnyId::from_array(&id.to_bytes()),
+                prop_id: BuiltinID::PropLabel.to_obj_id(),
+                value: domain.label.as_ref().to_string(),
+            });
             data.domains.push(Identified(id, domain.label.into_inner()));
         }
     }
@@ -187,16 +192,16 @@ pub async fn compile_doc(
     for entity in &mut doc.service_entity {
         let eid = *entity.eid.as_ref();
         if let Some(label) = &entity.label {
-            data.entity_text_attrs.push(EntityTextAttr {
-                eid,
+            data.obj_text_attrs.push(ObjectTextAttr {
+                obj_id: AnyId::from_array(&eid.to_bytes()),
                 prop_id: BuiltinID::PropLabel.to_obj_id(),
                 value: label.as_ref().to_string(),
             });
         }
 
         if let Some(k8s) = mem::take(&mut entity.kubernetes_account) {
-            data.entity_text_attrs.push(EntityTextAttr {
-                eid,
+            data.obj_text_attrs.push(ObjectTextAttr {
+                obj_id: AnyId::from_array(&eid.to_bytes()),
                 prop_id: BuiltinID::PropK8sServiceAccount.to_obj_id(),
                 value: format!("{}/{}", k8s.namespace, k8s.name),
             });
@@ -222,8 +227,8 @@ pub async fn compile_doc(
             continue;
         };
 
-        data.entity_text_attrs.push(EntityTextAttr {
-            eid,
+        data.obj_text_attrs.push(ObjectTextAttr {
+            obj_id: AnyId::from_array(&eid.to_bytes()),
             prop_id: BuiltinID::PropPasswordHash.to_obj_id(),
             value: hash.hash,
         });

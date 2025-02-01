@@ -125,15 +125,21 @@ impl AuthlyService for AuthlyServiceServerImpl {
         .map_err(grpc_db_err)?;
 
         let response = proto::PropertyMappingsResponse {
-            properties: resource_property_mapping
+            namespaces: resource_property_mapping
                 .into_iter()
-                .map(|(prop_label, attributes)| proto::PropertyMapping {
-                    label: prop_label,
-                    attributes: attributes
+                .map(|(label, properties)| proto::PropertyMappingNamespace {
+                    label,
+                    properties: properties
                         .into_iter()
-                        .map(|(attr_label, obj_id)| proto::AttributeMapping {
-                            label: attr_label,
-                            obj_id: obj_id.to_bytes().to_vec(),
+                        .map(|(label, attributes)| proto::PropertyMapping {
+                            label,
+                            attributes: attributes
+                                .into_iter()
+                                .map(|(label, attr_id)| proto::AttributeMapping {
+                                    label,
+                                    obj_id: attr_id.to_bytes().to_vec(),
+                                })
+                                .collect(),
                         })
                         .collect(),
                 })
@@ -189,9 +195,11 @@ impl AuthlyService for AuthlyServiceServerImpl {
             .await
             .map_err(grpc_db_err)?;
 
-            for (_, attributes) in subject_entity_property_mapping {
-                for (_, attribute) in attributes {
-                    params.subject_attrs.insert(attribute.to_any());
+            for (_, properties) in subject_entity_property_mapping {
+                for (_, attributes) in properties {
+                    for (_, attribute) in attributes {
+                        params.subject_attrs.insert(attribute.to_any());
+                    }
                 }
             }
         }

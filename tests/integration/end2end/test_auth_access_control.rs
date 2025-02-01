@@ -100,7 +100,7 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     {
         let Err(authly_client::Error::InvalidPropertyAttributeLabel) = authly_client
             .access_control_request()
-            .resource_attribute("bogus", "pomp")
+            .resource_attribute("fake", "bogus", "pomp")
         else {
             panic!("incorrect error");
         };
@@ -110,7 +110,7 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     {
         let outcome = authly_client
             .access_control_request()
-            .resource_attribute("ontology/action", "read")?
+            .resource_attribute("testservice", "ontology/action", "read")?
             .access_token(access_token.clone())
             .send()
             .await
@@ -123,7 +123,7 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
     {
         let outcome = authly_client
             .access_control_request()
-            .resource_attribute("ontology/action", "deploy")?
+            .resource_attribute("testservice", "ontology/action", "deploy")?
             .access_token(access_token.clone())
             .send()
             .await

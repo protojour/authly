@@ -14,7 +14,7 @@ use authly::{
 };
 use authly_common::{
     document::Document, id::Eid, proto::connect::authly_connect_server::AuthlyConnectServer,
-    service::PropertyMapping,
+    service::NamespacePropertyMapping,
 };
 use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
@@ -164,8 +164,8 @@ async fn spawn_test_server_cancellable(service: axum::Router, cancel: Cancellati
 }
 
 struct ServiceProperties {
-    resource: PropertyMapping,
-    entity: PropertyMapping,
+    resource: NamespacePropertyMapping,
+    entity: NamespacePropertyMapping,
 }
 
 impl ServiceProperties {

@@ -60,12 +60,14 @@ pub struct CompiledDocumentData {
     pub entity_attribute_assignments: Vec<CompiledEntityAttributeAssignment>,
 
     pub entity_ident: Vec<EntityIdent>,
-    pub entity_text_attrs: Vec<EntityTextAttr>,
+    pub obj_text_attrs: Vec<ObjectTextAttr>,
     pub entity_password: Vec<EntityPassword>,
 
     pub service_ids: BTreeSet<Eid>,
 
+    // TODO: remove
     pub domains: Vec<Identified<ObjId, String>>,
+
     pub service_domains: Vec<(Eid, AnyId)>,
 
     pub entity_relations: Vec<CompiledEntityRelation>,
@@ -84,9 +86,10 @@ pub struct EntityIdent {
     pub ident: String,
 }
 
+// note: This is not only for entities
 #[derive(Debug)]
-pub struct EntityTextAttr {
-    pub eid: Eid,
+pub struct ObjectTextAttr {
+    pub obj_id: AnyId,
     pub prop_id: ObjId,
     pub value: String,
 }
