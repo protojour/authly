@@ -18,7 +18,7 @@ pub(crate) fn sqlite_query_raw(
     conn: &Connection,
     stmt: Cow<'static, str>,
     params: Params,
-) -> Result<Vec<RusqliteRow>, DbError> {
+) -> Result<Vec<RusqliteRowOwned>, DbError> {
     let mut stmt = conn.prepare_cached(&stmt).map_err(DbError::Rusqlite)?;
     let columns: Vec<_> = stmt
         .columns()
@@ -33,7 +33,7 @@ pub(crate) fn sqlite_query_raw(
     let mut output = vec![];
 
     while let Some(row) = rows.next().map_err(DbError::Rusqlite)? {
-        output.push(RusqliteRow::from_rusqlite(row, &columns));
+        output.push(RusqliteRowOwned::from_rusqlite(row, &columns));
     }
 
     Ok(output)
@@ -48,12 +48,6 @@ where
     T: FromRow,
 {
     let mut stmt = conn.prepare_cached(&stmt).map_err(DbError::Rusqlite)?;
-    let columns: Vec<_> = stmt
-        .columns()
-        .iter()
-        .map(RusqliteColumn::from_column)
-        .collect();
-
     let mut rows = stmt
         .query(rusqlite_params(params))
         .map_err(DbError::Rusqlite)?;
@@ -61,7 +55,7 @@ where
     let mut output = vec![];
 
     while let Some(row) = rows.next().map_err(DbError::Rusqlite)? {
-        output.push(T::from_row(&mut RusqliteRow::from_rusqlite(row, &columns)));
+        output.push(T::from_row(&mut RusqliteRowBorrowed { row }));
     }
 
     Ok(output)
@@ -129,11 +123,11 @@ impl RusqliteColumn {
     }
 }
 
-pub struct RusqliteRow {
+pub struct RusqliteRowOwned {
     entries: HashMap<String, rusqlite::types::Value>,
 }
 
-impl RusqliteRow {
+impl RusqliteRowOwned {
     fn from_rusqlite(row: &rusqlite::Row, columns: &[RusqliteColumn]) -> Self {
         use rusqlite::types::Value;
         let mut entries = HashMap::with_capacity(columns.len());
@@ -156,7 +150,7 @@ impl RusqliteRow {
     }
 }
 
-impl Row for RusqliteRow {
+impl Row for RusqliteRowOwned {
     fn get_int(&mut self, idx: &str) -> i64 {
         match self.entries.remove(idx).unwrap() {
             rusqlite::types::Value::Integer(i) => i,
@@ -197,6 +191,36 @@ impl Row for RusqliteRow {
             rusqlite::types::Value::Blob(b) => b.try_into().expect("incorrect length"),
             _ => panic!(),
         }
+    }
+}
+
+pub struct RusqliteRowBorrowed<'a, 'b> {
+    row: &'a rusqlite::Row<'b>,
+}
+
+impl Row for RusqliteRowBorrowed<'_, '_> {
+    fn get_int(&mut self, idx: &str) -> i64 {
+        self.row.get(idx).unwrap()
+    }
+
+    fn get_opt_int(&mut self, idx: &str) -> Option<i64> {
+        self.row.get(idx).unwrap()
+    }
+
+    fn get_text(&mut self, idx: &str) -> String {
+        self.row.get(idx).unwrap()
+    }
+
+    fn get_opt_text(&mut self, idx: &str) -> Option<String> {
+        self.row.get(idx).unwrap()
+    }
+
+    fn get_blob(&mut self, idx: &str) -> Vec<u8> {
+        self.row.get(idx).unwrap()
+    }
+
+    fn get_blob_array<const N: usize>(&mut self, idx: &str) -> [u8; N] {
+        self.row.get(idx).unwrap()
     }
 }
 

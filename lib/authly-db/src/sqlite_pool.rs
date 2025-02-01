@@ -10,7 +10,7 @@ use hiqlite::Params;
 use rusqlite::Connection;
 
 use crate::{
-    sqlite::{sqlite_execute, sqlite_query_map, sqlite_query_raw, sqlite_txn, RusqliteRow},
+    sqlite::{sqlite_execute, sqlite_query_map, sqlite_query_raw, sqlite_txn, RusqliteRowOwned},
     Db, DbError,
 };
 
@@ -41,7 +41,7 @@ impl SqlitePool {
 }
 
 impl Db for SqlitePool {
-    type Row<'a> = RusqliteRow;
+    type Row<'a> = RusqliteRowOwned;
 
     async fn query_raw(
         &self,
