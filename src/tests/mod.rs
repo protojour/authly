@@ -9,7 +9,7 @@ use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
-use authly_db::{sqlite_handle::SqliteHandle, Db};
+use authly_db::{sqlite_pool::SqlitePool, Db};
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -170,7 +170,7 @@ struct ServiceProperties {
 }
 
 impl ServiceProperties {
-    async fn load(svc_eid: Eid, conn: &SqliteHandle) -> Self {
+    async fn load(svc_eid: Eid, conn: &SqlitePool) -> Self {
         let resource =
             service_db::get_service_property_mapping(conn, svc_eid, ServicePropertyKind::Resource)
                 .await

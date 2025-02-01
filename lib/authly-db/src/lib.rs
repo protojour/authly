@@ -7,7 +7,7 @@ use thiserror::Error;
 
 pub mod literal;
 pub mod param;
-pub mod sqlite_handle;
+pub mod sqlite_pool;
 
 mod hql;
 mod sqlite;
@@ -52,6 +52,14 @@ pub trait Db: Send + Sync + 'static {
         params: Params,
     ) -> impl Future<Output = Result<Vec<Self::Row<'_>>, DbError>> + Send;
 
+    fn query_map<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> impl Future<Output = Result<Vec<T>, DbError>> + Send
+    where
+        T: FromRow + Send + 'static;
+
     fn execute(
         &self,
         sql: Cow<'static, str>,
@@ -66,25 +74,36 @@ pub trait Db: Send + Sync + 'static {
 }
 
 pub trait Row {
+    #[track_caller]
     fn get_int(&mut self, idx: &str) -> i64;
 
+    #[track_caller]
     fn get_opt_int(&mut self, idx: &str) -> Option<i64>;
 
+    #[track_caller]
     fn get_text(&mut self, idx: &str) -> String;
 
+    #[track_caller]
     fn get_opt_text(&mut self, idx: &str) -> Option<String>;
 
+    #[track_caller]
     fn get_blob(&mut self, idx: &str) -> Vec<u8>;
 
+    #[track_caller]
+    fn get_blob_array<const N: usize>(&mut self, idx: &str) -> [u8; N];
+
+    #[track_caller]
     fn get_datetime(&mut self, idx: &str) -> DbResult<time::OffsetDateTime> {
         time::OffsetDateTime::from_unix_timestamp(self.get_int(idx)).map_err(|_| DbError::Timestamp)
     }
 
+    #[track_caller]
     fn get_id<K>(&mut self, idx: &str) -> Id128<K> {
-        Id128::from_bytes(&self.get_blob(idx)).unwrap()
+        Id128::from_array(&self.get_blob_array(idx))
     }
 
     /// Read Ids that have been produced with sqlite `group_concat` producing a concatenated BLOB
+    #[track_caller]
     fn get_ids_concatenated<K>(&mut self, idx: &str) -> IdsConcatenated<K> {
         IdsConcatenated {
             iter: self.get_blob(idx).into_iter(),
@@ -104,4 +123,8 @@ impl<K> Iterator for IdsConcatenated<K> {
     fn next(&mut self) -> Option<Self::Item> {
         Some(Id128::from_array(&self.iter.next_array()?))
     }
+}
+
+pub trait FromRow {
+    fn from_row(row: &mut impl Row) -> Self;
 }

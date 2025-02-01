@@ -461,6 +461,8 @@ name = "authly-db"
 version = "0.0.0"
 dependencies = [
  "authly-common",
+ "bytemuck",
+ "deadpool",
  "hexhex",
  "hiqlite",
  "itertools 0.14.0",
@@ -1805,8 +1807,7 @@ dependencies = [
 [[package]]
 name = "hiqlite"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4baadbe228f3a1faffcc8e397048a278132b43c3f4f8d8eea5f54c61d6814cb8"
+source = "git+https://github.com/audunhalland/hiqlite.git?branch=blob-to-u8-array#7ac77f4437e56b730298c6de3d5b71556043a402"
 dependencies = [
  "axum 0.8.1",
  "axum-server",

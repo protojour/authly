@@ -1,12 +1,12 @@
 use std::{
     fs,
-    path::Path,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
-use authly_db::sqlite_handle::SqliteHandle;
+use authly_db::sqlite_pool::{SqlitePool, Storage};
 use tracing::info;
 
 use crate::{
@@ -27,7 +27,7 @@ use crate::{
 /// E.g. it supports an in-memory database.
 #[derive(Clone, Default)]
 pub struct TestCtx {
-    db: Option<SqliteHandle>,
+    db: Option<SqlitePool>,
     instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
     deks: Option<Arc<ArcSwap<DecryptedDeks>>>,
 
@@ -36,20 +36,27 @@ pub struct TestCtx {
 
 impl TestCtx {
     pub async fn inmemory_db(mut self) -> Self {
-        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
-        sqlite_migrate::<Migrations>(&mut conn).await;
+        let pool = SqlitePool::new(Storage::Memory, 1);
+        {
+            let mut conn = pool.get().await.unwrap();
+            sqlite_migrate::<Migrations>(&mut conn).await;
+        }
 
-        self.db = Some(SqliteHandle::new(conn));
+        self.db = Some(pool);
         self
     }
 
     /// Run test with a file DB, so the the file can be inspected after the test
-    pub async fn new_file_db(mut self, path: impl AsRef<Path>) -> Self {
-        let _ = fs::remove_file(path.as_ref());
-        let mut conn = rusqlite::Connection::open(path).unwrap();
-        sqlite_migrate::<Migrations>(&mut conn).await;
+    pub async fn new_file_db(mut self, path: impl Into<PathBuf>) -> Self {
+        let path = path.into();
+        let _ = fs::remove_file(&path);
+        let pool = SqlitePool::new(Storage::File(path), 1);
+        {
+            let mut conn = pool.get().await.unwrap();
+            sqlite_migrate::<Migrations>(&mut conn).await;
+        }
 
-        self.db = Some(SqliteHandle::new(conn));
+        self.db = Some(pool);
         self
     }
 
@@ -141,7 +148,7 @@ impl TestCtx {
 }
 
 impl GetDb for TestCtx {
-    type Db = SqliteHandle;
+    type Db = SqlitePool;
 
     #[track_caller]
     fn get_db(&self) -> &Self::Db {

@@ -12,14 +12,14 @@ use rusqlite::{
     Column, Connection, ParamsFromIter,
 };
 
-use crate::{DbError, Row};
+use crate::{DbError, FromRow, Row};
 
-pub(crate) async fn sqlite_query_raw(
+pub(crate) fn sqlite_query_raw(
     conn: &Connection,
     stmt: Cow<'static, str>,
     params: Params,
 ) -> Result<Vec<RusqliteRow>, DbError> {
-    let mut stmt = conn.prepare(&stmt).map_err(DbError::Rusqlite)?;
+    let mut stmt = conn.prepare_cached(&stmt).map_err(DbError::Rusqlite)?;
     let columns: Vec<_> = stmt
         .columns()
         .iter()
@@ -39,7 +39,35 @@ pub(crate) async fn sqlite_query_raw(
     Ok(output)
 }
 
-pub(crate) async fn sqlite_execute(
+pub(crate) fn sqlite_query_map<T>(
+    conn: &Connection,
+    stmt: Cow<'static, str>,
+    params: Params,
+) -> Result<Vec<T>, DbError>
+where
+    T: FromRow,
+{
+    let mut stmt = conn.prepare_cached(&stmt).map_err(DbError::Rusqlite)?;
+    let columns: Vec<_> = stmt
+        .columns()
+        .iter()
+        .map(RusqliteColumn::from_column)
+        .collect();
+
+    let mut rows = stmt
+        .query(rusqlite_params(params))
+        .map_err(DbError::Rusqlite)?;
+
+    let mut output = vec![];
+
+    while let Some(row) = rows.next().map_err(DbError::Rusqlite)? {
+        output.push(T::from_row(&mut RusqliteRow::from_rusqlite(row, &columns)));
+    }
+
+    Ok(output)
+}
+
+pub(crate) fn sqlite_execute(
     conn: &Connection,
     sql: Cow<'static, str>,
     params: Params,
@@ -47,7 +75,7 @@ pub(crate) async fn sqlite_execute(
     rusqlite::Connection::execute(conn, &sql, rusqlite_params(params)).map_err(DbError::Rusqlite)
 }
 
-pub(crate) async fn sqlite_txn(
+pub(crate) fn sqlite_txn(
     conn: &mut Connection,
     sql: Vec<(Cow<'static, str>, Params)>,
 ) -> Result<Vec<Result<usize, DbError>>, DbError> {
@@ -160,6 +188,13 @@ impl Row for RusqliteRow {
     fn get_blob(&mut self, idx: &str) -> Vec<u8> {
         match self.entries.remove(idx).unwrap() {
             rusqlite::types::Value::Blob(b) => b,
+            _ => panic!(),
+        }
+    }
+
+    fn get_blob_array<const N: usize>(&mut self, idx: &str) -> [u8; N] {
+        match self.entries.remove(idx).unwrap() {
+            rusqlite::types::Value::Blob(b) => b.try_into().expect("incorrect length"),
             _ => panic!(),
         }
     }

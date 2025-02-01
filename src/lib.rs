@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 use std::{
     net::{Ipv4Addr, SocketAddr},
     ops::Deref,

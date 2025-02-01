@@ -1,9 +1,10 @@
 use std::{borrow::Cow, time::Instant};
 
+use bytemuck::{TransparentWrapper, TransparentWrapperAlloc};
 use hiqlite::Params;
 use tracing::info;
 
-use crate::{Db, DbError, Row, LOG_QUERIES};
+use crate::{Db, DbError, FromRow, Row, LOG_QUERIES};
 
 impl Db for hiqlite::Client {
     type Row<'a> = hiqlite::Row<'a>;
@@ -22,6 +23,14 @@ impl Db for hiqlite::Client {
         } else {
             Ok(hiqlite::Client::query_raw(self, stmt, params).await?)
         }
+    }
+
+    async fn query_map<T>(&self, stmt: Cow<'static, str>, params: Params) -> Result<Vec<T>, DbError>
+    where
+        T: crate::FromRow + Send + 'static,
+    {
+        let values = hiqlite::Client::query_map::<HiqliteWrapper<T>, _>(self, stmt, params).await?;
+        Ok(TransparentWrapperAlloc::<T>::peel_vec(values))
     }
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
@@ -60,4 +69,20 @@ impl Row for hiqlite::Row<'_> {
     fn get_blob(&mut self, idx: &str) -> Vec<u8> {
         self.get(idx)
     }
+
+    fn get_blob_array<const N: usize>(&mut self, idx: &str) -> [u8; N] {
+        self.get(idx)
+    }
 }
+
+#[repr(transparent)]
+struct HiqliteWrapper<T>(T);
+
+impl<T: FromRow> From<hiqlite::Row<'_>> for HiqliteWrapper<T> {
+    fn from(mut row: hiqlite::Row) -> Self {
+        Self(T::from_row(&mut row))
+    }
+}
+
+/// Support transmute from HiqliteWrapper<T> to T
+unsafe impl<T> TransparentWrapper<T> for HiqliteWrapper<T> {}
