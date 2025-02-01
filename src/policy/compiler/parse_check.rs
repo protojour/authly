@@ -4,7 +4,7 @@
 use pest::{iterators::Pair, Span};
 
 use crate::{
-    document::doc_compiler::NamespaceEntry,
+    document::doc_compiler::{NamespaceEntry, NamespaceKind, NsLookupErr},
     policy::error::{PolicyCompileError, PolicyCompileErrorKind},
 };
 
@@ -68,7 +68,9 @@ impl PolicyCompiler<'_> {
             Rule::term_field => {
                 let mut pairs = pair.into_inner();
                 let global = self.pest_global(pairs.next().unwrap());
-                let Some(label) = self.pest_property_label(pairs.next().unwrap()) else {
+                let namespace = pairs.next().unwrap();
+                let property = pairs.next().unwrap();
+                let Some(label) = self.pest_property_label(namespace, property) else {
                     return Term::Error;
                 };
 
@@ -77,8 +79,9 @@ impl PolicyCompiler<'_> {
             Rule::term_attr => {
                 let span = pair.as_span();
                 let mut pairs = pair.into_inner();
-                let pest_property_label = pairs.next().unwrap();
-                let Some(property_label) = self.pest_property_label(pest_property_label.clone())
+                let namespace = pairs.next().unwrap();
+                let property = pairs.next().unwrap();
+                let Some(property_label) = self.pest_property_label(namespace, property.clone())
                 else {
                     return Term::Error;
                 };
@@ -94,7 +97,7 @@ impl PolicyCompiler<'_> {
                         self.pest_error(
                             span,
                             PolicyCompileErrorKind::UnknownAttribute(
-                                pest_property_label.as_str().to_string(),
+                                property.as_str().to_string(),
                                 attr_label_str.to_string(),
                             ),
                         );
@@ -112,10 +115,17 @@ impl PolicyCompiler<'_> {
 
     fn pest_any_label(&mut self, pair: Pair<Rule>) -> Option<Label> {
         let label = pair.as_str();
-        match self.namespace.get_entry(label) {
-            Some(NamespaceEntry::Entity(id)) => Some(Label(id.to_bytes())),
-            Some(NamespaceEntry::Service(id)) => Some(Label(id.to_bytes())),
-            Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.to_bytes())),
+        let Some(namespace) = self.namespace.get_namespace(label) else {
+            self.pest_error(
+                pair.as_span(),
+                PolicyCompileErrorKind::UnknownLabel(label.to_string()),
+            );
+            return None;
+        };
+
+        match &namespace.kind {
+            NamespaceKind::Entity(id) => Some(Label(id.to_bytes())),
+            NamespaceKind::Service(id) => Some(Label(id.to_bytes())),
             _ => {
                 self.pest_error(
                     pair.as_span(),
@@ -126,14 +136,22 @@ impl PolicyCompiler<'_> {
         }
     }
 
-    fn pest_property_label(&mut self, pair: Pair<Rule>) -> Option<Label> {
-        let label = pair.as_str();
-        match self.namespace.get_entry(label) {
-            Some(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.to_bytes())),
-            _ => {
+    fn pest_property_label(&mut self, namespace: Pair<Rule>, prop: Pair<Rule>) -> Option<Label> {
+        let ns_label = namespace.as_str();
+        let prop_label = prop.as_str();
+        match self.namespace.get_entry(ns_label, prop_label) {
+            Ok(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.to_bytes())),
+            Err(NsLookupErr::Namespace) => {
                 self.pest_error(
-                    pair.as_span(),
-                    PolicyCompileErrorKind::UnknownProperty(label.to_string()),
+                    namespace.as_span(),
+                    PolicyCompileErrorKind::UnknownNamespace(ns_label.to_string()),
+                );
+                None
+            }
+            Err(NsLookupErr::Entry) => {
+                self.pest_error(
+                    prop.as_span(),
+                    PolicyCompileErrorKind::UnknownProperty(prop_label.to_string()),
                 );
                 None
             }

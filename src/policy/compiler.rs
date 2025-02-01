@@ -9,7 +9,7 @@ use pest::{
     Parser,
 };
 
-use crate::document::{compiled_document::CompiledDocumentData, doc_compiler::Namespace};
+use crate::document::{compiled_document::CompiledDocumentData, doc_compiler::Namespaces};
 
 use super::{
     error::{PolicyCompileError, PolicyCompileErrorKind},
@@ -23,7 +23,7 @@ mod parse_check;
 mod parser;
 
 pub struct PolicyCompiler<'a> {
-    namespace: &'a Namespace,
+    namespace: &'a Namespaces,
     doc_data: &'a CompiledDocumentData,
     outcome: PolicyOutcome,
 
@@ -37,7 +37,7 @@ struct ParseCtx {
 
 impl<'a> PolicyCompiler<'a> {
     pub fn new(
-        namespace: &'a Namespace,
+        namespace: &'a Namespaces,
         doc_data: &'a CompiledDocumentData,
         outcome: PolicyOutcome,
     ) -> Self {

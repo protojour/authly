@@ -164,24 +164,29 @@ async fn tab_service(ctx: HtmlCtx) -> Result<Markup, Error> {
         ("N/A".to_string(), "N/A".to_string())
     };
 
-    let properties: Vec<(String, Vec<String>)> = if let Some(client) = ctx.client.as_ref() {
-        client
-            .get_resource_property_mapping()
-            .as_ref()
-            .into_iter()
-            .map(|(label, attrs)| {
-                (
-                    label.clone(),
-                    attrs
-                        .into_iter()
-                        .map(|(label, _)| label.clone())
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect::<Vec<_>>()
-    } else {
-        vec![]
-    };
+    let mut properties: Vec<((String, String), Vec<String>)> =
+        if let Some(client) = ctx.client.as_ref() {
+            client
+                .get_resource_property_mapping()
+                .as_ref()
+                .into_iter()
+                .flat_map(|(namespace, props)| {
+                    props.into_iter().map(|(property, attrs)| {
+                        (
+                            (namespace.clone(), property.clone()),
+                            attrs
+                                .into_iter()
+                                .map(|(label, _)| label.clone())
+                                .collect::<Vec<_>>(),
+                        )
+                    })
+                })
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+
+    properties.sort_by(|(ns_prop_a, _), (ns_prop_b, _)| ns_prop_a.cmp(&ns_prop_b));
 
     Ok(html! {
         (render_nav_tab_list(0, &ctx))
@@ -223,13 +228,15 @@ async fn tab_service(ctx: HtmlCtx) -> Result<Markup, Error> {
             table {
                 thead {
                     tr {
+                        th { "Namespace" }
                         th { "Property" }
                         th { "Attributes" }
                     }
                 }
                 tbody {
-                    @for (prop_label, attributes) in properties {
+                    @for ((namespace, prop_label), attributes) in properties {
                         tr {
+                            td { code { (namespace) } }
                             td { code { (prop_label) } }
                             td {
                                 @for attribute in attributes {

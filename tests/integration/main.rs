@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::anyhow;
 use authly::{
     cert::Cert,
     ctx::GetDb,
@@ -13,7 +14,7 @@ use authly::{
 };
 use authly_common::{
     document::Document, id::Eid, proto::connect::authly_connect_server::AuthlyConnectServer,
-    service::PropertyMapping,
+    service::NamespacePropertyMapping,
 };
 use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
@@ -36,17 +37,32 @@ mod test_document;
 mod test_tls;
 
 async fn compile_and_apply_doc(
-    doc: Document,
+    toml: &str,
     deks: &DecryptedDeks,
     ctx: &TestCtx,
 ) -> anyhow::Result<()> {
+    let doc = Document::from_toml(toml)?;
     let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
         .await
-        .unwrap();
-    ctx.get_db()
+        .map_err(|errors| {
+            for error in errors {
+                println!("{error:?}: `{}`", &toml[error.span()])
+            }
+
+            anyhow!("doc compile error)")
+        })?;
+    for (idx, result) in ctx
+        .get_db()
         .transact(document_db::document_txn_statements(compiled_doc, deks)?)
         .await
-        .unwrap();
+        .unwrap()
+        .into_iter()
+        .enumerate()
+    {
+        if let Err(err) = result {
+            panic!("apply doc stmt {idx}: {err:?}");
+        }
+    }
 
     Ok(())
 }
@@ -148,8 +164,8 @@ async fn spawn_test_server_cancellable(service: axum::Router, cancel: Cancellati
 }
 
 struct ServiceProperties {
-    resource: PropertyMapping,
-    entity: PropertyMapping,
+    resource: NamespacePropertyMapping,
+    entity: NamespacePropertyMapping,
 }
 
 impl ServiceProperties {

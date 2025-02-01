@@ -1,7 +1,8 @@
-use std::{borrow::Cow, future::Future};
+use std::{borrow::Cow, future::Future, marker::PhantomData};
 
 use authly_common::id::Id128;
 use hiqlite::Params;
+use itertools::Itertools;
 use thiserror::Error;
 
 pub mod literal;
@@ -81,5 +82,26 @@ pub trait Row {
 
     fn get_id<K>(&mut self, idx: &str) -> Id128<K> {
         Id128::from_bytes(&self.get_blob(idx)).unwrap()
+    }
+
+    /// Read Ids that have been produced with sqlite `group_concat` producing a concatenated BLOB
+    fn get_ids_concatenated<K>(&mut self, idx: &str) -> IdsConcatenated<K> {
+        IdsConcatenated {
+            iter: self.get_blob(idx).into_iter(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+pub struct IdsConcatenated<K> {
+    iter: std::vec::IntoIter<u8>,
+    _phantom: PhantomData<K>,
+}
+
+impl<K> Iterator for IdsConcatenated<K> {
+    type Item = Id128<K>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(Id128::from_array(&self.iter.next_array()?))
     }
 }

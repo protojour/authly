@@ -23,50 +23,50 @@ mod policy_tests {
 
     #[test]
     fn policy_field_equals_label() {
-        parse_policy_ok("Subject.entity == testservice");
+        parse_policy_ok("Subject.a:entity == testservice");
     }
 
     #[test]
     fn policy_field_contains_attribute() {
-        parse_policy_ok("Subject.role contains a/b");
-        parse_policy_ok("Subject.role contains foo/bar");
+        parse_policy_ok("Subject.a:role contains a:b:c");
+        parse_policy_ok("Subject.a:role contains foo:bar:baz");
     }
 
     #[test]
     fn policy_conjunction() {
-        parse_policy_ok("Subject.role contains a/b and Resource.name == foo");
+        parse_policy_ok("Subject.a:role contains a:b:c and Resource.a:name == foo");
     }
 
     #[test]
     fn policy_disjuction() {
-        parse_policy_ok("Subject.role contains a/b or Resource.name == foo");
+        parse_policy_ok("Subject.a:role contains a:b:c or Resource.a:name == foo");
     }
 
     #[test]
     fn policy_not() {
-        parse_policy_ok("not Subject.role contains a/b");
+        parse_policy_ok("not Subject.a:role contains a:b:c");
     }
 
     #[test]
     fn policy_not_conj() {
-        parse_policy_ok("not Subject.role contains a/b and not a == b");
+        parse_policy_ok("not Subject.a:role contains a:b:c and not a == b");
     }
 
     #[test]
     fn policy_not_conj_parenthesized() {
-        parse_policy_ok("(not Subject.role contains a/b) and (not a == b)");
+        parse_policy_ok("(not Subject.a:role contains a:b:c) and (not a == b)");
     }
 
     #[test]
     fn policy_parenthesized() {
         parse_policy_ok(
-            "(Subject.role contains a/b and Resource.name == foo) or Subject.b == label",
+            "(Subject.a:role contains a:b:c and Resource.a:name == foo) or Subject.a:b == label",
         );
     }
 
     #[test]
     fn policy_print_tree() {
-        let foo = parse_policy_ok("(not Subject.role contains a/b) and (not a == b)")
+        let foo = parse_policy_ok("(not Subject.a:role contains a:b:c) and (not a == b)")
             .into_inner()
             .next()
             .unwrap();

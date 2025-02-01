@@ -16,6 +16,9 @@ pub enum PolicyCompileErrorKind {
     #[error("unknown label: {0}")]
     UnknownLabel(String),
 
+    #[error("unknown namespace")]
+    UnknownNamespace(String),
+
     #[error("unknown property")]
     UnknownProperty(String),
 

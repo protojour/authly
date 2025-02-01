@@ -53,7 +53,7 @@ impl BuiltinID {
         match self {
             Self::Authly => None,
             Self::PropEntity => Some("entity"),
-            Self::PropAuthlyRole => Some("authly:role"),
+            Self::PropAuthlyRole => Some("role"),
             Self::AttrAuthlyRoleGetAccessToken => Some("get_access_token"),
             Self::AttrAuthlyRoleAuthenticate => Some("authenticate"),
             Self::AttrAuthlyRoleApplyDocument => Some("apply_document"),

@@ -3,14 +3,14 @@ use super::compiler::{
     PolicyCompiler,
 };
 use authly_common::{
-    id::{Eid, ObjId},
+    id::{AnyId, Eid, ObjId},
     policy::code::OpCode,
 };
 
 use crate::{
     document::{
         compiled_document::{CompiledAttribute, CompiledDocumentData, CompiledProperty},
-        doc_compiler::{Namespace, NamespaceEntry},
+        doc_compiler::{NamespaceEntry, NamespaceKind, Namespaces},
     },
     id::BuiltinID,
 };
@@ -21,19 +21,26 @@ const SVC: Eid = Eid::from_uint(42);
 const ROLE: ObjId = ObjId::from_uint(1337);
 const ROLE_ROOT: ObjId = ObjId::from_uint(1338);
 
-fn test_env() -> (Namespace, CompiledDocumentData) {
-    let namespace = Namespace::from_iter([
+fn test_env() -> (Namespaces, CompiledDocumentData) {
+    let namespace = Namespaces::from_iter([
         (
-            "entity".to_string(),
-            NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_obj_id()),
+            "a".to_string(),
+            NamespaceKind::Service(SVC),
+            vec![(
+                "entity".to_string(),
+                NamespaceEntry::PropertyLabel(BuiltinID::PropEntity.to_obj_id()),
+            )],
         ),
-        ("svc".to_string(), NamespaceEntry::Service(SVC)),
-        ("role".to_string(), NamespaceEntry::PropertyLabel(ROLE)),
+        (
+            "svc".to_string(),
+            NamespaceKind::Service(SVC),
+            vec![("role".to_string(), NamespaceEntry::PropertyLabel(ROLE))],
+        ),
     ]);
     let mut doc_data = CompiledDocumentData::default();
-    doc_data.svc_ent_props.push(CompiledProperty {
+    doc_data.domain_ent_props.push(CompiledProperty {
         id: ROLE,
-        svc_eid: SVC,
+        dom_id: AnyId::from_array(&SVC.to_bytes()),
         label: "role".to_string(),
         attributes: vec![CompiledAttribute {
             id: ROLE_ROOT,
@@ -44,6 +51,7 @@ fn test_env() -> (Namespace, CompiledDocumentData) {
     (namespace, doc_data)
 }
 
+#[track_caller]
 fn to_expr(src: &str) -> Expr {
     let (namespace, doc_data) = test_env();
     PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
@@ -52,6 +60,7 @@ fn to_expr(src: &str) -> Expr {
         .0
 }
 
+#[track_caller]
 fn to_opcodes(src: &str) -> Vec<OpCode> {
     let (namespace, doc_data) = test_env();
     PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
@@ -74,7 +83,7 @@ fn subject_entity_equals_svc() -> Expr {
 fn test_expr_equals() {
     assert_eq!(
         subject_entity_equals_svc(),
-        to_expr("Subject.entity == svc")
+        to_expr("Subject.a:entity == svc")
     );
 }
 
@@ -85,7 +94,7 @@ fn test_expr_field_attribute() {
             Term::Field(Global::Subject, Label(ROLE.to_bytes())),
             Term::Attr(Label(ROLE.to_bytes()), Label(ROLE_ROOT.to_bytes()))
         ),
-        to_expr("Subject.role contains role/root")
+        to_expr("Subject.svc:role contains svc:role:root")
     );
 }
 
@@ -93,7 +102,7 @@ fn test_expr_field_attribute() {
 fn test_expr_not() {
     assert_eq!(
         Expr::not(subject_entity_equals_svc()),
-        to_expr("not Subject.entity == svc")
+        to_expr("not Subject.a:entity == svc")
     );
 }
 
@@ -104,7 +113,7 @@ fn test_expr_logical_precedence() {
             Expr::and(subject_entity_equals_svc(), subject_entity_equals_svc()),
             subject_entity_equals_svc()
         ),
-        to_expr("Subject.entity == svc and Subject.entity == svc or Subject.entity == svc")
+        to_expr("Subject.a:entity == svc and Subject.a:entity == svc or Subject.a:entity == svc")
     );
 }
 
@@ -115,7 +124,7 @@ fn test_expr_logical_precedence2() {
             subject_entity_equals_svc(),
             Expr::and(subject_entity_equals_svc(), subject_entity_equals_svc()),
         ),
-        to_expr("Subject.entity == svc or Subject.entity == svc and Subject.entity == svc")
+        to_expr("Subject.a:entity == svc or Subject.a:entity == svc and Subject.a:entity == svc")
     );
 }
 
@@ -126,7 +135,7 @@ fn test_expr_logical_paren() {
             subject_entity_equals_svc(),
             Expr::or(subject_entity_equals_svc(), subject_entity_equals_svc()),
         ),
-        to_expr("Subject.entity == svc and (Subject.entity == svc or Subject.entity == svc)")
+        to_expr("Subject.a:entity == svc and (Subject.a:entity == svc or Subject.a:entity == svc)")
     );
 }
 
@@ -147,6 +156,8 @@ fn test_opcodes() {
             OpCode::Or,
             OpCode::TrueThenAllow,
         ],
-        to_opcodes("Subject.entity == svc and Subject.entity == svc or Subject.entity == svc")
+        to_opcodes(
+            "Subject.a:entity == svc and Subject.a:entity == svc or Subject.a:entity == svc"
+        )
     );
 }
