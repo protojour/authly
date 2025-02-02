@@ -11,10 +11,7 @@ use pest::{
 
 use crate::document::{compiled_document::CompiledDocumentData, doc_compiler::Namespaces};
 
-use super::{
-    error::{PolicyCompileError, PolicyCompileErrorKind},
-    PolicyOutcome,
-};
+use super::error::{PolicyCompileError, PolicyCompileErrorKind};
 
 pub mod expr;
 
@@ -25,7 +22,6 @@ mod parser;
 pub struct PolicyCompiler<'a> {
     namespace: &'a Namespaces,
     doc_data: &'a CompiledDocumentData,
-    outcome: PolicyOutcome,
 
     errors: Vec<PolicyCompileError>,
 }
@@ -36,22 +32,17 @@ struct ParseCtx {
 }
 
 impl<'a> PolicyCompiler<'a> {
-    pub fn new(
-        namespace: &'a Namespaces,
-        doc_data: &'a CompiledDocumentData,
-        outcome: PolicyOutcome,
-    ) -> Self {
+    pub fn new(namespace: &'a Namespaces, doc_data: &'a CompiledDocumentData) -> Self {
         Self {
             namespace,
             doc_data,
-            outcome,
             errors: vec![],
         }
     }
 
-    pub fn expr_to_opcodes(expr: &Expr, outcome: PolicyOutcome) -> Vec<OpCode> {
+    pub fn expr_to_opcodes(expr: &Expr) -> Vec<OpCode> {
         let mut codegen = Codegen::default();
-        codegen.codegen_expr_root(expr, outcome);
+        codegen.codegen_expr_root(expr);
 
         codegen.ops
     }
@@ -62,7 +53,7 @@ impl<'a> PolicyCompiler<'a> {
         let expr = self.parse_and_check(input)?;
 
         let mut codegen = Codegen::default();
-        codegen.codegen_expr_root(&expr, self.outcome);
+        codegen.codegen_expr_root(&expr);
 
         Ok((expr, codegen.ops))
     }

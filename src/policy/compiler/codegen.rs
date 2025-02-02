@@ -1,6 +1,6 @@
 use authly_common::{id::AnyId, policy::code::OpCode};
 
-use crate::{id::BuiltinID, policy::PolicyOutcome};
+use crate::id::BuiltinID;
 
 use super::expr::{Expr, Global, Term};
 
@@ -10,12 +10,9 @@ pub struct Codegen {
 }
 
 impl Codegen {
-    pub fn codegen_expr_root(&mut self, expr: &Expr, outcome: PolicyOutcome) {
+    pub fn codegen_expr_root(&mut self, expr: &Expr) {
         self.codegen_expr(expr);
-        self.ops.push(match outcome {
-            PolicyOutcome::Allow => OpCode::TrueThenAllow,
-            PolicyOutcome::Deny => OpCode::TrueThenDeny,
-        });
+        self.ops.push(OpCode::Return);
     }
 
     pub fn codegen_expr(&mut self, expr: &Expr) {

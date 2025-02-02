@@ -4,6 +4,7 @@ use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
 
 use authly_common::id::AnyId;
+use authly_common::policy::code::PolicyValue;
 use authly_common::{
     document,
     id::{Eid, ObjId},
@@ -23,7 +24,6 @@ use crate::document::compiled_document::{
 };
 use crate::id::BuiltinID;
 use crate::policy::compiler::PolicyCompiler;
-use crate::policy::PolicyOutcome;
 use crate::settings::{Setting, Settings};
 use crate::util::error::{HandleError, ResultExt};
 
@@ -531,9 +531,9 @@ async fn process_policies(
     db: &impl Db,
 ) {
     for policy in policies {
-        let (src, outcome) = match (policy.allow, policy.deny) {
-            (Some(src), None) => (src, PolicyOutcome::Allow),
-            (None, Some(src)) => (src, PolicyOutcome::Deny),
+        let (src, class) = match (policy.allow, policy.deny) {
+            (Some(src), None) => (src, PolicyValue::Allow),
+            (None, Some(src)) => (src, PolicyValue::Deny),
             (Some(allow), Some(deny)) => {
                 let span = cmp::min(allow.span().start, deny.span().start)
                     ..cmp::max(allow.span().end, deny.span().end);
@@ -548,7 +548,7 @@ async fn process_policies(
             }
         };
 
-        let mut policy_compiler = PolicyCompiler::new(&comp.namespaces, data, outcome);
+        let mut policy_compiler = PolicyCompiler::new(&comp.namespaces, data);
 
         let (expr, _bytecode) = match policy_compiler.compile(src.as_ref()) {
             Ok(compiled_policy) => compiled_policy,
@@ -573,7 +573,7 @@ async fn process_policies(
             .flat_map(|c| c.iter())
             .find(|db_policy| &db_policy.policy.label == policy.label.as_ref());
 
-        let policy_postcard = policy_db::PolicyPostcard { outcome, expr };
+        let policy_postcard = policy_db::PolicyPostcard { class, expr };
 
         let namespace_label = policy.label.as_ref().to_string();
         let label_span = policy.label.span();

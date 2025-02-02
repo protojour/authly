@@ -15,8 +15,6 @@ use crate::{
     id::BuiltinID,
 };
 
-use super::PolicyOutcome;
-
 const SVC: Eid = Eid::from_uint(42);
 const ROLE: ObjId = ObjId::from_uint(1337);
 const ROLE_ROOT: ObjId = ObjId::from_uint(1338);
@@ -54,7 +52,7 @@ fn test_env() -> (Namespaces, CompiledDocumentData) {
 #[track_caller]
 fn to_expr(src: &str) -> Expr {
     let (namespace, doc_data) = test_env();
-    PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
+    PolicyCompiler::new(&namespace, &doc_data)
         .compile(src)
         .unwrap()
         .0
@@ -63,7 +61,7 @@ fn to_expr(src: &str) -> Expr {
 #[track_caller]
 fn to_opcodes(src: &str) -> Vec<OpCode> {
     let (namespace, doc_data) = test_env();
-    PolicyCompiler::new(&namespace, &doc_data, PolicyOutcome::Allow)
+    PolicyCompiler::new(&namespace, &doc_data)
         .compile(src)
         .unwrap()
         .1
@@ -154,7 +152,7 @@ fn test_opcodes() {
             OpCode::LoadConstId(SVC.to_uint()),
             OpCode::IsEq,
             OpCode::Or,
-            OpCode::TrueThenAllow,
+            OpCode::Return,
         ],
         to_opcodes(
             "Subject.a:entity == svc and Subject.a:entity == svc or Subject.a:entity == svc"

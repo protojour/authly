@@ -1,6 +1,9 @@
 use authly_common::{
     id::{AnyId, Eid},
-    policy::{code::Outcome, engine::AccessControlParams},
+    policy::{
+        code::PolicyValue,
+        engine::{AccessControlParams, NoOpPolicyTracer},
+    },
 };
 use hexhex::hex_literal;
 use indoc::indoc;
@@ -72,61 +75,76 @@ async fn test_access_control_basic() {
         println!("engine: {engine:#?}");
 
         assert_eq!(
-            Outcome::Deny,
+            PolicyValue::Deny,
             engine
-                .eval(&AccessControlParams {
-                    ..Default::default()
-                })
+                .eval(
+                    &AccessControlParams {
+                        ..Default::default()
+                    },
+                    &mut NoOpPolicyTracer
+                )
                 .unwrap(),
             "no policy triggers results in Deny"
         );
 
         assert_eq!(
-            Outcome::Deny,
+            PolicyValue::Deny,
             engine
-                .eval(&AccessControlParams {
-                    resource_attrs: FromIterator::from_iter([AnyId::from_uint(42)]),
-                    ..Default::default()
-                })
+                .eval(
+                    &AccessControlParams {
+                        resource_attrs: FromIterator::from_iter([AnyId::from_uint(42)]),
+                        ..Default::default()
+                    },
+                    &mut NoOpPolicyTracer
+                )
                 .unwrap(),
             "unknown resource attr triggers nothing"
         );
 
         assert_eq!(
-            Outcome::Deny,
+            PolicyValue::Deny,
             engine
-                .eval(&AccessControlParams {
-                    resource_attrs: props.resource.translate([("svc_a", "kind", "trousers")]),
-                    subject_attrs: props.entity.translate([("svc_a", "trait", "has_legs")]),
-                    ..Default::default()
-                })
+                .eval(
+                    &AccessControlParams {
+                        resource_attrs: props.resource.translate([("svc_a", "kind", "trousers")]),
+                        subject_attrs: props.entity.translate([("svc_a", "trait", "has_legs")]),
+                        ..Default::default()
+                    },
+                    &mut NoOpPolicyTracer
+                )
                 .unwrap(),
             "insufficient resource environment denies"
         );
 
         assert_eq!(
-            Outcome::Deny,
+            PolicyValue::Deny,
             engine
-                .eval(&AccessControlParams {
-                    resource_attrs: props
-                        .resource
-                        .translate([("svc_a", "kind", "trousers"), ("svc_a", "verb", "wear")]),
-                    ..Default::default()
-                })
+                .eval(
+                    &AccessControlParams {
+                        resource_attrs: props
+                            .resource
+                            .translate([("svc_a", "kind", "trousers"), ("svc_a", "verb", "wear")]),
+                        ..Default::default()
+                    },
+                    &mut NoOpPolicyTracer
+                )
                 .unwrap(),
             "succifient entity environment allows"
         );
 
         assert_eq!(
-            Outcome::Allow,
+            PolicyValue::Allow,
             engine
-                .eval(&AccessControlParams {
-                    resource_attrs: props
-                        .resource
-                        .translate([("svc_a", "kind", "trousers"), ("svc_a", "verb", "wear")]),
-                    subject_attrs: props.entity.translate([("svc_a", "trait", "has_legs")]),
-                    ..Default::default()
-                })
+                .eval(
+                    &AccessControlParams {
+                        resource_attrs: props
+                            .resource
+                            .translate([("svc_a", "kind", "trousers"), ("svc_a", "verb", "wear")]),
+                        subject_attrs: props.entity.translate([("svc_a", "trait", "has_legs")]),
+                        ..Default::default()
+                    },
+                    &mut NoOpPolicyTracer
+                )
                 .unwrap(),
             "succifient resource environment allows"
         );

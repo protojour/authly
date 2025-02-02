@@ -2,7 +2,10 @@ use std::collections::BTreeSet;
 
 use authly_common::{
     id::{Eid, ObjId},
-    policy::{code::to_bytecode, engine::PolicyEngine},
+    policy::{
+        code::{to_bytecode, PolicyValue},
+        engine::PolicyEngine,
+    },
 };
 use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
@@ -11,10 +14,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-use crate::policy::{
-    compiler::{expr::Expr, PolicyCompiler},
-    PolicyOutcome,
-};
+use crate::policy::compiler::{expr::Expr, PolicyCompiler};
 
 use super::Identified;
 
@@ -27,7 +27,7 @@ pub struct DbPolicy {
 /// The structure of how a policy in stored in postcard format in the database
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PolicyPostcard {
-    pub outcome: PolicyOutcome,
+    pub class: PolicyValue,
     pub expr: Expr,
 }
 
@@ -52,10 +52,10 @@ pub async fn load_svc_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Po
     let mut policy_engine = PolicyEngine::default();
 
     for Identified(id, policy_pc) in policy_data.policies {
-        let opcodes = PolicyCompiler::expr_to_opcodes(&policy_pc.expr, policy_pc.outcome);
+        let opcodes = PolicyCompiler::expr_to_opcodes(&policy_pc.expr);
         let bytecode = to_bytecode(&opcodes);
 
-        policy_engine.add_policy(id, bytecode);
+        policy_engine.add_policy(id, policy_pc.class, bytecode);
     }
 
     for DbPolicyBinding {
@@ -63,17 +63,13 @@ pub async fn load_svc_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Po
         policies,
     } in policy_data.bindings
     {
-        if policies.len() > 1 {
-            for policy_id in policies {
-                policy_engine.add_policy_trigger(
-                    attr_matcher.iter().map(ObjId::to_any).collect(),
-                    policy_id,
-                );
-            }
-        } else if let Some(policy_id) = policies.into_iter().next() {
-            policy_engine
-                .add_policy_trigger(attr_matcher.iter().map(ObjId::to_any).collect(), policy_id);
-        }
+        policy_engine.add_trigger(
+            attr_matcher
+                .iter()
+                .map(ObjId::to_any)
+                .collect::<BTreeSet<_>>(),
+            policies,
+        );
     }
 
     Ok(policy_engine)

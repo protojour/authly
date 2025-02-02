@@ -4,7 +4,10 @@ use authly_common::{
     access_token::AuthlyAccessTokenClaims,
     id::{Eid, Id128},
     mtls_server::PeerServiceEntity,
-    policy::{code::Outcome, engine::AccessControlParams},
+    policy::{
+        code::PolicyValue,
+        engine::{AccessControlParams, NoOpPolicyTracer},
+    },
     proto::service::{
         self as proto,
         authly_service_server::{AuthlyService, AuthlyServiceServer},
@@ -209,9 +212,9 @@ impl AuthlyService for AuthlyServiceServerImpl {
             .await
             .map_err(grpc_db_err)?;
 
-        let outcome = match policy_engine.eval(&params) {
-            Ok(outcome) => {
-                if matches!(outcome, Outcome::Allow) {
+        let value = match policy_engine.eval(&params, &mut NoOpPolicyTracer) {
+            Ok(value) => {
+                if matches!(value, PolicyValue::Allow) {
                     1
                 } else {
                     0
@@ -223,7 +226,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
             }
         };
 
-        Ok(Response::new(proto::AccessControlResponse { outcome }))
+        Ok(Response::new(proto::AccessControlResponse { value }))
     }
 
     async fn sign_certificate(
