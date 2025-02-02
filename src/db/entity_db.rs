@@ -1,6 +1,6 @@
 use argon2::{password_hash::SaltString, Argon2};
 use authly_common::id::{Eid, ObjId};
-use authly_db::{param::AsParam, Db, DbResult, Row};
+use authly_db::{param::AsParam, Db, DbResult, FromRow, Row};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 use indoc::indoc;
@@ -12,16 +12,35 @@ pub struct EntityPasswordHash {
     pub secret_hash: String,
 }
 
+pub struct EntityAttrs(pub FnvHashSet<ObjId>);
+
 pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<ObjId>> {
+    struct EntityAttr(ObjId);
+
+    impl FromRow for EntityAttr {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(row.get_id("attrid"))
+        }
+    }
+
     Ok(deps
-        .query_raw(
+        .query_map::<EntityAttr>(
             "SELECT attrid FROM ent_attr WHERE eid = $1".into(),
             params!(eid.as_param()),
         )
         .await?
         .into_iter()
-        .map(|mut row| row.get_id("attrid"))
+        .map(|attr| attr.0)
         .collect())
+}
+
+impl FromRow for EntityPasswordHash {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self {
+            eid: row.get_id("obj_id"),
+            secret_hash: row.get_text("value"),
+        }
+    }
 }
 
 pub async fn find_local_directory_entity_password_hash_by_entity_ident(
@@ -29,37 +48,22 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
     ident_prop_id: ObjId,
     ident_fingerprint: &[u8],
 ) -> DbResult<Option<EntityPasswordHash>> {
-    let (eid, hash): (Eid, String) = {
-        let Some(mut row) = deps
-            .query_raw(
-                indoc! {
-                    "
-                    SELECT ta.obj_id, ta.value FROM obj_text_attr ta
-                    JOIN ent_ident i ON i.eid = ta.obj_id
-                    WHERE i.prop_id = $1 AND i.fingerprint = $2 AND ta.prop_id = $3
-                    ",
-                }
-                .into(),
-                params!(
-                    ident_prop_id.as_param(),
-                    ident_fingerprint,
-                    BuiltinID::PropPasswordHash.to_obj_id().as_param()
-                ),
-            )
-            .await?
-            .into_iter()
-            .next()
-        else {
-            return Ok(None);
-        };
-
-        (row.get_id("obj_id"), row.get_text("value"))
-    };
-
-    Ok(Some(EntityPasswordHash {
-        eid,
-        secret_hash: hash,
-    }))
+    deps.query_map_opt(
+        indoc! {
+            "
+            SELECT ta.obj_id, ta.value FROM obj_text_attr ta
+            JOIN ent_ident i ON i.eid = ta.obj_id
+            WHERE i.prop_id = $1 AND i.fingerprint = $2 AND ta.prop_id = $3
+            ",
+        }
+        .into(),
+        params!(
+            ident_prop_id.as_param(),
+            ident_fingerprint,
+            BuiltinID::PropPasswordHash.to_obj_id().as_param()
+        ),
+    )
+    .await
 }
 
 #[expect(unused)]

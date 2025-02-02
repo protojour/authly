@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use aes_gcm_siv::aead::Aead;
 use authly_common::id::ObjId;
-use authly_db::{literal::Literal, param::AsParam, Db, DbResult, Row};
+use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use itertools::Itertools;
@@ -22,24 +22,25 @@ pub struct DocumentDirectory {
     pub hash: [u8; 32],
 }
 
-pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentDirectory>> {
-    Ok(deps
-        .query_raw(
-            "SELECT dir_id, url, hash FROM directory WHERE kind = 'document'".into(),
-            params!(),
-        )
-        .await?
-        .into_iter()
-        .map(|mut row| DocumentDirectory {
+impl FromRow for DocumentDirectory {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self {
             dir_id: row.get_id("dir_id"),
             url: row.get_text("url"),
-            hash: {
-                row.get_blob("hash")
-                    .try_into()
-                    .expect("invalid hash length")
-            },
-        })
-        .collect())
+            hash: row
+                .get_blob("hash")
+                .try_into()
+                .expect("invalid hash length"),
+        }
+    }
+}
+
+pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentDirectory>> {
+    deps.query_map(
+        "SELECT dir_id, url, hash FROM directory WHERE kind = 'document'".into(),
+        params!(),
+    )
+    .await
 }
 
 /// Produce the transaction statements for saving a new document

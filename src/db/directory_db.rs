@@ -3,57 +3,66 @@
 use std::collections::HashMap;
 
 use authly_common::id::{AnyId, ObjId};
-use authly_db::{param::AsParam, Db, DbError, DbResult, Row};
+use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
 
 use super::{
     policy_db::DbPolicy,
     service_db::{ServiceProperty, ServicePropertyKind},
-    Identified,
 };
 
-pub async fn directory_list_domains(
-    deps: &impl Db,
-    dir_id: ObjId,
-) -> DbResult<Vec<Identified<ObjId, String>>> {
-    Ok(deps
-        .query_raw(
+pub struct DbDirectoryDomain {
+    pub id: ObjId,
+    pub label: String,
+}
+
+impl FromRow for DbDirectoryDomain {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self {
+            id: row.get_id("id"),
+            label: row.get_text("label"),
+        }
+    }
+}
+
+impl DbDirectoryDomain {
+    pub async fn query(deps: &impl Db, dir_id: ObjId) -> DbResult<Vec<Self>> {
+        deps.query_map(
             "SELECT id, label FROM domain WHERE dir_id = $1".into(),
             params!(dir_id.as_param()),
         )
-        .await?
-        .into_iter()
-        .map(|mut row| Identified(row.get_id("id"), row.get_text("label")))
-        .collect())
+        .await
+    }
 }
 
-pub async fn directory_list_policies(
-    deps: &impl Db,
-    dir_id: ObjId,
-) -> DbResult<Vec<Identified<ObjId, DbPolicy>>> {
-    let rows = deps
-        .query_raw(
+pub struct DbDirectoryPolicy {
+    pub id: ObjId,
+    pub policy: DbPolicy,
+}
+
+impl TryFromRow for DbDirectoryPolicy {
+    type Error = postcard::Error;
+
+    fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.get_id("id"),
+            policy: DbPolicy {
+                label: row.get_text("label"),
+                policy: postcard::from_bytes(&row.get_blob("policy_pc"))?,
+            },
+        })
+    }
+}
+
+impl DbDirectoryPolicy {
+    pub async fn query(deps: &impl Db, dir_id: ObjId) -> DbResult<Vec<Self>> {
+        deps.query_filter_map(
             "SELECT id, label, policy_pc FROM policy WHERE dir_id = $1".into(),
             params!(dir_id.as_param()),
         )
-        .await?;
-
-    let mut policies = Vec::with_capacity(rows.len());
-
-    for mut row in rows {
-        let id = row.get_id("id");
-        let label = row.get_text("label");
-
-        let policy = postcard::from_bytes(&row.get_blob("policy_pc")).map_err(|err| {
-            tracing::error!(?err, "policy expr postcard error");
-            DbError::BinaryEncoding
-        })?;
-
-        policies.push(Identified(id, DbPolicy { label, policy }));
+        .await
     }
-
-    Ok(policies)
 }
 
 pub async fn list_domain_properties(
@@ -62,9 +71,20 @@ pub async fn list_domain_properties(
     dom_id: AnyId,
     property_kind: ServicePropertyKind,
 ) -> DbResult<Vec<ServiceProperty>> {
-    let rows = match property_kind {
+    struct Output((ObjId, String), (ObjId, String));
+
+    impl FromRow for Output {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(
+                (row.get_id("pid"), row.get_text("plabel")),
+                (row.get_id("attrid"), row.get_text("alabel")),
+            )
+        }
+    }
+
+    let outputs = match property_kind {
         ServicePropertyKind::Entity => {
-            deps.query_raw(
+            deps.query_map::<Output>(
                 indoc! {
                     "
                     SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
@@ -79,7 +99,7 @@ pub async fn list_domain_properties(
             .await?
         }
         ServicePropertyKind::Resource => {
-            deps.query_raw(
+            deps.query_map::<Output>(
                 indoc! {
                     "
                     SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
@@ -97,20 +117,16 @@ pub async fn list_domain_properties(
 
     let mut properties: HashMap<ObjId, ServiceProperty> = Default::default();
 
-    for mut row in rows {
-        let prop_id = row.get_id("pid");
-
+    for Output((prop_id, plabel), (attr_id, alabel)) in outputs {
         let property = properties
             .entry(prop_id)
             .or_insert_with(|| ServiceProperty {
                 id: prop_id,
-                label: row.get_text("plabel"),
+                label: plabel,
                 attributes: vec![],
             });
 
-        property
-            .attributes
-            .push((row.get_id("attrid"), row.get_text("alabel")));
+        property.attributes.push((attr_id, alabel));
     }
 
     Ok(properties.into_values().collect())

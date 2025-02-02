@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde_spanned::Spanned;
 use tracing::debug;
 
+use crate::db::directory_db::{DbDirectoryDomain, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
 use crate::document::compiled_document::{
@@ -90,7 +91,7 @@ struct CompileCtx {
 
     eprop_cache: HashMap<AnyId, Vec<service_db::ServiceProperty>>,
     rprop_cache: HashMap<AnyId, Vec<service_db::ServiceProperty>>,
-    policy_cache: HashMap<ObjId, Vec<Identified<ObjId, policy_db::DbPolicy>>>,
+    policy_cache: HashMap<ObjId, Vec<DbDirectoryPolicy>>,
     domain_cache: Option<HashMap<String, ObjId>>,
 
     errors: Errors,
@@ -570,7 +571,7 @@ async fn process_policies(
         let cached_policy = db_cache
             .iter()
             .flat_map(|c| c.iter())
-            .find(|db_policy| &db_policy.data().label == policy.label.as_ref());
+            .find(|db_policy| &db_policy.policy.label == policy.label.as_ref());
 
         let policy_postcard = policy_db::PolicyPostcard { outcome, expr };
 
@@ -580,7 +581,7 @@ async fn process_policies(
         let service_policy: Identified<ObjId, DbPolicy> = if let Some(cached_policy) = cached_policy
         {
             Identified(
-                *cached_policy.id(),
+                cached_policy.id,
                 policy_db::DbPolicy {
                     label: policy.label.into_inner(),
                     policy: policy_postcard,
@@ -818,13 +819,13 @@ impl CompileCtx {
     async fn db_directory_policies_cached<'s>(
         &'s mut self,
         db: &impl Db,
-    ) -> Option<&'s Vec<Identified<ObjId, policy_db::DbPolicy>>> {
+    ) -> Option<&'s Vec<DbDirectoryPolicy>> {
         let cache = &mut self.policy_cache;
 
         match cache.entry(self.dir_id) {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
-                let db_policies = directory_db::directory_list_policies(db, self.dir_id)
+                let db_policies = DbDirectoryPolicy::query(db, self.dir_id)
                     .await
                     .handle_err(&mut self.errors)?;
 
@@ -840,7 +841,7 @@ impl CompileCtx {
         if self.domain_cache.is_some() {
             Some(self.domain_cache.as_mut().unwrap())
         } else {
-            let db_domains = directory_db::directory_list_domains(db, self.dir_id)
+            let db_domains = DbDirectoryDomain::query(db, self.dir_id)
                 .await
                 .handle_err(&mut self.errors)?;
 
@@ -848,7 +849,7 @@ impl CompileCtx {
                 self.domain_cache.insert(
                     db_domains
                         .into_iter()
-                        .map(|Identified(id, label)| (label, id))
+                        .map(|DbDirectoryDomain { id, label }| (label, id))
                         .collect(),
                 ),
             )

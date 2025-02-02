@@ -28,3 +28,5 @@ impl<I, D> Identified<I, D> {
         self.1
     }
 }
+
+pub struct TextLabel(pub String);

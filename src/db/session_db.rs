@@ -1,5 +1,7 @@
-use authly_db::{param::AsParam, Db, DbResult, Row};
+use authly_common::id::Eid;
+use authly_db::{param::AsParam, Db, DbError, DbResult, Row, TryFromRow};
 use hiqlite::{params, Param};
+use time::OffsetDateTime;
 
 use crate::session::{Session, SessionToken};
 
@@ -18,8 +20,18 @@ pub async fn store_session(deps: &impl Db, session: &Session) -> DbResult<()> {
 }
 
 pub async fn get_session(deps: &impl Db, token: SessionToken) -> DbResult<Option<Session>> {
-    let Some(mut row) = deps
-        .query_raw(
+    struct SessionData(Eid, OffsetDateTime);
+
+    impl TryFromRow for SessionData {
+        type Error = DbError;
+
+        fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
+            Ok(Self(row.get_id("eid"), row.get_datetime("expires_at")?))
+        }
+    }
+
+    let Some(SessionData(eid, expires_at)) = deps
+        .query_filter_map::<SessionData>(
             "SELECT eid, expires_at FROM session WHERE token = $1".into(),
             params!(token.0.clone()),
         )
@@ -32,7 +44,7 @@ pub async fn get_session(deps: &impl Db, token: SessionToken) -> DbResult<Option
 
     Ok(Some(Session {
         token,
-        eid: row.get_id("eid"),
-        expires_at: row.get_datetime("expires_at")?,
+        eid,
+        expires_at,
     }))
 }

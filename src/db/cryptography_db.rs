@@ -5,17 +5,17 @@ use std::{borrow::Cow, collections::HashMap, str::FromStr, time::Duration};
 use aes_gcm_siv::aead::Aead;
 use anyhow::{anyhow, Context};
 use authly_common::id::{Eid, ObjId};
-use authly_db::{param::AsParam, Db, DbError, Row};
+use authly_db::{param::AsParam, Db, DbError, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use thiserror::Error;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::{
     cert::{authly_ca, client_cert, key_pair},
-    encryption::{nonce_from_slice, random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
+    encryption::{random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
     id::BuiltinID,
     instance::AuthlyId,
     tls::{AuthlyCert, AuthlyCertKind},
@@ -31,22 +31,22 @@ pub enum CrDbError {
     Crypto(anyhow::Error),
 }
 
+impl FromRow for MasterVersion {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self {
+            version: row.get_blob("version"),
+            created_at: row.get_datetime("created_at").unwrap(),
+        }
+    }
+}
+
 pub async fn load_cr_master_version(deps: &impl Db) -> Result<Option<MasterVersion>, CrDbError> {
-    let rows = deps
-        .query_raw(
+    Ok(deps
+        .query_map_opt(
             "SELECT version, created_at FROM cr_master_version".into(),
             params!(),
         )
-        .await?;
-
-    let Some(mut row) = rows.into_iter().next() else {
-        return Ok(None);
-    };
-
-    Ok(Some(MasterVersion {
-        version: row.get_blob("version"),
-        created_at: row.get_datetime("created_at").unwrap(),
-    }))
+        .await?)
 }
 
 pub async fn insert_cr_master_version(deps: &impl Db, ver: MasterVersion) -> Result<(), CrDbError> {
@@ -62,28 +62,36 @@ pub async fn insert_cr_master_version(deps: &impl Db, ver: MasterVersion) -> Res
 pub async fn list_all_cr_prop_deks(
     deps: &impl Db,
 ) -> Result<HashMap<BuiltinID, EncryptedDek>, CrDbError> {
-    let rows = deps
-        .query_raw(
-            "SELECT prop_id, nonce, ciph, created_at FROM cr_prop_dek".into(),
-            params!(),
-        )
-        .await?;
+    struct Output(BuiltinID, EncryptedDek);
 
-    Ok(rows
-        .into_iter()
-        .filter_map(|mut row| {
-            let prop_id = ObjId::from_bytes(&row.get_blob("prop_id"))?;
-            let builtin_id = BuiltinID::try_from(prop_id.to_uint() as u32).ok()?;
+    impl TryFromRow for Output {
+        type Error = anyhow::Error;
 
-            Some((
+        fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
+            let prop_id =
+                ObjId::from_bytes(&row.get_blob("prop_id")).context("invalid object id")?;
+            let builtin_id = BuiltinID::try_from(prop_id.to_uint() as u32)
+                .map_err(|_| anyhow!("invalid builtin in"))?;
+
+            Ok(Self(
                 builtin_id,
                 EncryptedDek {
-                    nonce: row.get_blob("nonce"),
+                    nonce: row.get_blob_array("nonce").into(),
                     ciph: row.get_blob("ciph"),
                     created_at: row.get_datetime("created_at").unwrap(),
                 },
             ))
-        })
+        }
+    }
+
+    Ok(deps
+        .query_filter_map(
+            "SELECT prop_id, nonce, ciph, created_at FROM cr_prop_dek".into(),
+            params!(),
+        )
+        .await?
+        .into_iter()
+        .map(|Output(id, dek)| (id, dek))
         .collect())
 }
 
@@ -97,7 +105,7 @@ pub async fn insert_cr_prop_deks(
                 .into(),
             params!(
                 id.as_param(),
-                dek.nonce,
+                dek.nonce.to_vec(),
                 dek.ciph,
                 dek.created_at.unix_timestamp()
             ),
@@ -210,29 +218,35 @@ async fn try_load_authly_id(
     deps: &impl Db,
     deks: &DecryptedDeks,
 ) -> Result<Option<AuthlyId>, CrDbError> {
-    let rows = deps
-        .query_raw(
+    struct Output(Eid, [u8; 12], Vec<u8>);
+
+    impl FromRow for Output {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(
+                row.get_id("eid"),
+                row.get_blob_array("private_key_nonce"),
+                row.get_blob("private_key_ciph"),
+            )
+        }
+    }
+
+    let Some(Output(eid, nonce, private_key_ciph)) = deps
+        .query_map_opt(
             "SELECT eid, private_key_nonce, private_key_ciph FROM authly_instance".into(),
             params!(),
         )
-        .await?;
-
-    let Some(mut row) = rows.into_iter().next() else {
+        .await?
+    else {
         return Ok(None);
     };
-
-    let eid = row.get_id("eid");
 
     let dek = deks
         .get(BuiltinID::PropAuthlyInstance.to_obj_id())
         .map_err(CrDbError::Crypto)?;
 
-    let nonce = nonce_from_slice(&row.get_blob("private_key_nonce")).map_err(CrDbError::Crypto)?;
-    let private_key_ciph = row.get_blob("private_key_ciph");
-
     let private_key_plaintext = dek
         .aes()
-        .decrypt(&nonce, private_key_ciph.as_ref())
+        .decrypt(&nonce.into(), private_key_ciph.as_ref())
         .context("FATAL: Encryption key has changed, unable to decrypt private key")
         .map_err(CrDbError::Crypto)?;
 
@@ -278,25 +292,17 @@ pub async fn save_instance(
     Ok(())
 }
 
-async fn load_certs(db: &impl Db) -> Result<Vec<AuthlyCert>, CrDbError> {
-    let rows = db
-        .query_raw(
-            "SELECT kind, certifies_eid, signed_by_eid, der FROM tls_cert".into(),
-            params!(),
-        )
-        .await?;
+impl TryFromRow for AuthlyCert {
+    type Error = anyhow::Error;
 
-    let mut certs = Vec::with_capacity(rows.len());
-
-    for mut row in rows {
+    fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
         let kind = row.get_text("kind");
         let Ok(kind) = AuthlyCertKind::from_str(&kind) else {
-            warn!("invalid cert kind: {kind:?}");
-            continue;
+            return Err(anyhow!("invalid cert kind: {kind}"));
         };
         let cert_der = CertificateDer::from(row.get_blob("der"));
 
-        certs.push(AuthlyCert {
+        Ok(Self {
             kind,
             certifies: row.get_id("certifies_eid"),
             signed_by: row.get_id("signed_by_eid"),
@@ -304,8 +310,15 @@ async fn load_certs(db: &impl Db) -> Result<Vec<AuthlyCert>, CrDbError> {
             der: cert_der,
         })
     }
+}
 
-    Ok(certs)
+async fn load_certs(db: &impl Db) -> Result<Vec<AuthlyCert>, CrDbError> {
+    Ok(db
+        .query_filter_map(
+            "SELECT kind, certifies_eid, signed_by_eid, der FROM tls_cert".into(),
+            params!(),
+        )
+        .await?)
 }
 
 fn check_missing_certs(authly_id: &AuthlyId, certs: &[AuthlyCert]) -> Vec<AuthlyCertKind> {

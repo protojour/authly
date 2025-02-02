@@ -1,4 +1,4 @@
-use std::{borrow::Cow, future::Future, marker::PhantomData};
+use std::{borrow::Cow, fmt::Debug, future::Future, marker::PhantomData};
 
 use authly_common::id::Id128;
 use hiqlite::Params;
@@ -12,18 +12,22 @@ pub mod sqlite_pool;
 mod hql;
 mod sqlite;
 
-const LOG_QUERIES: bool = false;
-
 #[derive(Error, Debug)]
 pub enum DbError {
     #[error("db: {0}")]
     Hiqlite(hiqlite::Error),
 
     #[error("db: {0}")]
-    Rusqlite(rusqlite::Error),
+    Rusqlite(#[from] rusqlite::Error),
 
-    #[error("channel error")]
-    Channel,
+    #[error("too many rows")]
+    TooManyRows,
+
+    #[error("connection pool error: {0}")]
+    Pool(String),
+
+    #[error("join error")]
+    Join(#[from] tokio::task::JoinError),
 
     #[error("timestamp encoding")]
     Timestamp,
@@ -42,16 +46,7 @@ pub type DbResult<T> = Result<T, DbError>;
 
 /// Db abstraction around SQLite that works with both rusqlite and hiqlite.
 pub trait Db: Send + Sync + 'static {
-    type Row<'a>: Row
-    where
-        Self: 'a;
-
-    fn query_raw(
-        &self,
-        stmt: Cow<'static, str>,
-        params: Params,
-    ) -> impl Future<Output = Result<Vec<Self::Row<'_>>, DbError>> + Send;
-
+    /// Query for a Vec of values implementing [FromRow].
     fn query_map<T>(
         &self,
         stmt: Cow<'static, str>,
@@ -59,6 +54,34 @@ pub trait Db: Send + Sync + 'static {
     ) -> impl Future<Output = Result<Vec<T>, DbError>> + Send
     where
         T: FromRow + Send + 'static;
+
+    /// Query either zero or one row
+    fn query_map_opt<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> impl Future<Output = Result<Option<T>, DbError>> + Send
+    where
+        T: FromRow + Send + 'static;
+
+    /// Query either zero or one row, with fallible deserialization
+    fn query_try_map_opt<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> impl Future<Output = Result<Option<Result<T, T::Error>>, DbError>> + Send
+    where
+        T: TryFromRow + Send + 'static;
+
+    /// Query Vec of type implementing [TryFromRow], tracing the error rows before filtering them out.
+    fn query_filter_map<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> impl Future<Output = Result<Vec<T>, DbError>> + Send
+    where
+        T: TryFromRow + Send + 'static,
+        <T as TryFromRow>::Error: Debug;
 
     fn execute(
         &self,
@@ -127,4 +150,10 @@ impl<K> Iterator for IdsConcatenated<K> {
 
 pub trait FromRow {
     fn from_row(row: &mut impl Row) -> Self;
+}
+
+pub trait TryFromRow: Sized {
+    type Error: Send + 'static;
+
+    fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error>;
 }

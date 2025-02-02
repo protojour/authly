@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use authly_common::id::ObjId;
-use authly_db::{Db, DbResult, Row};
+use authly_db::{Db, DbResult, Row, TryFromRow};
 use hiqlite::params;
 
 use crate::settings::{Setting, Settings};
@@ -13,28 +13,35 @@ struct LocalSetting {
     value: String,
 }
 
+#[derive(Debug)]
+struct DbSettingError(#[allow(unused)] String);
+
+impl TryFromRow for LocalSetting {
+    type Error = DbSettingError;
+
+    fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
+        let setting = row.get_int("setting") as u16;
+        let Ok(setting) = Setting::try_from(setting) else {
+            return Err(DbSettingError(format!(
+                "setting number {setting} is invalid, ignoring"
+            )));
+        };
+
+        Ok(LocalSetting {
+            dir_id: row.get_id("dir_id"),
+            setting,
+            value: row.get_text("value"),
+        })
+    }
+}
+
 pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
-    let setting_list: Vec<_> = deps
-        .query_raw(
+    let local_settings = deps
+        .query_filter_map(
             "SELECT dir_id, setting, value FROM local_setting".into(),
             params!(),
         )
-        .await?
-        .into_iter()
-        .filter_map(|mut row| {
-            let setting = row.get_int("setting") as u16;
-            let Ok(setting) = Setting::try_from(setting) else {
-                tracing::error!("setting number {setting} is invalid, ignoring");
-                return None;
-            };
-
-            Some(LocalSetting {
-                dir_id: row.get_id("dir_id"),
-                setting,
-                value: row.get_text("value"),
-            })
-        })
-        .collect();
+        .await?;
 
     let mut settings = Settings::default();
 
@@ -43,7 +50,7 @@ pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
         dir_id: _,
         setting,
         value,
-    } in setting_list
+    } in local_settings
     {
         if let Err(err) = settings.try_set(setting, Cow::Owned(value)) {
             tracing::error!(?err, "setting {setting:?} value is invalid, ignoring");

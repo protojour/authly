@@ -1,5 +1,5 @@
 use authly_common::id::Eid;
-use authly_db::{param::AsParam, Db, DbError, Row};
+use authly_db::{param::AsParam, Db, DbError, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
 use thiserror::Error;
@@ -35,23 +35,29 @@ pub async fn verify_then_invalidate_submission_code(
     deps: &impl Db,
     code_fingerprint: Vec<u8>,
 ) -> Result<Actor, AmDbError> {
-    let (created_at, created_by) = {
-        let mut row = deps
-            .query_raw(
-                "SELECT created_at, created_by_eid FROM am_mandate_submission_code WHERE code_fingerprint = $1"
-                    .into(),
-                params!(code_fingerprint.clone()),
-            )
-            .await?
-            .into_iter()
-            .next()
-            .ok_or(AmDbError::InvalidOrExpiredCode)?;
+    struct Output(OffsetDateTime, Actor);
 
-        (
-            row.get_datetime("created_at")?,
-            Actor(row.get_id("created_by_eid")),
+    impl TryFromRow for Output {
+        type Error = DbError;
+
+        fn try_from_row(row: &mut impl Row) -> Result<Self, DbError> {
+            Ok(Self(
+                row.get_datetime("created_at")?,
+                Actor(row.get_id("created_by_eid")),
+            ))
+        }
+    }
+
+    let Output(created_at, created_by) = deps
+        .query_filter_map::<Output>(
+            "SELECT created_at, created_by_eid FROM am_mandate_submission_code WHERE code_fingerprint = $1"
+                .into(),
+            params!(code_fingerprint.clone()),
         )
-    };
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(AmDbError::InvalidOrExpiredCode)?;
 
     deps.execute(
         "DELETE FROM am_mandate_submission_code WHERE code_fingerprint = $1".into(),

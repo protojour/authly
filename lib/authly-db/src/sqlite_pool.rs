@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    fmt::Debug,
     ops::{Deref, DerefMut},
     path::PathBuf,
     sync::atomic::{AtomicUsize, Ordering},
@@ -10,8 +11,8 @@ use hiqlite::Params;
 use rusqlite::Connection;
 
 use crate::{
-    sqlite::{sqlite_execute, sqlite_query_map, sqlite_query_raw, sqlite_txn, RusqliteRowOwned},
-    Db, DbError,
+    sqlite::{rusqlite_params, RusqliteRowBorrowed},
+    Db, DbError, FromRow, TryFromRow,
 };
 
 #[derive(Clone)]
@@ -22,12 +23,12 @@ pub enum Storage {
 
 #[derive(Clone)]
 pub struct SqlitePool {
-    pool: Pool<SimpleManager>,
+    pool: Pool<SqlitePoolManager>,
 }
 
 impl SqlitePool {
     pub fn new(storage: Storage, pool_size: usize) -> Self {
-        let pool = Pool::builder(SimpleManager::new(storage))
+        let pool = Pool::builder(SqlitePoolManager::new(storage))
             .config(PoolConfig::new(pool_size))
             .build()
             .unwrap();
@@ -35,43 +36,136 @@ impl SqlitePool {
         Self { pool }
     }
 
-    pub async fn get(&self) -> Result<Object<SimpleManager>, DbError> {
-        self.pool.get().await.map_err(|_| DbError::Channel)
+    pub async fn get(&self) -> Result<Object<SqlitePoolManager>, DbError> {
+        self.pool
+            .get()
+            .await
+            .map_err(|err| DbError::Pool(format!("{err:?}")))
     }
 }
 
 impl Db for SqlitePool {
-    type Row<'a> = RusqliteRowOwned;
-
-    async fn query_raw(
-        &self,
-        stmt: Cow<'static, str>,
-        params: Params,
-    ) -> Result<Vec<Self::Row<'_>>, DbError> {
-        let conn = self.get().await?;
-
-        tokio::task::spawn_blocking(move || sqlite_query_raw(&conn, stmt, params))
-            .await
-            .map_err(|_| DbError::Channel)?
-    }
-
     async fn query_map<T>(&self, stmt: Cow<'static, str>, params: Params) -> Result<Vec<T>, DbError>
     where
-        T: crate::FromRow + Send + 'static,
+        T: FromRow + Send + 'static,
     {
         let conn = self.get().await?;
 
-        tokio::task::spawn_blocking(move || sqlite_query_map(&conn, stmt, params))
-            .await
-            .map_err(|_| DbError::Channel)?
+        tokio::task::spawn_blocking(move || {
+            let mut stmt = conn.prepare_cached(&stmt)?;
+            let mut rows = stmt.query(rusqlite_params(params))?;
+
+            let mut output = vec![];
+
+            while let Some(row) = rows.next()? {
+                output.push(T::from_row(&mut RusqliteRowBorrowed { row }));
+            }
+
+            Ok(output)
+        })
+        .await?
+    }
+
+    async fn query_map_opt<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Option<T>, DbError>
+    where
+        T: FromRow + Send + 'static,
+    {
+        let conn = self.get().await?;
+
+        tokio::task::spawn_blocking(move || {
+            let mut stmt = conn.prepare_cached(&stmt)?;
+            let mut rows = stmt.query(rusqlite_params(params))?;
+
+            let mut output = None;
+
+            if let Some(row) = rows.next()? {
+                output = Some(T::from_row(&mut RusqliteRowBorrowed { row }));
+
+                if rows.next()?.is_some() {
+                    return Err(DbError::TooManyRows);
+                }
+            }
+
+            Ok(output)
+        })
+        .await?
+    }
+
+    async fn query_try_map_opt<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Option<Result<T, T::Error>>, DbError>
+    where
+        T: TryFromRow + Send + 'static,
+    {
+        let conn = self.get().await?;
+
+        tokio::task::spawn_blocking(move || {
+            let mut stmt = conn.prepare_cached(&stmt)?;
+            let mut rows = stmt.query(rusqlite_params(params))?;
+
+            let mut output = None;
+
+            if let Some(row) = rows.next()? {
+                output = Some(T::try_from_row(&mut RusqliteRowBorrowed { row }));
+
+                if rows.next()?.is_some() {
+                    return Err(DbError::TooManyRows);
+                }
+            }
+
+            Ok(output)
+        })
+        .await?
+    }
+
+    async fn query_filter_map<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Vec<T>, DbError>
+    where
+        T: TryFromRow + Send + 'static,
+        <T as TryFromRow>::Error: Debug,
+    {
+        let conn = self.get().await?;
+
+        tokio::task::spawn_blocking(move || {
+            let mut stmt = conn.prepare_cached(&stmt)?;
+            let mut rows = stmt.query(rusqlite_params(params))?;
+
+            let mut output = vec![];
+
+            while let Some(row) = rows.next()? {
+                match T::try_from_row(&mut RusqliteRowBorrowed { row }) {
+                    Ok(value) => output.push(value),
+                    Err(err) => {
+                        tracing::error!(?err, "row error");
+                    }
+                }
+            }
+
+            Ok(output)
+        })
+        .await?
     }
 
     async fn execute(&self, stmt: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
         let conn = self.get().await?;
 
-        tokio::task::spawn_blocking(move || sqlite_execute(&conn, stmt, params))
-            .await
-            .map_err(|_| DbError::Channel)?
+        tokio::task::spawn_blocking(move || {
+            Ok(rusqlite::Connection::execute(
+                &conn,
+                &stmt,
+                rusqlite_params(params),
+            )?)
+        })
+        .await?
     }
 
     async fn transact(
@@ -80,9 +174,23 @@ impl Db for SqlitePool {
     ) -> Result<Vec<Result<usize, DbError>>, DbError> {
         let mut conn = self.get().await?;
 
-        tokio::task::spawn_blocking(move || sqlite_txn(&mut conn, sql))
-            .await
-            .map_err(|_| DbError::Channel)?
+        tokio::task::spawn_blocking(move || {
+            let txn = conn.transaction()?;
+
+            let mut output = vec![];
+
+            for (query, params) in sql {
+                output.push(
+                    txn.execute(&query, rusqlite_params(params))
+                        .map_err(DbError::Rusqlite),
+                );
+            }
+
+            txn.commit()?;
+
+            Ok(output)
+        })
+        .await?
     }
 }
 
@@ -104,12 +212,12 @@ impl DerefMut for ConnectionWrapper {
     }
 }
 
-pub struct SimpleManager {
+pub struct SqlitePoolManager {
     storage: Storage,
     recycle_count: AtomicUsize,
 }
 
-impl SimpleManager {
+impl SqlitePoolManager {
     pub fn new(storage: Storage) -> Self {
         Self {
             storage,
@@ -118,7 +226,7 @@ impl SimpleManager {
     }
 }
 
-impl deadpool::managed::Manager for SimpleManager {
+impl deadpool::managed::Manager for SqlitePoolManager {
     type Type = ConnectionWrapper;
     type Error = rusqlite::Error;
 

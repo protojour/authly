@@ -1,36 +1,74 @@
-use std::{borrow::Cow, time::Instant};
+use std::{borrow::Cow, fmt::Debug};
 
 use bytemuck::{TransparentWrapper, TransparentWrapperAlloc};
 use hiqlite::Params;
-use tracing::info;
 
-use crate::{Db, DbError, FromRow, Row, LOG_QUERIES};
+use crate::{Db, DbError, FromRow, Row, TryFromRow};
 
 impl Db for hiqlite::Client {
-    type Row<'a> = hiqlite::Row<'a>;
-
-    #[tracing::instrument(skip(self, params))]
-    async fn query_raw(
-        &self,
-        stmt: Cow<'static, str>,
-        params: Params,
-    ) -> Result<Vec<Self::Row<'_>>, DbError> {
-        if LOG_QUERIES {
-            let start = Instant::now();
-            let result = hiqlite::Client::query_raw(self, stmt, params).await;
-            info!("query_raw took {:?}", start.elapsed());
-            Ok(result?)
-        } else {
-            Ok(hiqlite::Client::query_raw(self, stmt, params).await?)
-        }
-    }
-
     async fn query_map<T>(&self, stmt: Cow<'static, str>, params: Params) -> Result<Vec<T>, DbError>
     where
         T: crate::FromRow + Send + 'static,
     {
         let values = hiqlite::Client::query_map::<HiqliteWrapper<T>, _>(self, stmt, params).await?;
         Ok(TransparentWrapperAlloc::<T>::peel_vec(values))
+    }
+
+    async fn query_map_opt<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Option<T>, DbError>
+    where
+        T: FromRow + Send + 'static,
+    {
+        Ok(
+            hiqlite::Client::query_map_optional::<HiqliteWrapper<T>, _>(self, stmt, params)
+                .await?
+                .map(|wrapper| wrapper.0),
+        )
+    }
+
+    async fn query_try_map_opt<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Option<Result<T, T::Error>>, DbError>
+    where
+        T: TryFromRow + Send + 'static,
+    {
+        Ok(
+            hiqlite::Client::query_map_optional::<HiqliteWrapper<Result<T, T::Error>>, _>(
+                self, stmt, params,
+            )
+            .await?
+            .map(|wrapper| wrapper.0),
+        )
+    }
+
+    async fn query_filter_map<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Vec<T>, DbError>
+    where
+        T: crate::TryFromRow + Send + 'static,
+        <T as TryFromRow>::Error: Debug,
+    {
+        let values = hiqlite::Client::query_map::<HiqliteWrapper<Result<T, T::Error>>, _>(
+            self, stmt, params,
+        )
+        .await?;
+        Ok(values
+            .into_iter()
+            .filter_map(|HiqliteWrapper(result)| match result {
+                Ok(result) => Some(result),
+                Err(err) => {
+                    tracing::error!(?err, "row error");
+                    None
+                }
+            })
+            .collect())
     }
 
     async fn execute(&self, sql: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
@@ -81,6 +119,12 @@ struct HiqliteWrapper<T>(T);
 impl<T: FromRow> From<hiqlite::Row<'_>> for HiqliteWrapper<T> {
     fn from(mut row: hiqlite::Row) -> Self {
         Self(T::from_row(&mut row))
+    }
+}
+
+impl<T: TryFromRow> From<hiqlite::Row<'_>> for HiqliteWrapper<Result<T, T::Error>> {
+    fn from(mut row: hiqlite::Row) -> Self {
+        Self(T::try_from_row(&mut row))
     }
 }
 

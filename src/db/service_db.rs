@@ -1,5 +1,5 @@
 use authly_common::{id::ObjId, service::NamespacePropertyMapping};
-use authly_db::{literal::Literal, param::AsParam, Db, DbResult, Row};
+use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row};
 use hiqlite::{params, Param};
 use indoc::indoc;
 use tracing::warn;
@@ -19,8 +19,16 @@ pub enum ServicePropertyKind {
 }
 
 pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Option<String>> {
-    let Some(mut row) = deps
-        .query_raw(
+    struct SvcLabel(String);
+
+    impl FromRow for SvcLabel {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(row.get_text("value"))
+        }
+    }
+
+    Ok(deps
+        .query_map_opt::<SvcLabel>(
             format!(
                 "SELECT value FROM obj_text_attr WHERE obj_id = $1 AND prop_id = {prop_id}",
                 prop_id = BuiltinID::PropLabel.to_obj_id().literal()
@@ -33,13 +41,7 @@ pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Opt
             warn!(?err, "failed to lookup service label");
             err
         })?
-        .into_iter()
-        .next()
-    else {
-        return Ok(None);
-    };
-
-    Ok(Some(row.get_text("value")))
+        .map(|label| label.0))
 }
 
 pub async fn find_service_eid_by_k8s_service_account_name(
@@ -47,8 +49,16 @@ pub async fn find_service_eid_by_k8s_service_account_name(
     namespace: &str,
     account_name: &str,
 ) -> DbResult<Option<Eid>> {
-    let Some(mut row) = deps
-        .query_raw(
+    struct SvcEid(Eid);
+
+    impl FromRow for SvcEid {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(row.get_id("obj_id"))
+        }
+    }
+
+    Ok(deps
+        .query_map_opt::<SvcEid>(
             "SELECT obj_id FROM obj_text_attr WHERE prop_id = $1 AND value = $2".into(),
             params!(
                 BuiltinID::PropK8sServiceAccount.to_obj_id().as_param(),
@@ -60,13 +70,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
             warn!(?err, "failed to lookup entity");
             err
         })?
-        .into_iter()
-        .next()
-    else {
-        return Ok(None);
-    };
-
-    Ok(Some(row.get_id("obj_id")))
+        .map(|eid| eid.0))
 }
 
 pub async fn get_service_property_mapping(
@@ -74,9 +78,22 @@ pub async fn get_service_property_mapping(
     svc_eid: Eid,
     property_kind: ServicePropertyKind,
 ) -> DbResult<NamespacePropertyMapping> {
-    let rows = match property_kind {
+    struct TypedRow(String, String, String, ObjId);
+
+    impl FromRow for TypedRow {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(
+                row.get_text("ns"),
+                row.get_text("plabel"),
+                row.get_text("alabel"),
+                row.get_id("attrid"),
+            )
+        }
+    }
+
+    let rows: Vec<TypedRow> = match property_kind {
         ServicePropertyKind::Entity => {
-            deps.query_raw(
+            deps.query_map(
                 indoc! {
                     "
                     SELECT ns.value ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
@@ -96,7 +113,7 @@ pub async fn get_service_property_mapping(
             .await?
         }
         ServicePropertyKind::Resource => {
-            deps.query_raw(
+            deps.query_map(
                 indoc! {
                     "
                     SELECT ns.value ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
@@ -119,11 +136,11 @@ pub async fn get_service_property_mapping(
 
     let mut mapping = NamespacePropertyMapping::default();
 
-    for mut row in rows {
+    for TypedRow(ns, plabel, alabel, obj_id) in rows {
         mapping
-            .namespace_mut(row.get_text("ns"))
-            .property_mut(row.get_text("plabel"))
-            .put(row.get_text("alabel"), row.get_id("attrid"));
+            .namespace_mut(ns)
+            .property_mut(plabel)
+            .put(alabel, obj_id);
     }
 
     Ok(mapping)

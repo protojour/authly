@@ -4,7 +4,7 @@ use authly_common::{
     id::{Eid, ObjId},
     policy::{code::to_bytecode, engine::PolicyEngine},
 };
-use authly_db::{literal::Literal, param::AsParam, Db, DbError, DbResult, Row};
+use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
 use itertools::Itertools;
@@ -79,6 +79,17 @@ pub async fn load_svc_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Po
     Ok(policy_engine)
 }
 
+impl TryFromRow for Identified<ObjId, PolicyPostcard> {
+    type Error = postcard::Error;
+
+    fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
+        let id = row.get_id("id");
+        let policy_postcard: PolicyPostcard = postcard::from_bytes(&row.get_blob("policy_pc"))?;
+
+        Ok(Identified(id, policy_postcard))
+    }
+}
+
 pub async fn load_svc_policies_with_bindings(
     deps: &impl Db,
     svc_id: Eid,
@@ -92,7 +103,7 @@ pub async fn load_svc_policies_with_bindings(
     );
 
     let policies = deps
-        .query_raw(
+        .query_filter_map(
             format!(
                 "SELECT id, policy_pc FROM policy WHERE id IN ({})",
                 policy_ids.iter().map(|id| id.literal()).format(", ")
@@ -100,54 +111,41 @@ pub async fn load_svc_policies_with_bindings(
             .into(),
             params!(),
         )
-        .await?
-        .into_iter()
-        .map(|mut row| {
-            let id = row.get_id("id");
-
-            let policy_postcard: PolicyPostcard = postcard::from_bytes(&row.get_blob("policy_pc"))
-                .map_err(|err| {
-                    tracing::error!(?err, "policy expr postcard error");
-                    DbError::BinaryEncoding
-                })?;
-
-            Ok(Identified(id, policy_postcard))
-        })
-        .collect::<Result<_, DbError>>()?;
+        .await?;
 
     Ok(PoliciesWithBindings { bindings, policies })
+}
+
+impl FromRow for DbPolicyBinding {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self {
+            attr_matcher: BTreeSet::from_iter(row.get_ids_concatenated("attr_matcher")),
+            policies: BTreeSet::from_iter(row.get_ids_concatenated("policies")),
+        }
+    }
 }
 
 async fn list_svc_implied_policy_bindings(
     deps: &impl Db,
     svc_id: Eid,
 ) -> DbResult<Vec<DbPolicyBinding>> {
-    let rows = deps
-        .query_raw(
-            indoc! {
-                "
-                SELECT
-                    CAST(group_concat(pb_am.attr_id, '') AS BLOB) attr_matcher,
-                    CAST(group_concat(pb_pol.policy_id, '') AS BLOB) policies
-                FROM polbind_policy pb_pol
-                JOIN polbind_attr_match pb_am ON pb_am.polbind_id = pb_pol.polbind_id
-                JOIN dom_res_attrlabel ra ON ra.id = pb_am.attr_id
-                JOIN dom_res_prop rp ON rp.id = ra.prop_id
-                JOIN svc_domain sdom ON sdom.dom_id = rp.dom_id
-                WHERE sdom.svc_eid = $1
-                GROUP BY pb_pol.polbind_id
-                "
-            }
-            .into(),
-            params!(svc_id.as_param()),
-        )
-        .await?;
-
-    Ok(rows
-        .into_iter()
-        .map(|mut row| DbPolicyBinding {
-            attr_matcher: BTreeSet::from_iter(row.get_ids_concatenated("attr_matcher")),
-            policies: BTreeSet::from_iter(row.get_ids_concatenated("policies")),
-        })
-        .collect())
+    deps.query_map(
+        indoc! {
+            "
+            SELECT
+                CAST(group_concat(pb_am.attr_id, '') AS BLOB) attr_matcher,
+                CAST(group_concat(pb_pol.policy_id, '') AS BLOB) policies
+            FROM polbind_policy pb_pol
+            JOIN polbind_attr_match pb_am ON pb_am.polbind_id = pb_pol.polbind_id
+            JOIN dom_res_attrlabel ra ON ra.id = pb_am.attr_id
+            JOIN dom_res_prop rp ON rp.id = ra.prop_id
+            JOIN svc_domain sdom ON sdom.dom_id = rp.dom_id
+            WHERE sdom.svc_eid = $1
+            GROUP BY pb_pol.polbind_id
+            "
+        }
+        .into(),
+        params!(svc_id.as_param()),
+    )
+    .await
 }

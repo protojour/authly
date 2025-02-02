@@ -65,7 +65,7 @@ impl DecryptedMaster {
 
 #[derive(Clone)]
 pub struct EncryptedDek {
-    pub nonce: Vec<u8>,
+    pub nonce: Nonce<Aes256GcmSiv>,
     pub ciph: Vec<u8>,
     pub created_at: time::OffsetDateTime,
 }
@@ -322,7 +322,7 @@ pub async fn gen_prop_deks(
             new_encrypted_deks.insert(
                 id.to_obj_id(),
                 EncryptedDek {
-                    nonce: nonce.to_vec(),
+                    nonce,
                     ciph,
                     created_at: time::OffsetDateTime::now_utc(),
                 },
