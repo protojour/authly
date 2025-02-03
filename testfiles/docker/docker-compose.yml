@@ -16,9 +16,9 @@ services:
     volumes:
       - authly-data:/var/lib/authly/data
       - authly-certs:/etc/authly/certs
-      - testservice-identity:/etc/authly/service/f3e799137c034e1eb4cd3e4f65705932
+      - testservice-identity:/etc/authly/service/e.f3e799137c034e1eb4cd3e4f65705932
       - ../../.local/etc/cluster:/etc/authly/cluster:ro
-      - ../../examples:/etc/authly/documents:ro
+      - ../../examples/demo:/etc/authly/documents:ro
     command: serve
     healthcheck:
       test: ["CMD", "/authly", "ready"]

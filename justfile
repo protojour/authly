@@ -18,7 +18,7 @@ generate-testdata:
             cargo run -p authly --features dev issue-cluster-key
 
         AUTHLY_ID={{ authly_id }} \
-        AUTHLY_DOCUMENT_PATH="[examples/]" \
+        AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
         AUTHLY_DATA_DIR=.local/data \
         AUTHLY_ETC_DIR=.local/etc \
         AUTHLY_EXPORT_TLS_TO_ETC=true \
@@ -32,7 +32,7 @@ debug_web_port := "12345"
 # run debug version on localhost. Necessary for running end-to-end tests.
 rundev: dev-environment generate-testdata
     AUTHLY_ID={{ authly_id }} \
-    AUTHLY_DOCUMENT_PATH="[examples/]" \
+    AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_SERVER_PORT=1443 \
     AUTHLY_DATA_DIR=.local/data \
@@ -45,7 +45,7 @@ rundev: dev-environment generate-testdata
 # run release version on localhost
 runrelease: dev-environment generate-testdata
     AUTHLY_ID={{ authly_id }} \
-    AUTHLY_DOCUMENT_PATH="[examples/]" \
+    AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_SERVER_PORT=1443 \
     AUTHLY_DATA_DIR=.local/data \
@@ -123,7 +123,7 @@ k8s-test-setup:
 
     kubectl create configmap authly-documents \
         -n authly-test \
-        --from-file=examples/ \
+        --from-file=examples/demo/ \
         -o yaml \
         --dry-run=client \
         | kubectl apply -f -
