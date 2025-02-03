@@ -20,8 +20,8 @@ pub struct DbDirectoryObjectLabel {
 impl FromRow for DbDirectoryObjectLabel {
     fn from_row(row: &mut impl Row) -> Self {
         Self {
-            id: row.get_id("id"),
-            label: row.get_text("value"),
+            id: row.get_id("obj_id"),
+            label: row.get_text("label"),
         }
     }
 }

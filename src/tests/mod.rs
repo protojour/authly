@@ -58,31 +58,33 @@ async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Resul
 }
 
 async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> {
-    let doc = Document::from_toml(toml)?;
-    let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
-        .await
-        .map_err(|errors| {
-            for error in errors {
-                println!("{error:?}: `{}`", &toml[error.span()])
+    // For testing purposes, do this twice for each document, the second time will be a "no-op" re-application:
+    for stage in ["initial apply", "re-apply"] {
+        let doc = Document::from_toml(toml)?;
+        let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
+            .await
+            .map_err(|errors| {
+                for error in errors {
+                    println!("{stage}: {error:?}: `{}`", &toml[error.span()])
+                }
+
+                anyhow!("{stage}: doc compile error)")
+            })?;
+
+        for (idx, result) in ctx
+            .get_db()
+            .transact(document_db::document_txn_statements(
+                compiled_doc,
+                &ctx.get_decrypted_deks_or_default(),
+            )?)
+            .await
+            .unwrap()
+            .into_iter()
+            .enumerate()
+        {
+            if let Err(err) = result {
+                panic!("{stage}: apply doc stmt {idx}: {err:?}");
             }
-
-            anyhow!("doc compile error)")
-        })?;
-
-    // TODO: Improve testing by transacting the same document twice
-    for (idx, result) in ctx
-        .get_db()
-        .transact(document_db::document_txn_statements(
-            compiled_doc,
-            &ctx.get_decrypted_deks_or_default(),
-        )?)
-        .await
-        .unwrap()
-        .into_iter()
-        .enumerate()
-    {
-        if let Err(err) = result {
-            panic!("apply doc stmt {idx}: {err:?}");
         }
     }
 

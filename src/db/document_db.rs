@@ -120,7 +120,7 @@ pub fn document_txn_statements(
 
         for ObjectLabel { obj_id, label } in data.obj_labels {
             stmts.push((
-                "INSERT INTO obj_label (dir_id, obj_id, label) VALUES ($1, $2, $3)".into(),
+                "INSERT INTO obj_label (dir_id, obj_id, label) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET label = $3".into(),
                 params!(dir_id.as_param(), obj_id.as_param(), label),
             ));
         }

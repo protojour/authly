@@ -8,7 +8,7 @@ use crate::{
     tests::compile_and_apply_doc,
 };
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn test_store_doc_trivial() {
     let ctx = TestCtx::default().inmemory_db().await;
     let doc = indoc! {
