@@ -23,13 +23,11 @@ pub enum BuiltinProp {
     Email = 4,
     /// The password_hash text property
     PasswordHash = 5,
-    /// The label text property
-    Label = 6,
     /// The kubernetes service account name property.
     /// The value format is `{namespace}/{account_name}`.
-    K8sServiceAccount = 7,
+    K8sServiceAccount = 6,
     /// A relation property representing "membership" relation
-    RelEntityMembership = 8,
+    RelEntityMembership = 7,
 }
 
 #[expect(clippy::enum_variant_names)]
@@ -67,7 +65,6 @@ impl BuiltinProp {
             Self::Username => None,
             Self::Email => None,
             Self::PasswordHash => None,
-            Self::Label => None,
             Self::K8sServiceAccount => None,
             Self::AuthlyInstance => None,
             Self::RelEntityMembership => None,
@@ -76,7 +73,7 @@ impl BuiltinProp {
 
     pub const fn is_encrypted(self) -> bool {
         match self {
-            Self::Entity | Self::AuthlyRole | Self::Label | Self::RelEntityMembership => false,
+            Self::Entity | Self::AuthlyRole | Self::RelEntityMembership => false,
             Self::Username => true,
             Self::Email => true,
             Self::PasswordHash => false,

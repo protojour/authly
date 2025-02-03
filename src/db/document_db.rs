@@ -9,7 +9,7 @@ use itertools::Itertools;
 use tracing::debug;
 
 use crate::{
-    document::compiled_document::CompiledDocument,
+    document::compiled_document::{CompiledDocument, ObjectLabel},
     encryption::{random_nonce, DecryptedDeks},
 };
 
@@ -109,6 +109,19 @@ pub fn document_txn_statements(
             stmts.push((
                 "INSERT INTO obj_text_attr (dir_id, obj_id, prop_id, value) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
                 params!(dir_id.as_param(), text_prop.obj_id.as_param(), text_prop.prop_id.as_param(), text_prop.value),
+            ));
+        }
+
+        stmts.push(gc(
+            "obj_label",
+            NotIn("obj_id", data.obj_labels.iter().map(|label| label.obj_id)),
+            dir_id,
+        ));
+
+        for ObjectLabel { obj_id, label } in data.obj_labels {
+            stmts.push((
+                "INSERT INTO obj_label (dir_id, obj_id, label) VALUES ($1, $2, $3)".into(),
+                params!(dir_id.as_param(), obj_id.as_param(), label),
             ));
         }
     }

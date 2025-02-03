@@ -16,7 +16,7 @@ use crate::db::directory_db::{DbDirectoryObjectLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
 use crate::document::compiled_document::{
-    CompiledEntityAttributeAssignment, EntityIdent, ObjectTextAttr,
+    CompiledEntityAttributeAssignment, EntityIdent, ObjectLabel, ObjectTextAttr,
 };
 use crate::id::BuiltinProp;
 use crate::policy::compiler::PolicyCompiler;
@@ -166,10 +166,9 @@ pub async fn compile_doc(
 
             comp.ns_add(&domain.label, NamespaceKind::Domain(id));
 
-            data.obj_text_attrs.push(ObjectTextAttr {
+            data.obj_labels.push(ObjectLabel {
                 obj_id: id.into(),
-                prop_id: BuiltinProp::Label.into(),
-                value: domain.label.as_ref().to_string(),
+                label: domain.label.as_ref().to_string(),
             });
         }
     }
@@ -189,10 +188,9 @@ pub async fn compile_doc(
     for entity in &mut doc.service_entity {
         let eid = *entity.eid.as_ref();
         if let Some(label) = &entity.label {
-            data.obj_text_attrs.push(ObjectTextAttr {
+            data.obj_labels.push(ObjectLabel {
                 obj_id: eid.into(),
-                prop_id: BuiltinProp::Label.into(),
-                value: label.as_ref().to_string(),
+                label: label.as_ref().to_string(),
             });
         }
 

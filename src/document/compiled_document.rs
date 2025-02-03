@@ -64,6 +64,7 @@ pub struct CompiledDocumentData {
 
     pub entity_ident: Vec<EntityIdent>,
     pub obj_text_attrs: Vec<ObjectTextAttr>,
+    pub obj_labels: Vec<ObjectLabel>,
     pub entity_password: Vec<EntityPassword>,
 
     pub service_ids: BTreeSet<Eid>,
@@ -86,12 +87,17 @@ pub struct EntityIdent {
     pub ident: String,
 }
 
-// note: This is not only for entities
 #[derive(Debug)]
 pub struct ObjectTextAttr {
     pub obj_id: AnyId,
     pub prop_id: PropId,
     pub value: String,
+}
+
+#[derive(Debug)]
+pub struct ObjectLabel {
+    pub obj_id: AnyId,
+    pub label: String,
 }
 
 #[derive(Debug)]

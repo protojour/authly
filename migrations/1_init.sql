@@ -92,6 +92,13 @@ CREATE TABLE obj_text_attr (
     PRIMARY KEY (obj_id, prop_id)
 );
 
+-- An object's label in its originating directory/document
+CREATE TABLE obj_label (
+    dir_id BLOB NOT NULL,
+    obj_id BLOB NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL
+);
+
 -- Namespace: entity property
 CREATE TABLE ns_ent_prop (
     dir_id BLOB NOT NULL,

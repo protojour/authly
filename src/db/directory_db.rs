@@ -7,8 +7,6 @@ use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
 
-use crate::id::BuiltinProp;
-
 use super::{
     policy_db::DbPolicy,
     service_db::{ServiceProperty, ServicePropertyKind},
@@ -32,11 +30,8 @@ impl DbDirectoryObjectLabel {
     pub async fn query(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Vec<Self>> {
         deps.query_map(
             // FIXME: unindexed query
-            "SELECT obj_id, value FROM obj_text_attr WHERE dir_id = $1 AND prop_id = $2".into(),
-            params!(
-                dir_id.as_param(),
-                PropId::from(BuiltinProp::Label).as_param()
-            ),
+            "SELECT obj_id, label FROM obj_label WHERE dir_id = $1".into(),
+            params!(dir_id.as_param()),
         )
         .await
     }
