@@ -10,6 +10,6 @@ service = "e.ec29ba1d23cb43f89b7c73db6f177a1d"
 domain = "pants"
 
 [[resource-property]]
-domain = "pants"
+namespace = "pants"
 label = "type"
 attributes = ["jeans", "chinos"]

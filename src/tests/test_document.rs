@@ -28,9 +28,7 @@ async fn test_store_doc_trivial() {
         "#
     };
 
-    compile_and_apply_doc(doc, &Default::default(), &ctx)
-        .await
-        .unwrap();
+    compile_and_apply_doc(doc, &ctx).await.unwrap();
 
     assert_eq!(
         entity_db::list_entity_attrs(

@@ -97,6 +97,7 @@ impl TestCtx {
         self
     }
 
+    /// Make a supreme instance with cryptographic keys and certificates
     pub async fn supreme_instance(mut self) -> Self {
         let db = self.db.unwrap();
 
@@ -134,6 +135,13 @@ impl TestCtx {
 
     pub fn get_decrypted_deks(&self) -> Arc<DecryptedDeks> {
         self.deks.as_ref().unwrap().load_full()
+    }
+
+    pub fn get_decrypted_deks_or_default(&self) -> Arc<DecryptedDeks> {
+        match self.deks.as_ref() {
+            Some(deks) => deks.load_full(),
+            None => Arc::new(DecryptedDeks::default()),
+        }
     }
 
     #[track_caller]

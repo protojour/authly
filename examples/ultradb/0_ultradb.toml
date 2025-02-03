@@ -21,12 +21,12 @@ eid = "e.a1c6134658dd4120823fdc42bb2f42ad"
 label = "ultradb_gui"
 
 [[entity-property]]
-domain = "ultradb_gui"
+namespace = "ultradb_gui"
 label = "role"
 attributes = ["user", "admin"]
 
 [[resource-property]]
-domain = "ultradb"
+namespace = "ultradb"
 label = "action"
 attributes = ["read", "write"]
 

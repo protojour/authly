@@ -245,11 +245,10 @@ pub async fn compile_doc(
     process_policies(doc.policy, &mut data, &mut comp, db).await;
     process_policy_bindings(doc.policy_binding, &mut data, &mut comp);
 
-    process_entity_attribute_bindings(
-        mem::take(&mut doc.entity_attribute_binding),
+    process_entity_attribute_assignments(
+        mem::take(&mut doc.entity_attribute_assignment),
         &mut data,
         &mut comp,
-        db,
     )
     .await;
 
@@ -331,30 +330,14 @@ fn process_members(
     }
 }
 
-async fn process_entity_attribute_bindings(
-    bindings: Vec<document::EntityAttributeBinding>,
+async fn process_entity_attribute_assignments(
+    assignments: Vec<document::EntityAttributeAssignment>,
     data: &mut CompiledDocumentData,
     comp: &mut CompileCtx,
-    // TODO: Use the database
-    _db: &impl Db,
 ) {
-    for binding in bindings {
-        let eid = match (binding.eid, binding.label) {
-            (Some(eid), None) => eid.into_inner(),
-            (None, Some(label)) => {
-                let Some(eid) = comp.ns_entity_lookup(&label) else {
-                    continue;
-                };
-                eid
-            }
-            _ => {
-                if let Some(first_attr) = binding.attributes.first() {
-                    comp.errors
-                        .push(first_attr.span(), CompileError::UnresolvedEntity);
-                }
-
-                continue;
-            }
+    for binding in assignments {
+        let Some(eid) = comp.ns_entity_lookup(&binding.entity) else {
+            continue;
         };
 
         // TODO: Somehow check eid exists?
@@ -391,35 +374,33 @@ async fn process_service_properties(
     db: &impl Db,
 ) {
     for doc_eprop in entity_properties {
-        if let Some(domain_label) = &doc_eprop.domain {
-            let Some(ns_id) = comp.ns_dyn_namespace_lookup(domain_label) else {
-                continue;
-            };
-
-            if let Some(compiled_property) = compile_service_property(
-                domain_label,
-                ns_id,
-                service_db::ServicePropertyKind::Entity,
-                &doc_eprop.label,
-                doc_eprop.attributes,
-                comp,
-                db,
-            )
-            .await
-            {
-                data.domain_ent_props.push(compiled_property);
-            }
-        }
-    }
-
-    for doc_rprop in resource_properties {
-        let Some(domain_eid) = comp.ns_dyn_namespace_lookup(&doc_rprop.domain) else {
+        let Some(ns_id) = comp.ns_dyn_namespace_lookup(&doc_eprop.namespace) else {
             continue;
         };
 
         if let Some(compiled_property) = compile_service_property(
-            &doc_rprop.domain,
-            domain_eid,
+            &doc_eprop.namespace,
+            ns_id,
+            service_db::ServicePropertyKind::Entity,
+            &doc_eprop.label,
+            doc_eprop.attributes,
+            comp,
+            db,
+        )
+        .await
+        {
+            data.domain_ent_props.push(compiled_property);
+        }
+    }
+
+    for doc_rprop in resource_properties {
+        let Some(ns_id) = comp.ns_dyn_namespace_lookup(&doc_rprop.namespace) else {
+            continue;
+        };
+
+        if let Some(compiled_property) = compile_service_property(
+            &doc_rprop.namespace,
+            ns_id,
             service_db::ServicePropertyKind::Resource,
             &doc_rprop.label,
             doc_rprop.attributes,

@@ -26,7 +26,6 @@ use crate::{
         service_db::{self, ServicePropertyKind},
     },
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
-    encryption::DecryptedDeks,
     test_support::TestCtx,
 };
 
@@ -34,6 +33,7 @@ mod end2end;
 mod test_access_control;
 mod test_authly_connect;
 mod test_authority_mandate;
+mod test_demo;
 mod test_document;
 mod test_tls;
 mod test_ultradb;
@@ -51,17 +51,13 @@ async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Resul
     doc_files.sort_by_key(|(path, _)| path.clone());
 
     for (_, doc) in doc_files {
-        compile_and_apply_doc(&doc, &Default::default(), &ctx).await?;
+        compile_and_apply_doc(&doc, &ctx).await?;
     }
 
     Ok(())
 }
 
-async fn compile_and_apply_doc(
-    toml: &str,
-    deks: &DecryptedDeks,
-    ctx: &TestCtx,
-) -> anyhow::Result<()> {
+async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> {
     let doc = Document::from_toml(toml)?;
     let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
         .await
@@ -76,7 +72,10 @@ async fn compile_and_apply_doc(
     // TODO: Improve testing by transacting the same document twice
     for (idx, result) in ctx
         .get_db()
-        .transact(document_db::document_txn_statements(compiled_doc, deks)?)
+        .transact(document_db::document_txn_statements(
+            compiled_doc,
+            &ctx.get_decrypted_deks_or_default(),
+        )?)
         .await
         .unwrap()
         .into_iter()

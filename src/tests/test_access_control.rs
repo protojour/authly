@@ -35,17 +35,17 @@ async fn test_access_control_basic() {
         label = "svc_b"
 
         [[entity-property]]
-        domain = "svc_a"
+        namespace = "svc_a"
         label = "trait"
         attributes = ["has_legs"]
 
         [[resource-property]]
-        domain = "svc_a"
+        namespace = "svc_a"
         label = "kind"
         attributes = ["trousers"]
 
         [[resource-property]]
-        domain = "svc_a"
+        namespace = "svc_a"
         label = "verb"
         attributes = ["wear"]
 
@@ -59,9 +59,7 @@ async fn test_access_control_basic() {
         "#
     };
 
-    compile_and_apply_doc(doc, &Default::default(), &ctx)
-        .await
-        .unwrap();
+    compile_and_apply_doc(doc, &ctx).await.unwrap();
 
     {
         let engine = policy_db::load_svc_policy_engine(ctx.get_db(), SVC_A)
@@ -195,20 +193,20 @@ async fn test_svc_domain_implied_policies() {
         domain = "bar"
 
         [[resource-property]]
-        domain = "foo"
+        namespace = "foo"
         label = "fooA"
         attributes = ["fooA"]
         [[resource-property]]
-        domain = "foo"
+        namespace = "foo"
         label = "fooB"
         attributes = ["fooB"]
 
         [[resource-property]]
-        domain = "bar"
+        namespace = "bar"
         label = "barA"
         attributes = ["barA"]
         [[resource-property]]
-        domain = "bar"
+        namespace = "bar"
         label = "barB"
         attributes = ["barB"]
 
@@ -230,9 +228,7 @@ async fn test_svc_domain_implied_policies() {
         "#
     };
 
-    compile_and_apply_doc(doc, &Default::default(), &ctx)
-        .await
-        .unwrap();
+    compile_and_apply_doc(doc, &ctx).await.unwrap();
 
     let pol_a = load_svc_policies_with_bindings(ctx.get_db(), SVC_A)
         .await
