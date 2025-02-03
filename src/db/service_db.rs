@@ -26,7 +26,7 @@ pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Opt
 
     impl FromRow for SvcLabel {
         fn from_row(row: &mut impl Row) -> Self {
-            Self(row.get_text("value"))
+            Self(row.get_text("label"))
         }
     }
 
