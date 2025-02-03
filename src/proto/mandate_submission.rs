@@ -51,25 +51,25 @@ where
 
         // cert chain, start with Mandate's new local CA
         let mut ca_chain = vec![proto::AuthlyCertificate {
-            certifies_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
-            signed_by_entity_id: instance.authly_eid().to_bytes().to_vec(),
+            certifies_entity_id: certified_mandate.mandate_eid.to_raw_array().to_vec(),
+            signed_by_entity_id: instance.authly_eid().to_raw_array().to_vec(),
             der: certified_mandate.mandate_local_ca.der.to_vec(),
         }];
 
         // pass authority's local CA chain to the mandate
         for authly_cert in instance.ca_chain() {
             ca_chain.push(proto::AuthlyCertificate {
-                certifies_entity_id: authly_cert.certifies.to_bytes().to_vec(),
-                signed_by_entity_id: authly_cert.signed_by.to_bytes().to_vec(),
+                certifies_entity_id: authly_cert.certifies.to_raw_array().to_vec(),
+                signed_by_entity_id: authly_cert.signed_by.to_raw_array().to_vec(),
                 der: authly_cert.der.to_vec(),
             });
         }
 
         Ok(tonic::Response::new(proto::SubmissionResponse {
-            mandate_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
+            mandate_entity_id: certified_mandate.mandate_eid.to_raw_array().to_vec(),
             mandate_identity_cert: Some(proto::AuthlyCertificate {
-                certifies_entity_id: certified_mandate.mandate_eid.to_bytes().to_vec(),
-                signed_by_entity_id: instance.authly_eid().to_bytes().to_vec(),
+                certifies_entity_id: certified_mandate.mandate_eid.to_raw_array().to_vec(),
+                signed_by_entity_id: instance.authly_eid().to_raw_array().to_vec(),
                 der: certified_mandate.mandate_identity.der.to_vec(),
             }),
             ca_chain,

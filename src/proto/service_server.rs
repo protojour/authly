@@ -31,7 +31,7 @@ use crate::{
         entity_db, policy_db,
         service_db::{self, find_service_label_by_eid, ServicePropertyKind},
     },
-    id::BuiltinID,
+    id::{BuiltinAttr, BuiltinProp},
     proto::grpc_db_err,
     session::{authenticate_session_cookie, find_session_cookie, Session},
     util::remote_addr::RemoteAddr,
@@ -63,7 +63,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
             .ok_or_else(|| tonic::Status::internal("no service label"))?;
 
         Ok(Response::new(proto::ServiceMetadata {
-            entity_id: peer_svc.eid.to_bytes().to_vec(),
+            entity_id: peer_svc.eid.to_raw_array().to_vec(),
             label,
         }))
     }
@@ -79,7 +79,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
         let (peer_svc_result, access_token_result) = tokio::join!(
             svc_mtls_auth(
                 request.extensions(),
-                &[BuiltinID::AttrAuthlyRoleGetAccessToken],
+                &[BuiltinAttr::AuthlyRoleGetAccessToken],
                 &self.ctx,
             ),
             async {
@@ -100,7 +100,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
 
                 Result::<_, tonic::Status>::Ok(proto::AccessToken {
                     token,
-                    entity_id: session.eid.to_bytes().to_vec(),
+                    entity_id: session.eid.to_raw_array().to_vec(),
                 })
             },
         );
@@ -140,7 +140,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
                                 .into_iter()
                                 .map(|(label, attr_id)| proto::AttributeMapping {
                                     label,
-                                    obj_id: attr_id.to_bytes().to_vec(),
+                                    obj_id: attr_id.to_raw_array().to_vec(),
                                 })
                                 .collect(),
                         })
@@ -171,13 +171,12 @@ impl AuthlyService for AuthlyServiceServerImpl {
         // user attributes from access token
         if let Some(user_claims) = opt_user_claims {
             for attr in user_claims.authly.entity_attributes {
-                params.subject_attrs.insert(attr.to_any());
+                params.subject_attrs.insert(attr);
             }
 
-            params.subject_eids.insert(
-                BuiltinID::PropEntity.to_obj_id().to_any(),
-                user_claims.authly.entity_id.to_any(),
-            );
+            params
+                .subject_eids
+                .insert(BuiltinProp::Entity.into(), user_claims.authly.entity_id);
         }
 
         // additional subject attributes
@@ -201,7 +200,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
             for (_, properties) in subject_entity_property_mapping {
                 for (_, attributes) in properties {
                     for (_, attribute) in attributes {
-                        params.subject_attrs.insert(attribute.to_any());
+                        params.subject_attrs.insert(attribute);
                     }
                 }
             }
@@ -316,7 +315,7 @@ fn svc_remote_addr(extensions: &tonic::Extensions) -> tonic::Result<SocketAddr> 
 /// Authenticate and authorize the client
 async fn svc_mtls_auth(
     extensions: &tonic::Extensions,
-    required_roles: &[BuiltinID],
+    required_roles: &[BuiltinAttr],
     ctx: &AuthlyCtx,
 ) -> tonic::Result<AuthorizedPeerService> {
     let peer_svc_eid = extensions
@@ -382,5 +381,5 @@ fn verify_bearer(
 }
 
 fn id_from_proto<K>(bytes: &[u8]) -> tonic::Result<Id128<K>> {
-    Id128::from_bytes(bytes).ok_or_else(|| tonic::Status::invalid_argument("invalid ID"))
+    Id128::from_raw_bytes(bytes).ok_or_else(|| tonic::Status::invalid_argument("invalid ID"))
 }

@@ -99,5 +99,5 @@ impl TryFrom<(proto::AuthlyCertificate, AuthlyCertKind)> for AuthlyCert {
 }
 
 fn read_id(bytes: &[u8]) -> anyhow::Result<Eid> {
-    Eid::from_bytes(bytes).ok_or_else(|| anyhow!("invalid ID"))
+    Eid::from_raw_bytes(bytes).ok_or_else(|| anyhow!("invalid ID"))
 }

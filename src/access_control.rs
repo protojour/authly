@@ -1,8 +1,8 @@
-use authly_common::id::{Eid, ObjId};
+use authly_common::id::{AttrId, Eid};
 use authly_db::DbError;
 use fnv::FnvHashSet;
 
-use crate::{ctx::GetDb, db::entity_db, id::BuiltinID, AuthlyCtx};
+use crate::{ctx::GetDb, db::entity_db, id::BuiltinAttr, AuthlyCtx};
 
 pub enum SvcAccessControlError {
     Denied,
@@ -13,49 +13,49 @@ pub struct AuthorizedPeerService {
     pub eid: Eid,
 
     #[expect(unused)]
-    pub attributes: FnvHashSet<ObjId>,
+    pub attributes: FnvHashSet<AttrId>,
 }
 
 pub trait AuthlyRole {
-    fn role() -> BuiltinID;
+    fn role() -> BuiltinAttr;
 }
 
 /// Typed roles
 pub mod role {
-    use crate::id::BuiltinID;
+    use crate::id::BuiltinAttr;
 
     use super::AuthlyRole;
 
     pub struct ApplyDocument;
 
     impl AuthlyRole for ApplyDocument {
-        fn role() -> BuiltinID {
-            BuiltinID::AttrAuthlyRoleApplyDocument
+        fn role() -> BuiltinAttr {
+            BuiltinAttr::AuthlyRoleApplyDocument
         }
     }
 
     pub struct GrantMandate;
 
     impl AuthlyRole for GrantMandate {
-        fn role() -> BuiltinID {
-            BuiltinID::AttrAuthlyRoleGrantMandate
+        fn role() -> BuiltinAttr {
+            BuiltinAttr::AuthlyRoleGrantMandate
         }
     }
 }
 
 pub trait VerifyAuthlyRole {
-    fn verify_roles(attributes: &FnvHashSet<ObjId>) -> bool;
+    fn verify_roles(attributes: &FnvHashSet<AttrId>) -> bool;
 }
 
 impl VerifyAuthlyRole for () {
-    fn verify_roles(_attributes: &FnvHashSet<ObjId>) -> bool {
+    fn verify_roles(_attributes: &FnvHashSet<AttrId>) -> bool {
         true
     }
 }
 
 impl<T: AuthlyRole> VerifyAuthlyRole for T {
-    fn verify_roles(attributes: &FnvHashSet<ObjId>) -> bool {
-        attributes.contains(&T::role().to_obj_id())
+    fn verify_roles(attributes: &FnvHashSet<AttrId>) -> bool {
+        attributes.contains(&AttrId::from(T::role()))
     }
 }
 
@@ -64,7 +64,7 @@ impl<T: AuthlyRole> VerifyAuthlyRole for T {
 /// This currently does not use policies, it only checks whether the service is assigned the required attribute.
 pub async fn authorize_peer_service(
     svc_eid: Eid,
-    required_authly_roles: &[BuiltinID],
+    required_authly_roles: &[BuiltinAttr],
     ctx: &AuthlyCtx,
 ) -> Result<AuthorizedPeerService, SvcAccessControlError> {
     let attributes = entity_db::list_entity_attrs(ctx.get_db(), svc_eid)
@@ -72,7 +72,7 @@ pub async fn authorize_peer_service(
         .map_err(SvcAccessControlError::Db)?;
 
     for role in required_authly_roles {
-        if !attributes.contains(&role.to_obj_id()) {
+        if !attributes.contains(&AttrId::from(*role)) {
             return Err(SvcAccessControlError::Denied);
         }
     }

@@ -92,7 +92,7 @@ impl PolicyCompiler<'_> {
                     .doc_data
                     .find_attribute_by_label(property_label.0.into(), attr_label_str)
                 {
-                    Ok(id) => Label(id.to_bytes()),
+                    Ok(id) => Label(id.to_raw_array()),
                     Err(_) => {
                         self.pest_error(
                             span,
@@ -124,8 +124,8 @@ impl PolicyCompiler<'_> {
         };
 
         match &namespace.kind {
-            NamespaceKind::Entity(id) => Some(Label(id.to_bytes())),
-            NamespaceKind::Service(id) => Some(Label(id.to_bytes())),
+            NamespaceKind::Entity(id) => Some(Label(id.to_raw_array())),
+            NamespaceKind::Service(id) => Some(Label(id.to_raw_array())),
             _ => {
                 self.pest_error(
                     pair.as_span(),
@@ -140,7 +140,7 @@ impl PolicyCompiler<'_> {
         let ns_label = namespace.as_str();
         let prop_label = prop.as_str();
         match self.namespace.get_entry(ns_label, prop_label) {
-            Ok(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.to_bytes())),
+            Ok(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.to_raw_array())),
             Err(NsLookupErr::Namespace) => {
                 self.pest_error(
                     namespace.as_span(),

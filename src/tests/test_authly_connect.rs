@@ -36,7 +36,7 @@ async fn test_connect_grpc() {
     let tunneled_server_cert =
         ca.sign(server_cert("authly-connect", Duration::hours(1)).with_new_key_pair());
     let client_cert = ca.sign(
-        client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
+        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
 
     let (local_url, _drop) = spawn_test_connect_server(
@@ -148,7 +148,7 @@ async fn test_connect_http() {
     let tunneled_server_cert =
         ca.sign(server_cert("authly-connect", Duration::hours(1)).with_new_key_pair());
     let client_cert = ca.sign(
-        client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
+        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
     let (local_url, _drop) = spawn_test_connect_server(
         rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
@@ -212,5 +212,5 @@ async fn test_connect_http() {
 
     info!("response: {response}");
 
-    assert!(response.ends_with("HELLO cf2e74c3f26240908e1b4e8817bfde7c!"));
+    assert!(response.ends_with("HELLO e.cf2e74c3f26240908e1b4e8817bfde7c!"));
 }

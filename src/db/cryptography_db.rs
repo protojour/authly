@@ -4,7 +4,7 @@ use std::{borrow::Cow, collections::HashMap, str::FromStr, time::Duration};
 
 use aes_gcm_siv::aead::Aead;
 use anyhow::{anyhow, Context};
-use authly_common::id::{Eid, ObjId};
+use authly_common::id::{Eid, PropId};
 use authly_db::{param::AsParam, Db, DbError, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
@@ -16,7 +16,7 @@ use tracing::{debug, info};
 use crate::{
     cert::{authly_ca, client_cert, key_pair},
     encryption::{random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
-    id::BuiltinID,
+    id::BuiltinProp,
     instance::AuthlyId,
     tls::{AuthlyCert, AuthlyCertKind},
     AuthlyInstance, IsLeaderDb,
@@ -61,17 +61,16 @@ pub async fn insert_cr_master_version(deps: &impl Db, ver: MasterVersion) -> Res
 
 pub async fn list_all_cr_prop_deks(
     deps: &impl Db,
-) -> Result<HashMap<BuiltinID, EncryptedDek>, CrDbError> {
-    struct Output(BuiltinID, EncryptedDek);
+) -> Result<HashMap<BuiltinProp, EncryptedDek>, CrDbError> {
+    struct Output(BuiltinProp, EncryptedDek);
 
     impl TryFromRow for Output {
         type Error = anyhow::Error;
 
         fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
-            let prop_id =
-                ObjId::from_bytes(&row.get_blob("prop_id")).context("invalid object id")?;
-            let builtin_id = BuiltinID::try_from(prop_id.to_uint() as u32)
-                .map_err(|_| anyhow!("invalid builtin in"))?;
+            let prop_id: PropId = row.get_id("prop_id");
+            let builtin_id = BuiltinProp::try_from(prop_id.to_uint() as u32)
+                .map_err(|_| anyhow!("invalid builtin property"))?;
 
             Ok(Self(
                 builtin_id,
@@ -97,7 +96,7 @@ pub async fn list_all_cr_prop_deks(
 
 pub async fn insert_cr_prop_deks(
     deps: &impl Db,
-    deks: HashMap<ObjId, EncryptedDek>,
+    deks: HashMap<PropId, EncryptedDek>,
 ) -> Result<(), CrDbError> {
     for (id, dek) in deks {
         deps.execute(
@@ -241,7 +240,7 @@ async fn try_load_authly_id(
     };
 
     let dek = deks
-        .get(BuiltinID::PropAuthlyInstance.to_obj_id())
+        .get(BuiltinProp::AuthlyInstance.into())
         .map_err(CrDbError::Crypto)?;
 
     let private_key_plaintext = dek
@@ -268,7 +267,7 @@ pub async fn save_instance(
     let private_key_der = private_key.serialize_der();
 
     let dek = deks
-        .get(BuiltinID::PropAuthlyInstance.to_obj_id())
+        .get(BuiltinProp::AuthlyInstance.into())
         .map_err(CrDbError::Crypto)?;
     let nonce = random_nonce();
     let key_ciph = dek

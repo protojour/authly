@@ -1,16 +1,19 @@
-use authly_common::{id::ObjId, service::NamespacePropertyMapping};
-use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row};
+use authly_common::{
+    id::{AttrId, PropId},
+    service::NamespacePropertyMapping,
+};
+use authly_db::{param::AsParam, Db, DbResult, FromRow, Row};
 use hiqlite::{params, Param};
 use indoc::indoc;
 use tracing::warn;
 
-use crate::{id::BuiltinID, Eid};
+use crate::{id::BuiltinProp, Eid};
 
 #[derive(Debug)]
 pub struct ServiceProperty {
-    pub id: ObjId,
+    pub id: PropId,
     pub label: String,
-    pub attributes: Vec<(ObjId, String)>,
+    pub attributes: Vec<(AttrId, String)>,
 }
 
 pub enum ServicePropertyKind {
@@ -29,11 +32,7 @@ pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Opt
 
     Ok(deps
         .query_map_opt::<SvcLabel>(
-            format!(
-                "SELECT value FROM obj_text_attr WHERE obj_id = $1 AND prop_id = {prop_id}",
-                prop_id = BuiltinID::PropLabel.to_obj_id().literal()
-            )
-            .into(),
+            "SELECT label FROM obj_label WHERE obj_id = $1".into(),
             params!(eid.as_param()),
         )
         .await
@@ -61,7 +60,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
         .query_map_opt::<SvcEid>(
             "SELECT obj_id FROM obj_text_attr WHERE prop_id = $1 AND value = $2".into(),
             params!(
-                BuiltinID::PropK8sServiceAccount.to_obj_id().as_param(),
+                PropId::from(BuiltinProp::K8sServiceAccount).as_param(),
                 format!("{namespace}/{account_name}")
             ),
         )
@@ -78,7 +77,7 @@ pub async fn get_service_property_mapping(
     svc_eid: Eid,
     property_kind: ServicePropertyKind,
 ) -> DbResult<NamespacePropertyMapping> {
-    struct TypedRow(String, String, String, ObjId);
+    struct TypedRow(String, String, String, AttrId);
 
     impl FromRow for TypedRow {
         fn from_row(row: &mut impl Row) -> Self {
@@ -96,19 +95,16 @@ pub async fn get_service_property_mapping(
             deps.query_map(
                 indoc! {
                     "
-                    SELECT ns.value ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM dom_ent_prop p
-                    JOIN dom_ent_attrlabel a ON a.prop_id = p.id
-                    JOIN svc_domain ON svc_domain.dom_id = p.dom_id
-                    JOIN obj_text_attr ns ON ns.obj_id = p.dom_id
-                    WHERE svc_domain.svc_eid = $1 AND ns.prop_id = $2
+                    SELECT nslab.label ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
+                    FROM ns_ent_prop p
+                    JOIN ns_ent_attrlabel a ON a.prop_id = p.id
+                    JOIN svc_namespace ON svc_namespace.ns_id = p.ns_id
+                    JOIN obj_label nslab ON nslab.obj_id = p.ns_id
+                    WHERE svc_namespace.svc_eid = $1
                     ",
                 }
                 .into(),
-                params!(
-                    svc_eid.as_param(),
-                    BuiltinID::PropLabel.to_obj_id().as_param()
-                ),
+                params!(svc_eid.as_param()),
             )
             .await?
         }
@@ -116,19 +112,16 @@ pub async fn get_service_property_mapping(
             deps.query_map(
                 indoc! {
                     "
-                    SELECT ns.value ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM dom_res_prop p
-                    JOIN dom_res_attrlabel a ON a.prop_id = p.id
-                    JOIN svc_domain ON svc_domain.dom_id = p.dom_id
-                    JOIN obj_text_attr ns ON ns.obj_id = p.dom_id
-                    WHERE svc_domain.svc_eid = $1 AND ns.prop_id = $2
+                    SELECT nslab.label ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
+                    FROM ns_res_prop p
+                    JOIN ns_res_attrlabel a ON a.prop_id = p.id
+                    JOIN svc_namespace ON svc_namespace.ns_id = p.ns_id
+                    JOIN obj_label nslab ON nslab.obj_id = p.ns_id
+                    WHERE svc_namespace.svc_eid = $1
                     ",
                 }
                 .into(),
-                params!(
-                    svc_eid.as_param(),
-                    BuiltinID::PropLabel.to_obj_id().as_param()
-                ),
+                params!(svc_eid.as_param()),
             )
             .await?
         }

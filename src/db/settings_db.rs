@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use authly_common::id::ObjId;
+use authly_common::id::DirectoryId;
 use authly_db::{Db, DbResult, Row, TryFromRow};
 use hiqlite::params;
 
@@ -8,7 +8,7 @@ use crate::settings::{Setting, Settings};
 
 struct LocalSetting {
     #[expect(unused)]
-    dir_id: ObjId,
+    dir_id: DirectoryId,
     setting: Setting,
     value: String,
 }

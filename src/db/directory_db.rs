@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use authly_common::id::{AnyId, ObjId};
+use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId};
 use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
@@ -12,24 +12,25 @@ use super::{
     service_db::{ServiceProperty, ServicePropertyKind},
 };
 
-pub struct DbDirectoryDomain {
-    pub id: ObjId,
+pub struct DbDirectoryObjectLabel {
+    pub id: AnyId,
     pub label: String,
 }
 
-impl FromRow for DbDirectoryDomain {
+impl FromRow for DbDirectoryObjectLabel {
     fn from_row(row: &mut impl Row) -> Self {
         Self {
             id: row.get_id("id"),
-            label: row.get_text("label"),
+            label: row.get_text("value"),
         }
     }
 }
 
-impl DbDirectoryDomain {
-    pub async fn query(deps: &impl Db, dir_id: ObjId) -> DbResult<Vec<Self>> {
+impl DbDirectoryObjectLabel {
+    pub async fn query(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Vec<Self>> {
         deps.query_map(
-            "SELECT id, label FROM domain WHERE dir_id = $1".into(),
+            // FIXME: unindexed query
+            "SELECT obj_id, label FROM obj_label WHERE dir_id = $1".into(),
             params!(dir_id.as_param()),
         )
         .await
@@ -37,7 +38,7 @@ impl DbDirectoryDomain {
 }
 
 pub struct DbDirectoryPolicy {
-    pub id: ObjId,
+    pub id: PolicyId,
     pub policy: DbPolicy,
 }
 
@@ -56,7 +57,7 @@ impl TryFromRow for DbDirectoryPolicy {
 }
 
 impl DbDirectoryPolicy {
-    pub async fn query(deps: &impl Db, dir_id: ObjId) -> DbResult<Vec<Self>> {
+    pub async fn query(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Vec<Self>> {
         deps.query_filter_map(
             "SELECT id, label, policy_pc FROM policy WHERE dir_id = $1".into(),
             params!(dir_id.as_param()),
@@ -65,13 +66,13 @@ impl DbDirectoryPolicy {
     }
 }
 
-pub async fn list_domain_properties(
+pub async fn list_namespace_properties(
     deps: &impl Db,
-    dir_id: ObjId,
-    dom_id: AnyId,
+    dir_id: DirectoryId,
+    ns_id: AnyId,
     property_kind: ServicePropertyKind,
 ) -> DbResult<Vec<ServiceProperty>> {
-    struct Output((ObjId, String), (ObjId, String));
+    struct Output((PropId, String), (AttrId, String));
 
     impl FromRow for Output {
         fn from_row(row: &mut impl Row) -> Self {
@@ -88,13 +89,13 @@ pub async fn list_domain_properties(
                 indoc! {
                     "
                     SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM dom_ent_prop p
-                    JOIN dom_ent_attrlabel a ON a.prop_id = p.id
-                    WHERE p.dir_id = $1 AND p.dom_id = $2
+                    FROM ns_ent_prop p
+                    JOIN ns_ent_attrlabel a ON a.prop_id = p.id
+                    WHERE p.dir_id = $1 AND p.ns_id = $2
                     ",
                 }
                 .into(),
-                params!(dir_id.as_param(), dom_id.as_param()),
+                params!(dir_id.as_param(), ns_id.as_param()),
             )
             .await?
         }
@@ -103,19 +104,19 @@ pub async fn list_domain_properties(
                 indoc! {
                     "
                     SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM dom_res_prop p
-                    JOIN dom_res_attrlabel a ON a.prop_id = p.id
-                    WHERE p.dir_id = $1 AND p.dom_id = $2
+                    FROM ns_res_prop p
+                    JOIN ns_res_attrlabel a ON a.prop_id = p.id
+                    WHERE p.dir_id = $1 AND p.ns_id = $2
                     ",
                 }
                 .into(),
-                params!(dir_id.as_param(), dom_id.as_param()),
+                params!(dir_id.as_param(), ns_id.as_param()),
             )
             .await?
         }
     };
 
-    let mut properties: HashMap<ObjId, ServiceProperty> = Default::default();
+    let mut properties: HashMap<PropId, ServiceProperty> = Default::default();
 
     for Output((prop_id, plabel), (attr_id, alabel)) in outputs {
         let property = properties

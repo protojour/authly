@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use authly_common::id::Id128;
+use authly_common::id::{kind::IdKind, AnyId, Id128, Id128DynamicArrayConv};
 
 pub trait Literal {
     type Lit: Display;
@@ -8,15 +8,23 @@ pub trait Literal {
     fn literal(&self) -> Self::Lit;
 }
 
-impl<K> Literal for Id128<K> {
+impl<K: IdKind> Literal for Id128<K> {
     type Lit = IdLiteral;
 
     fn literal(&self) -> Self::Lit {
-        IdLiteral(self.to_bytes())
+        IdLiteral(self.to_array_dynamic())
     }
 }
 
-pub struct IdLiteral([u8; 16]);
+impl Literal for AnyId {
+    type Lit = IdLiteral;
+
+    fn literal(&self) -> Self::Lit {
+        IdLiteral(self.to_array_dynamic())
+    }
+}
+
+pub struct IdLiteral([u8; 17]);
 
 impl Display for IdLiteral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

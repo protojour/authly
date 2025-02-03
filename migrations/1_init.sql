@@ -35,6 +35,9 @@ CREATE TABLE directory (
     kind TEXT NOT NULL,
     url TEXT,
     hash BLOB
+    -- created_at DATETIME NOT NULL,
+    -- created_by_eid BLOB NOT NULL,
+    -- updated_at DATETIME NOT NULL
 );
 
 CREATE TABLE local_setting (
@@ -78,6 +81,8 @@ CREATE TABLE ent_rel (
     PRIMARY KEY (rel_id, subject_eid, object_eid)
 );
 
+-- Text attributes for any database object
+-- TODO: Labels can move into a separate table since they require directory-oriented indexing?
 CREATE TABLE obj_text_attr (
     dir_id BLOB NOT NULL,
     obj_id BLOB NOT NULL,
@@ -87,26 +92,25 @@ CREATE TABLE obj_text_attr (
     PRIMARY KEY (obj_id, prop_id)
 );
 
--- Domain: Property namespaces (not entities)
--- TODO: This table is not needed (obj_text_attr will be enough when ID can tag the underlying type)
-CREATE TABLE domain (
+-- An object's label in its originating directory/document
+CREATE TABLE obj_label (
     dir_id BLOB NOT NULL,
-    id BLOB NOT NULL PRIMARY KEY,
+    obj_id BLOB NOT NULL PRIMARY KEY,
     label TEXT NOT NULL
 );
 
--- Domain: entity property
-CREATE TABLE dom_ent_prop (
+-- Namespace: entity property
+CREATE TABLE ns_ent_prop (
     dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
-    dom_id BLOB NOT NULL,
+    ns_id BLOB NOT NULL,
     label TEXT NOT NULL,
 
-    UNIQUE (dom_id, label)
+    UNIQUE (ns_id, label)
 );
 
--- Domain: entity property attribute label
-CREATE TABLE dom_ent_attrlabel (
+-- Namespace: entity property attribute label
+CREATE TABLE ns_ent_attrlabel (
     dir_id BLOB NOT NULL,
     id BLOB NOT NULL,
     prop_id BLOB NOT NULL,
@@ -115,18 +119,18 @@ CREATE TABLE dom_ent_attrlabel (
     UNIQUE (prop_id, label)
 );
 
--- Domain: resource property
-CREATE TABLE dom_res_prop (
+-- Namespace: resource property
+CREATE TABLE ns_res_prop (
     dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
-    dom_id BLOB NOT NULL,
+    ns_id BLOB NOT NULL,
     label TEXT NOT NULL,
 
-    UNIQUE (dom_id, label)
+    UNIQUE (ns_id, label)
 );
 
--- Domain: resource attribute label
-CREATE TABLE dom_res_attrlabel (
+-- Namespace: resource attribute label
+CREATE TABLE ns_res_attrlabel (
     dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,
     prop_id BLOB NOT NULL,
@@ -135,16 +139,16 @@ CREATE TABLE dom_res_attrlabel (
     UNIQUE (prop_id, label)
 );
 
--- Service: domain participation
-CREATE TABLE svc_domain (
+-- Service: namespace participation
+CREATE TABLE svc_namespace (
     dir_id BLOB NOT NULL,
     svc_eid BLOB NOT NULL,
-    dom_id BLOB NOT NULL,
+    ns_id BLOB NOT NULL,
 
-    PRIMARY KEY (svc_eid, dom_id)
+    PRIMARY KEY (svc_eid, ns_id)
 );
 
--- TODO: Should policies be associated to domains (as a namespace)?
+-- TODO: Should policies be associated to namespaces?
 CREATE TABLE policy (
     dir_id BLOB NOT NULL,
     id BLOB NOT NULL PRIMARY KEY,

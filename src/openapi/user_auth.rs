@@ -13,7 +13,7 @@ use crate::{
         entity_db::{self, EntityPasswordHash},
         session_db,
     },
-    id::BuiltinID,
+    id::{BuiltinAttr, BuiltinProp},
     session::{new_session_cookie, Session, SessionToken, SESSION_TTL},
     AuthlyCtx, Eid,
 };
@@ -79,7 +79,7 @@ pub async fn authenticate(
     Extension(PeerServiceEntity(peer_svc_eid)): Extension<PeerServiceEntity>,
     Json(body): Json<AuthenticateRequest>,
 ) -> Result<axum::response::Response, AuthError> {
-    authorize_peer_service(peer_svc_eid, &[BuiltinID::AttrAuthlyRoleAuthenticate], &ctx).await?;
+    authorize_peer_service(peer_svc_eid, &[BuiltinAttr::AuthlyRoleAuthenticate], &ctx).await?;
 
     // BUG: figure this out:
     let _mfa_needed = false;
@@ -87,7 +87,7 @@ pub async fn authenticate(
 
     let (ehash, secret) = match body {
         AuthenticateRequest::User { username, password } => {
-            let prop_id = BuiltinID::PropUsername.to_obj_id();
+            let prop_id = BuiltinProp::Username.into();
 
             let ident_fingerprint = {
                 let deks = ctx.deks.load_full();
@@ -98,7 +98,7 @@ pub async fn authenticate(
 
             let ehash = entity_db::find_local_directory_entity_password_hash_by_entity_ident(
                 ctx.get_db(),
-                BuiltinID::PropUsername.to_obj_id(),
+                BuiltinProp::Username.into(),
                 &ident_fingerprint,
             )
             .await?

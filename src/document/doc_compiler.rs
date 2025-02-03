@@ -3,26 +3,22 @@ use std::collections::hash_map::Entry;
 use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
 
-use authly_common::id::AnyId;
+use authly_common::id::{AnyId, AttrId, DirectoryId, DomainId, PolicyBindingId, PolicyId, PropId};
 use authly_common::policy::code::PolicyValue;
-use authly_common::{
-    document,
-    id::{Eid, ObjId},
-    property::QualifiedAttributeName,
-};
+use authly_common::{document, id::Eid, property::QualifiedAttributeName};
 use authly_db::{Db, DbError};
 use serde::de::value::StrDeserializer;
 use serde::Deserialize;
 use serde_spanned::Spanned;
 use tracing::debug;
 
-use crate::db::directory_db::{DbDirectoryDomain, DbDirectoryPolicy};
+use crate::db::directory_db::{DbDirectoryObjectLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
 use crate::document::compiled_document::{
-    CompiledEntityAttributeAssignment, EntityIdent, ObjectTextAttr,
+    CompiledEntityAttributeAssignment, EntityIdent, ObjectLabel, ObjectTextAttr,
 };
-use crate::id::BuiltinID;
+use crate::id::BuiltinProp;
 use crate::policy::compiler::PolicyCompiler;
 use crate::settings::{Setting, Settings};
 use crate::util::error::{HandleError, ResultExt};
@@ -54,11 +50,11 @@ impl Namespaces {
         Ok(spanned.as_ref())
     }
 
-    fn insert_builtin_property(&mut self, builtin: BuiltinID) {
+    fn insert_builtin_property(&mut self, builtin: BuiltinProp) {
         let namespace = self.table.get_mut("authly").unwrap();
         namespace.as_mut().entries.insert(
             builtin.label().unwrap().to_string(),
-            Spanned::new(0..0, NamespaceEntry::PropertyLabel(builtin.to_obj_id())),
+            Spanned::new(0..0, NamespaceEntry::PropertyLabel(builtin.into())),
         );
     }
 }
@@ -79,27 +75,27 @@ pub enum NamespaceKind {
     Authly,
     Entity(Eid),
     Service(Eid),
-    Domain(ObjId),
-    Policy(ObjId),
+    Domain(DomainId),
+    Policy(PolicyId),
 }
 
 struct CompileCtx {
     /// Directory ID
-    dir_id: ObjId,
+    dir_id: DirectoryId,
 
     namespaces: Namespaces,
 
     eprop_cache: HashMap<AnyId, Vec<service_db::ServiceProperty>>,
     rprop_cache: HashMap<AnyId, Vec<service_db::ServiceProperty>>,
-    policy_cache: HashMap<ObjId, Vec<DbDirectoryPolicy>>,
-    domain_cache: Option<HashMap<String, ObjId>>,
+    policy_cache: HashMap<DirectoryId, Vec<DbDirectoryPolicy>>,
+    label_cache: Option<HashMap<String, AnyId>>,
 
     errors: Errors,
 }
 
 #[derive(Debug)]
 pub enum NamespaceEntry {
-    PropertyLabel(ObjId),
+    PropertyLabel(PropId),
 }
 
 #[derive(Default)]
@@ -113,12 +109,12 @@ pub async fn compile_doc(
     db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
     let mut comp = CompileCtx {
-        dir_id: ObjId::from_uint(doc.authly_document.id.get_ref().as_u128()),
+        dir_id: DirectoryId::from_uint(doc.authly_document.id.get_ref().as_u128()),
         namespaces: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
         policy_cache: Default::default(),
-        domain_cache: Default::default(),
+        label_cache: Default::default(),
         errors: Default::default(),
     };
     let mut data = CompiledDocumentData {
@@ -158,23 +154,22 @@ pub async fn compile_doc(
         seed_namespace(&doc, &mut comp);
 
         for domain in mem::take(&mut doc.domain) {
-            let Some(cache) = comp.db_directory_domains_cache(db).await else {
+            let Some(cache) = comp.db_directory_object_labels_cached(db).await else {
                 continue;
             };
 
             let id = cache
                 .get(domain.label.as_ref())
                 .copied()
-                .unwrap_or_else(ObjId::random);
+                .and_then(|id| DomainId::try_from(id).ok())
+                .unwrap_or_else(DomainId::random);
 
             comp.ns_add(&domain.label, NamespaceKind::Domain(id));
 
-            data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: AnyId::from_array(&id.to_bytes()),
-                prop_id: BuiltinID::PropLabel.to_obj_id(),
-                value: domain.label.as_ref().to_string(),
+            data.obj_labels.push(ObjectLabel {
+                obj_id: id.into(),
+                label: domain.label.as_ref().to_string(),
             });
-            data.domains.push(Identified(id, domain.label.into_inner()));
         }
     }
 
@@ -184,7 +179,7 @@ pub async fn compile_doc(
         if let Some(username) = entity.username.take() {
             data.entity_ident.push(EntityIdent {
                 eid: *entity.eid.as_ref(),
-                prop_id: BuiltinID::PropUsername.to_obj_id(),
+                prop_id: BuiltinProp::Username.into(),
                 ident: username.into_inner(),
             });
         }
@@ -193,17 +188,16 @@ pub async fn compile_doc(
     for entity in &mut doc.service_entity {
         let eid = *entity.eid.as_ref();
         if let Some(label) = &entity.label {
-            data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: AnyId::from_array(&eid.to_bytes()),
-                prop_id: BuiltinID::PropLabel.to_obj_id(),
-                value: label.as_ref().to_string(),
+            data.obj_labels.push(ObjectLabel {
+                obj_id: eid.into(),
+                label: label.as_ref().to_string(),
             });
         }
 
         if let Some(k8s) = mem::take(&mut entity.kubernetes_account) {
             data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: AnyId::from_array(&eid.to_bytes()),
-                prop_id: BuiltinID::PropK8sServiceAccount.to_obj_id(),
+                obj_id: eid.into(),
+                prop_id: BuiltinProp::K8sServiceAccount.into(),
                 value: format!("{}/{}", k8s.namespace, k8s.name),
             });
         }
@@ -218,7 +212,7 @@ pub async fn compile_doc(
 
         data.entity_ident.push(EntityIdent {
             eid,
-            prop_id: BuiltinID::PropEmail.to_obj_id(),
+            prop_id: BuiltinProp::Email.into(),
             ident: email.value.into_inner(),
         });
     }
@@ -229,8 +223,8 @@ pub async fn compile_doc(
         };
 
         data.obj_text_attrs.push(ObjectTextAttr {
-            obj_id: AnyId::from_array(&eid.to_bytes()),
-            prop_id: BuiltinID::PropPasswordHash.to_obj_id(),
+            obj_id: eid.into(),
+            prop_id: BuiltinProp::PasswordHash.into(),
             value: hash.hash,
         });
     }
@@ -261,9 +255,17 @@ pub async fn compile_doc(
     for doc_svc_domain in doc.service_domain {
         if let (Some(svc_eid), Some(dom_id)) = (
             comp.ns_entity_lookup(&doc_svc_domain.service),
-            comp.ns_domain_lookup(&doc_svc_domain.domain),
+            comp.ns_dyn_namespace_lookup(&doc_svc_domain.domain),
         ) {
-            data.service_domains.push((svc_eid, dom_id));
+            match DomainId::try_from(dom_id) {
+                Ok(domain_id) => {
+                    data.service_domains.push((svc_eid, domain_id));
+                }
+                Err(_) => {
+                    comp.errors
+                        .push(doc_svc_domain.domain.span(), CompileError::UnresolvedDomain);
+                }
+            }
         }
     }
 
@@ -289,7 +291,7 @@ fn seed_namespace(doc: &document::Document, comp: &mut CompileCtx) {
             },
         ),
     );
-    for builtin_prop in [BuiltinID::PropEntity, BuiltinID::PropAuthlyRole] {
+    for builtin_prop in [BuiltinProp::Entity, BuiltinProp::AuthlyRole] {
         comp.namespaces.insert_builtin_property(builtin_prop);
     }
 
@@ -320,7 +322,7 @@ fn process_members(
             if let Some(member_eid) = comp.ns_entity_lookup(member) {
                 data.entity_relations.push(CompiledEntityRelation {
                     subject: subject_eid,
-                    relation: BuiltinID::RelEntityMembership.to_obj_id(),
+                    relation: BuiltinProp::RelEntityMembership.into(),
                     object: member_eid,
                 });
             };
@@ -389,13 +391,13 @@ async fn process_service_properties(
 ) {
     for doc_eprop in entity_properties {
         if let Some(domain_label) = &doc_eprop.domain {
-            let Some(svc_eid) = comp.ns_domain_lookup(domain_label) else {
+            let Some(ns_id) = comp.ns_dyn_namespace_lookup(domain_label) else {
                 continue;
             };
 
             if let Some(compiled_property) = compile_service_property(
                 domain_label,
-                svc_eid,
+                ns_id,
                 service_db::ServicePropertyKind::Entity,
                 &doc_eprop.label,
                 doc_eprop.attributes,
@@ -410,7 +412,7 @@ async fn process_service_properties(
     }
 
     for doc_rprop in resource_properties {
-        let Some(domain_eid) = comp.ns_domain_lookup(&doc_rprop.domain) else {
+        let Some(domain_eid) = comp.ns_dyn_namespace_lookup(&doc_rprop.domain) else {
             continue;
         };
 
@@ -432,7 +434,7 @@ async fn process_service_properties(
 
 async fn compile_service_property(
     svc_namespace: &Spanned<String>,
-    dom_id: AnyId,
+    ns_id: AnyId,
     property_kind: service_db::ServicePropertyKind,
     doc_property_label: &Spanned<String>,
     doc_attributes: Vec<Spanned<String>>,
@@ -440,7 +442,7 @@ async fn compile_service_property(
     db: &impl Db,
 ) -> Option<CompiledProperty> {
     let db_props_cached = comp
-        .db_domain_properties_cached(dom_id, property_kind, db)
+        .db_namespace_properties_cached(ns_id, property_kind, db)
         .await?;
 
     let db_eprop = db_props_cached
@@ -451,8 +453,8 @@ async fn compile_service_property(
         id: db_eprop
             .as_ref()
             .map(|db_prop| db_prop.id)
-            .unwrap_or_else(ObjId::random),
-        dom_id,
+            .unwrap_or_else(PropId::random),
+        ns_id,
         label: doc_property_label.as_ref().to_string(),
         attributes: vec![],
     };
@@ -469,7 +471,7 @@ async fn compile_service_property(
             id: db_attr
                 .as_ref()
                 .map(|attr| attr.0)
-                .unwrap_or_else(ObjId::random),
+                .unwrap_or_else(AttrId::random),
             label: doc_attribute.into_inner(),
         });
     }
@@ -578,24 +580,24 @@ async fn process_policies(
         let namespace_label = policy.label.as_ref().to_string();
         let label_span = policy.label.span();
 
-        let service_policy: Identified<ObjId, DbPolicy> = if let Some(cached_policy) = cached_policy
-        {
-            Identified(
-                cached_policy.id,
-                policy_db::DbPolicy {
-                    label: policy.label.into_inner(),
-                    policy: policy_postcard,
-                },
-            )
-        } else {
-            Identified(
-                ObjId::random(),
-                policy_db::DbPolicy {
-                    label: policy.label.into_inner(),
-                    policy: policy_postcard,
-                },
-            )
-        };
+        let service_policy: Identified<PolicyId, DbPolicy> =
+            if let Some(cached_policy) = cached_policy {
+                Identified(
+                    cached_policy.id,
+                    policy_db::DbPolicy {
+                        label: policy.label.into_inner(),
+                        policy: policy_postcard,
+                    },
+                )
+            } else {
+                Identified(
+                    PolicyId::random(),
+                    policy_db::DbPolicy {
+                        label: policy.label.into_inner(),
+                        policy: policy_postcard,
+                    },
+                )
+            };
 
         comp.namespaces.table.insert(
             namespace_label,
@@ -619,7 +621,7 @@ fn process_policy_bindings(
 ) {
     for binding in policy_bindings {
         let mut policy_binding = Identified(
-            ObjId::random(),
+            PolicyBindingId::random(),
             policy_db::DbPolicyBinding {
                 attr_matcher: Default::default(),
                 policies: Default::default(),
@@ -724,10 +726,10 @@ impl CompileCtx {
         }
     }
 
-    fn ns_domain_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<AnyId> {
+    fn ns_dyn_namespace_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<AnyId> {
         match self.ns_lookup_kind(key, CompileError::UnresolvedService)? {
-            NamespaceKind::Service(eid) => Some(AnyId::from_array(&eid.to_bytes())),
-            NamespaceKind::Domain(dom_id) => Some(AnyId::from_array(&dom_id.to_bytes())),
+            NamespaceKind::Service(eid) => Some((*eid).into()),
+            NamespaceKind::Domain(dom_id) => Some((*dom_id).into()),
             _ => {
                 self.errors
                     .push(key.span(), CompileError::UnresolvedService);
@@ -740,15 +742,15 @@ impl CompileCtx {
         &mut self,
         namespace: &Spanned<impl AsRef<str>>,
         key: &Spanned<impl AsRef<str>>,
-    ) -> Option<ObjId> {
+    ) -> Option<PropId> {
         match self.ns_lookup_entry(namespace, key, CompileError::UnresolvedProperty)? {
-            NamespaceEntry::PropertyLabel(obj_id) => Some(*obj_id),
+            NamespaceEntry::PropertyLabel(prop_id) => Some(*prop_id),
         }
     }
 
-    fn ns_policy_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<ObjId> {
+    fn ns_policy_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<PolicyId> {
         match self.ns_lookup_kind(key, CompileError::UnresolvedProperty)? {
-            NamespaceKind::Policy(obj_id) => Some(*obj_id),
+            NamespaceKind::Policy(policy_id) => Some(*policy_id),
             _ => {
                 self.errors.push(key.span(), CompileError::UnresolvedPolicy);
                 None
@@ -793,9 +795,9 @@ impl CompileCtx {
         }
     }
 
-    async fn db_domain_properties_cached<'s>(
+    async fn db_namespace_properties_cached<'s>(
         &'s mut self,
-        dom_id: AnyId,
+        ns_id: AnyId,
         property_kind: service_db::ServicePropertyKind,
         db: &impl Db,
     ) -> Option<&'s Vec<service_db::ServiceProperty>> {
@@ -804,11 +806,11 @@ impl CompileCtx {
             service_db::ServicePropertyKind::Resource => &mut self.rprop_cache,
         };
 
-        match cache.entry(dom_id) {
+        match cache.entry(ns_id) {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
                 let db_props =
-                    directory_db::list_domain_properties(db, self.dir_id, dom_id, property_kind)
+                    directory_db::list_namespace_properties(db, self.dir_id, ns_id, property_kind)
                         .await
                         .handle_err(&mut self.errors)?;
                 Some(vacant.insert(db_props))
@@ -834,22 +836,22 @@ impl CompileCtx {
         }
     }
 
-    async fn db_directory_domains_cache<'s>(
+    async fn db_directory_object_labels_cached<'s>(
         &'s mut self,
         db: &impl Db,
-    ) -> Option<&'s HashMap<String, ObjId>> {
-        if self.domain_cache.is_some() {
-            Some(self.domain_cache.as_mut().unwrap())
+    ) -> Option<&'s HashMap<String, AnyId>> {
+        if self.label_cache.is_some() {
+            Some(self.label_cache.as_mut().unwrap())
         } else {
-            let db_domains = DbDirectoryDomain::query(db, self.dir_id)
+            let db_domains = DbDirectoryObjectLabel::query(db, self.dir_id)
                 .await
                 .handle_err(&mut self.errors)?;
 
             Some(
-                self.domain_cache.insert(
+                self.label_cache.insert(
                     db_domains
                         .into_iter()
-                        .map(|DbDirectoryDomain { id, label }| (label, id))
+                        .map(|DbDirectoryObjectLabel { id, label }| (label, id))
                         .collect(),
                 ),
             )

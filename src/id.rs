@@ -1,47 +1,56 @@
-use authly_common::id::{Id128, ObjId};
+use authly_common::id::{AttrId, PropId};
 use int_enum::IntEnum;
 
-/// Builtin Object IDs
 #[derive(Clone, Copy, Eq, PartialEq, Hash, IntEnum, Debug)]
 #[repr(u32)]
-pub enum BuiltinID {
-    /// Id representing Authly itself
-    Authly = 0,
-    /// The entity property
-    PropEntity = 1,
-    /// The built-in authly:role for authly internal access control
-    PropAuthlyRole = 2,
-    /// A service role for getting an access token
-    AttrAuthlyRoleGetAccessToken = 3,
-    /// A service role for authenticating users
-    AttrAuthlyRoleAuthenticate = 4,
-    /// A user role for applying documents
-    AttrAuthlyRoleApplyDocument = 5,
-    /// The entity membership relation
-    RelEntityMembership = 6,
-    /// The username ident property
-    PropUsername = 7,
-    /// The email ident property
-    PropEmail = 8,
-    /// The password_hash text property
-    PropPasswordHash = 9,
-    /// The label text property
-    PropLabel = 10,
-    /// The kubernetes service account name property.
-    /// The value format is `{namespace}/{account_name}`.
-    PropK8sServiceAccount = 11,
-    /// The Authly instance property
-    PropAuthlyInstance = 12,
-    /// A user role for granting mandates to authority
-    AttrAuthlyRoleGrantMandate = 13,
+pub enum BuiltinEntity {
+    /// Entity referring to the local Authly instance
+    LocalAuthly = 0,
 }
 
-impl BuiltinID {
-    /// Convert to an [ObjId].
-    pub const fn to_obj_id(self) -> ObjId {
-        Id128::from_uint(self as u128)
-    }
+#[derive(Clone, Copy, Eq, PartialEq, Hash, IntEnum, Debug)]
+#[repr(u32)]
+pub enum BuiltinProp {
+    /// The entity property
+    Entity = 0,
+    /// The built-in authly:role for authly internal access control
+    AuthlyRole = 1,
+    /// The Authly instance property
+    AuthlyInstance = 2,
+    /// The username ident property
+    Username = 3,
+    /// The email ident property
+    Email = 4,
+    /// The password_hash text property
+    PasswordHash = 5,
+    /// The kubernetes service account name property.
+    /// The value format is `{namespace}/{account_name}`.
+    K8sServiceAccount = 6,
+    /// A relation property representing "membership" relation
+    RelEntityMembership = 7,
+}
 
+#[expect(clippy::enum_variant_names)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, IntEnum, Debug)]
+#[repr(u32)]
+pub enum BuiltinAttr {
+    /// A service role for getting an access token
+    AuthlyRoleGetAccessToken = 0,
+    /// A service role for authenticating users
+    AuthlyRoleAuthenticate = 1,
+    /// A user role for applying documents
+    AuthlyRoleApplyDocument = 2,
+    /// A user role for granting mandates to authority
+    AuthlyRoleGrantMandate = 3,
+}
+
+impl From<BuiltinProp> for PropId {
+    fn from(value: BuiltinProp) -> PropId {
+        PropId::from_uint(value as u128)
+    }
+}
+
+impl BuiltinProp {
     pub fn iter() -> impl Iterator<Item = Self> {
         (0..u32::MAX)
             .map(Self::try_from)
@@ -51,53 +60,54 @@ impl BuiltinID {
     /// Get an optional label for this builtin ID.
     pub const fn label(self) -> Option<&'static str> {
         match self {
-            Self::Authly => None,
-            Self::PropEntity => Some("entity"),
-            Self::PropAuthlyRole => Some("role"),
-            Self::AttrAuthlyRoleGetAccessToken => Some("get_access_token"),
-            Self::AttrAuthlyRoleAuthenticate => Some("authenticate"),
-            Self::AttrAuthlyRoleApplyDocument => Some("apply_document"),
-            Self::PropUsername => None,
-            Self::PropEmail => None,
+            Self::Entity => Some("entity"),
+            Self::AuthlyRole => Some("role"),
+            Self::Username => None,
+            Self::Email => None,
+            Self::PasswordHash => None,
+            Self::K8sServiceAccount => None,
+            Self::AuthlyInstance => None,
             Self::RelEntityMembership => None,
-            Self::PropPasswordHash => None,
-            Self::PropLabel => None,
-            Self::PropK8sServiceAccount => None,
-            Self::PropAuthlyInstance => None,
-            Self::AttrAuthlyRoleGrantMandate => Some("grant_mandate"),
         }
     }
 
-    /// Whether the property is encrypted
-    pub const fn is_encrypted_prop(self) -> bool {
+    pub const fn is_encrypted(self) -> bool {
         match self {
-            Self::Authly
-            | Self::PropEntity
-            | Self::PropAuthlyRole
-            | Self::AttrAuthlyRoleGetAccessToken
-            | Self::AttrAuthlyRoleAuthenticate
-            | Self::AttrAuthlyRoleApplyDocument
-            | Self::AttrAuthlyRoleGrantMandate
-            | Self::RelEntityMembership => false,
-            Self::PropUsername => true,
-            Self::PropEmail => true,
-            Self::PropPasswordHash => true,
-            Self::PropLabel => false,
-            Self::PropK8sServiceAccount => true,
-            Self::PropAuthlyInstance => true,
+            Self::Entity | Self::AuthlyRole | Self::RelEntityMembership => false,
+            Self::Username => true,
+            Self::Email => true,
+            Self::PasswordHash => false,
+            Self::K8sServiceAccount => true,
+            Self::AuthlyInstance => true,
         }
     }
 
-    /// List attributes for an ID, in case it represents a builtin-in property.
-    pub const fn attributes(self) -> &'static [BuiltinID] {
+    pub const fn attributes(self) -> &'static [BuiltinAttr] {
         match self {
-            Self::PropAuthlyRole => &[
-                Self::AttrAuthlyRoleGetAccessToken,
-                Self::AttrAuthlyRoleAuthenticate,
-                Self::AttrAuthlyRoleApplyDocument,
-                Self::AttrAuthlyRoleGrantMandate,
+            Self::AuthlyRole => &[
+                BuiltinAttr::AuthlyRoleGetAccessToken,
+                BuiltinAttr::AuthlyRoleAuthenticate,
+                BuiltinAttr::AuthlyRoleApplyDocument,
+                BuiltinAttr::AuthlyRoleGrantMandate,
             ],
             _ => &[],
+        }
+    }
+}
+
+impl From<BuiltinAttr> for AttrId {
+    fn from(value: BuiltinAttr) -> AttrId {
+        AttrId::from_uint(value as u128)
+    }
+}
+
+impl BuiltinAttr {
+    pub const fn label(self) -> Option<&'static str> {
+        match self {
+            Self::AuthlyRoleGetAccessToken => Some("get_access_token"),
+            Self::AuthlyRoleAuthenticate => Some("authenticate"),
+            Self::AuthlyRoleApplyDocument => Some("apply_document"),
+            Self::AuthlyRoleGrantMandate => Some("grant_mandate"),
         }
     }
 }
