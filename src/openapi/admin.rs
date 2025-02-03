@@ -44,7 +44,7 @@ impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for AdminAu
             .map_err(|_| (StatusCode::UNAUTHORIZED, "invalid client"))?;
 
         // service requires no special privileges to call this
-        let _ = authorize_peer_service(peer_svc_eid.0, &[], ctx)
+        let _ = authorize_peer_service(ctx, peer_svc_eid.0, &[])
             .await
             .map_err(|_| (StatusCode::UNAUTHORIZED, "unauthorized client"))?;
 

@@ -79,7 +79,7 @@ pub async fn authenticate(
     Extension(PeerServiceEntity(peer_svc_eid)): Extension<PeerServiceEntity>,
     Json(body): Json<AuthenticateRequest>,
 ) -> Result<axum::response::Response, AuthError> {
-    authorize_peer_service(peer_svc_eid, &[BuiltinAttr::AuthlyRoleAuthenticate], &ctx).await?;
+    authorize_peer_service(&ctx, peer_svc_eid, &[BuiltinAttr::AuthlyRoleAuthenticate]).await?;
 
     // BUG: figure this out:
     let _mfa_needed = false;

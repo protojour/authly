@@ -35,28 +35,30 @@ use crate::{
     proto::grpc_db_err,
     session::{authenticate_session_cookie, find_session_cookie, Session},
     util::remote_addr::RemoteAddr,
-    AuthlyCtx,
 };
 
-pub struct AuthlyServiceServerImpl {
-    ctx: AuthlyCtx,
+pub struct AuthlyServiceServerImpl<Ctx> {
+    ctx: Ctx,
 }
 
-impl AuthlyServiceServerImpl {
-    pub(crate) fn new_service(ctx: AuthlyCtx) -> AuthlyServiceServer<Self> {
+impl<Ctx> AuthlyServiceServerImpl<Ctx> {
+    pub(crate) fn new_service(ctx: Ctx) -> AuthlyServiceServer<Self> {
         AuthlyServiceServer::new(Self { ctx })
     }
 }
 
 #[tonic::async_trait]
-impl AuthlyService for AuthlyServiceServerImpl {
+impl<Ctx> AuthlyService for AuthlyServiceServerImpl<Ctx>
+where
+    Ctx: GetDb + GetInstance + Send + Sync + 'static,
+{
     type MessagesStream = BoxStream<'static, tonic::Result<proto::ServiceMessage>>;
 
     async fn get_metadata(
         &self,
         request: Request<proto::Empty>,
     ) -> tonic::Result<Response<proto::ServiceMetadata>> {
-        let peer_svc = svc_mtls_auth(request.extensions(), &[], &self.ctx).await?;
+        let peer_svc = svc_mtls_auth(&self.ctx, request.extensions(), &[]).await?;
         let label = find_service_label_by_eid(self.ctx.get_db(), peer_svc.eid)
             .await
             .map_err(grpc_db_err)?
@@ -78,12 +80,12 @@ impl AuthlyService for AuthlyServiceServerImpl {
 
         let (peer_svc_result, access_token_result) = tokio::join!(
             svc_mtls_auth(
+                &self.ctx,
                 request.extensions(),
                 &[BuiltinAttr::AuthlyRoleGetAccessToken],
-                &self.ctx,
             ),
             async {
-                let session = session_auth(request.metadata(), &self.ctx)
+                let session = session_auth(&self.ctx, request.metadata())
                     .await
                     .map_err(tonic::Status::unauthenticated)?;
 
@@ -157,7 +159,7 @@ impl AuthlyService for AuthlyServiceServerImpl {
         request: Request<proto::AccessControlRequest>,
     ) -> tonic::Result<Response<proto::AccessControlResponse>> {
         let peer_svc_eid = svc_mtls_auth_trivial(request.extensions())?;
-        let opt_user_claims = get_access_token_opt(request.metadata(), &self.ctx)?;
+        let opt_user_claims = get_access_token_opt(&self.ctx, request.metadata())?;
 
         let mut params = AccessControlParams::default();
 
@@ -314,15 +316,15 @@ fn svc_remote_addr(extensions: &tonic::Extensions) -> tonic::Result<SocketAddr> 
 
 /// Authenticate and authorize the client
 async fn svc_mtls_auth(
+    deps: &impl GetDb,
     extensions: &tonic::Extensions,
     required_roles: &[BuiltinAttr],
-    ctx: &AuthlyCtx,
 ) -> tonic::Result<AuthorizedPeerService> {
     let peer_svc_eid = extensions
         .get::<PeerServiceEntity>()
         .ok_or_else(|| tonic::Status::unauthenticated("invalid service identity"))?;
 
-    let authorized = access_control::authorize_peer_service(peer_svc_eid.0, required_roles, ctx)
+    let authorized = access_control::authorize_peer_service(deps, peer_svc_eid.0, required_roles)
         .await
         .map_err(|_| {
             tonic::Status::unauthenticated("the service does not have the required role")
@@ -331,7 +333,7 @@ async fn svc_mtls_auth(
     Ok(authorized)
 }
 
-async fn session_auth(metadata: &MetadataMap, ctx: &AuthlyCtx) -> Result<Session, &'static str> {
+async fn session_auth(deps: &impl GetDb, metadata: &MetadataMap) -> Result<Session, &'static str> {
     let session_cookie = find_session_cookie(
         metadata
             .get_all(COOKIE.as_str())
@@ -339,36 +341,36 @@ async fn session_auth(metadata: &MetadataMap, ctx: &AuthlyCtx) -> Result<Session
             .filter_map(|data| data.to_str().ok()),
     )?;
 
-    authenticate_session_cookie(session_cookie, ctx).await
+    authenticate_session_cookie(deps, session_cookie).await
 }
 
 fn get_access_token_opt(
+    deps: &dyn GetInstance,
     metadata: &MetadataMap,
-    ctx: &AuthlyCtx,
 ) -> tonic::Result<Option<AuthlyAccessTokenClaims>> {
     let Some(authorization) = metadata.get(AUTHORIZATION.as_str()) else {
         return Ok(None);
     };
-    let claims = verify_bearer(authorization, ctx)?;
+    let claims = verify_bearer(deps, authorization)?;
     Ok(Some(claims))
 }
 
 #[expect(unused)]
 fn get_access_token(
+    deps: &dyn GetInstance,
     metadata: &MetadataMap,
-    ctx: &AuthlyCtx,
 ) -> tonic::Result<AuthlyAccessTokenClaims> {
     verify_bearer(
+        deps,
         metadata
             .get(AUTHORIZATION.as_str())
             .ok_or_else(|| tonic::Status::unauthenticated("access token is missing"))?,
-        ctx,
     )
 }
 
 fn verify_bearer(
+    deps: &dyn GetInstance,
     value: &tonic::metadata::MetadataValue<Ascii>,
-    ctx: &AuthlyCtx,
 ) -> tonic::Result<AuthlyAccessTokenClaims> {
     let token = value
         .to_str()
@@ -376,7 +378,7 @@ fn verify_bearer(
         .and_then(|bearer| bearer.strip_prefix("Bearer "))
         .ok_or_else(|| tonic::Status::unauthenticated("invalid access token encoding"))?;
 
-    access_token::verify_access_token(token, &ctx.get_instance())
+    access_token::verify_access_token(token, &deps.get_instance())
         .map_err(|_| tonic::Status::unauthenticated("access token not verified"))
 }
 

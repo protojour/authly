@@ -2,7 +2,7 @@ use authly_common::id::{AttrId, Eid};
 use authly_db::DbError;
 use fnv::FnvHashSet;
 
-use crate::{ctx::GetDb, db::entity_db, id::BuiltinAttr, AuthlyCtx};
+use crate::{ctx::GetDb, db::entity_db, id::BuiltinAttr};
 
 pub enum SvcAccessControlError {
     Denied,
@@ -63,11 +63,11 @@ impl<T: AuthlyRole> VerifyAuthlyRole for T {
 ///
 /// This currently does not use policies, it only checks whether the service is assigned the required attribute.
 pub async fn authorize_peer_service(
+    deps: &impl GetDb,
     svc_eid: Eid,
     required_authly_roles: &[BuiltinAttr],
-    ctx: &AuthlyCtx,
 ) -> Result<AuthorizedPeerService, SvcAccessControlError> {
-    let attributes = entity_db::list_entity_attrs(ctx.get_db(), svc_eid)
+    let attributes = entity_db::list_entity_attrs(deps.get_db(), svc_eid)
         .await
         .map_err(SvcAccessControlError::Db)?;
 

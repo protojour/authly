@@ -115,7 +115,7 @@ pub async fn mandate_execute_submission(
 
 /// unverified decode of submission token, mandate side
 pub fn mandate_decode_submission_token(
-    deps: &impl GetInstance,
+    deps: &dyn GetInstance,
     token: &str,
 ) -> Result<SubmissionClaims, MandateSubmissionError> {
     let mut no_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
@@ -131,7 +131,7 @@ pub fn mandate_decode_submission_token(
 }
 
 pub fn mandate_identity_signing_request(
-    deps: &impl GetInstance,
+    deps: &dyn GetInstance,
     mandate_eid: Eid,
 ) -> anyhow::Result<CertificateSigningRequest> {
     let common_name = mandate_eid.to_string();

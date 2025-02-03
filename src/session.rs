@@ -6,7 +6,7 @@ use rand::Rng;
 use time::OffsetDateTime;
 use tracing::warn;
 
-use crate::{ctx::GetDb, db::session_db, AuthlyCtx};
+use crate::{ctx::GetDb, db::session_db};
 
 pub const TOKEN_WIDTH: usize = 20;
 pub const SESSION_TTL: Duration = Duration::from_secs(60 * 60);
@@ -41,15 +41,15 @@ pub fn new_session_cookie(session: &Session) -> Cookie<'static> {
 }
 
 pub(crate) async fn authenticate_session_cookie(
+    deps: &impl GetDb,
     session_cookie: Cookie<'_>,
-    ctx: &AuthlyCtx,
 ) -> Result<Session, &'static str> {
     let now = OffsetDateTime::now_utc();
 
     let token_hex = session_cookie.value();
     let token = SessionToken(hexhex::decode(token_hex).map_err(|_| "invalid session cookie")?);
 
-    let session = session_db::get_session(ctx.get_db(), token)
+    let session = session_db::get_session(deps.get_db(), token)
         .await
         .map_err(|err| {
             warn!(?err, "session lookup error");
