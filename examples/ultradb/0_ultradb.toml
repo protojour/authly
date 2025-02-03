@@ -1,0 +1,47 @@
+[authly-document]
+id = "18d70399-0e89-46b8-81ce-a6a16e5db7cc"
+
+# Defines the Arx gateway (https://github.com/protojour/arx) as a service.
+# The gateway is responsible for opening up the public aspects of Authly
+# to the world outside the cluster:
+[[service-entity]]
+eid = "e.3c2f40b3f47a4d9b9129b1e7c15fbc04"
+label = "arx"
+attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
+kubernetes-account = { name = "arx", namespace = "memoriam-test" }
+
+[[service-entity]]
+eid = "e.ec29ba1d23cb43f89b7c73db6f177a1d"
+label = "ultradb"
+attributes = []
+kubernetes-account = { name = "domaindb", namespace = "dbtest" }
+
+[[service-entity]]
+eid = "e.a1c6134658dd4120823fdc42bb2f42ad"
+label = "ultradb_gui"
+
+[[entity-property]]
+domain = "ultradb_gui"
+label = "role"
+attributes = ["user", "admin"]
+
+[[resource-property]]
+domain = "ultradb"
+label = "action"
+attributes = ["read", "write"]
+
+[[policy]]
+label = "allow for GUI user"
+allow = "Subject.ultradb_gui:role contains ultradb_gui:role:user"
+
+[[policy]]
+label = "allow for GUI admin"
+allow = "Subject.ultradb_gui:role contains ultradb_gui:role:admin"
+
+[[policy-binding]]
+attributes = ["ultradb:action:read"]
+policies = ["allow for GUI user", "allow for GUI admin"]
+
+[[policy-binding]]
+attributes = ["ultradb:action:write"]
+policies = ["allow for GUI admin"]

@@ -1,0 +1,15 @@
+[authly-document]
+id = "23144cc5-b5d6-475f-96e6-36580a227564"
+
+[[domain]]
+label = "pants"
+
+# expose the pants domain to the "ultradb" service
+[[service-domain]]
+service = "e.ec29ba1d23cb43f89b7c73db6f177a1d"
+domain = "pants"
+
+[[resource-property]]
+domain = "pants"
+label = "type"
+attributes = ["jeans", "chinos"]

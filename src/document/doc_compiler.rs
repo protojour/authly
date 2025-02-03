@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
+use std::str::FromStr;
 use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
 
@@ -719,6 +720,10 @@ impl CompileCtx {
     }
 
     fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
+        if key.as_ref().as_ref().starts_with("e.") {
+            return Eid::from_str(key.as_ref().as_ref()).ok();
+        }
+
         match self.ns_lookup_kind(key, CompileError::UnresolvedEntity)? {
             NamespaceKind::Entity(eid) => Some(*eid),
             NamespaceKind::Service(eid) => Some(*eid),
@@ -727,6 +732,11 @@ impl CompileCtx {
     }
 
     fn ns_dyn_namespace_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<AnyId> {
+        if key.as_ref().as_ref().starts_with("e.") {
+            let eid = Eid::from_str(key.as_ref().as_ref()).ok()?;
+            return Some(eid.into());
+        }
+
         match self.ns_lookup_kind(key, CompileError::UnresolvedService)? {
             NamespaceKind::Service(eid) => Some((*eid).into()),
             NamespaceKind::Domain(dom_id) => Some((*dom_id).into()),

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use authly_common::{
@@ -36,6 +36,26 @@ mod test_authly_connect;
 mod test_authority_mandate;
 mod test_document;
 mod test_tls;
+mod test_ultradb;
+
+async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Result<()> {
+    let mut doc_files: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
+        .into_iter()
+        .map(|result| {
+            let path = result.unwrap().path();
+            let doc = std::fs::read_to_string(&path).unwrap();
+            (path, doc)
+        })
+        .collect();
+    doc_files.sort_by_key(|(path, _)| path.clone());
+
+    for (_, doc) in doc_files {
+        compile_and_apply_doc(&doc, &Default::default(), &ctx).await?;
+    }
+
+    Ok(())
+}
 
 async fn compile_and_apply_doc(
     toml: &str,
