@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use aes_gcm_siv::aead::Aead;
-use authly_common::id::ObjId;
+use authly_common::id::DirectoryId;
 use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
@@ -17,7 +17,7 @@ use super::Identified;
 
 /// An Authly directory backed by a document
 pub struct DocumentDirectory {
-    pub dir_id: ObjId,
+    pub dir_id: DirectoryId,
     pub url: String,
     pub hash: [u8; 32],
 }
@@ -135,42 +135,26 @@ pub fn document_txn_statements(
         }
     }
 
-    // domain
-    {
-        stmts.push(gc(
-            "domain",
-            NotIn("id", data.domains.iter().map(|i| *i.id())),
-            dir_id,
-        ));
-
-        for Identified(id, label) in data.domains {
-            stmts.push((
-                "INSERT INTO domain (dir_id, id, label) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET label = $3".into(),
-                params!(dir_id.as_param(), id.as_param(), label),
-            ));
-        }
-    }
-
-    // service - domain
+    // service - namespace/domain
     {
         // not sure how to "GC" this?
         stmts.push((
-            "DELETE FROM svc_domain WHERE dir_id = $1".into(),
+            "DELETE FROM svc_namespace WHERE dir_id = $1".into(),
             params!(dir_id.as_param()),
         ));
 
         for svc_id in data.service_ids {
-            // the service is in its own domain
+            // the service is in its own namespace
             stmts.push((
-                "INSERT INTO svc_domain (dir_id, svc_eid, dom_id) VALUES ($1, $2, $3)".into(),
+                "INSERT INTO svc_namespace (dir_id, svc_eid, ns_id) VALUES ($1, $2, $3)".into(),
                 params!(dir_id.as_param(), svc_id.as_param(), svc_id.as_param()),
             ));
         }
 
-        for (svc_id, dom_id) in data.service_domains {
+        for (svc_id, domain_id) in data.service_domains {
             stmts.push((
-                "INSERT INTO svc_domain (dir_id, svc_eid, dom_id) VALUES ($1, $2, $3)".into(),
-                params!(dir_id.as_param(), svc_id.as_param(), dom_id.as_param()),
+                "INSERT INTO svc_namespace (dir_id, svc_eid, ns_id) VALUES ($1, $2, $3)".into(),
+                params!(dir_id.as_param(), svc_id.as_param(), domain_id.as_param()),
             ));
         }
     }
@@ -191,15 +175,15 @@ pub fn document_txn_statements(
         }
     }
 
-    // service entity props
+    // namespaced entity props
     {
         stmts.push(gc(
-            "dom_ent_prop",
+            "ns_ent_prop",
             NotIn("id", data.domain_ent_props.iter().map(|s| s.id)),
             dir_id,
         ));
         stmts.push(gc(
-            "dom_ent_attrlabel",
+            "ns_ent_attrlabel",
             NotIn(
                 "id",
                 data.domain_ent_props
@@ -212,13 +196,13 @@ pub fn document_txn_statements(
 
         for eprop in data.domain_ent_props {
             stmts.push((
-                "INSERT INTO dom_ent_prop (dir_id, id, dom_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET label = $4".into(),
-                params!(dir_id.as_param(), eprop.id.as_param(), eprop.dom_id.as_param(), &eprop.label),
+                "INSERT INTO ns_ent_prop (dir_id, id, ns_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET label = $4".into(),
+                params!(dir_id.as_param(), eprop.id.as_param(), eprop.ns_id.as_param(), &eprop.label),
             ));
 
             for attr in eprop.attributes {
                 stmts.push((
-                    "INSERT INTO dom_ent_attrlabel (dir_id, id, prop_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
+                    "INSERT INTO ns_ent_attrlabel (dir_id, id, prop_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
                     params!(dir_id.as_param(), attr.id.as_param(), eprop.id.as_param(), attr.label)
                 ));
             }
@@ -228,12 +212,12 @@ pub fn document_txn_statements(
     // service resource props
     {
         stmts.push(gc(
-            "dom_res_prop",
+            "ns_res_prop",
             NotIn("id", data.domain_res_props.iter().map(|p| p.id)),
             dir_id,
         ));
         stmts.push(gc(
-            "dom_res_attrlabel",
+            "ns_res_attrlabel",
             NotIn(
                 "id",
                 data.domain_res_props
@@ -248,7 +232,7 @@ pub fn document_txn_statements(
             stmts.push((
                 indoc! {
                     "
-                    INSERT INTO dom_res_prop (dir_id, id, dom_id, label)
+                    INSERT INTO ns_res_prop (dir_id, id, ns_id, label)
                     VALUES ($1, $2, $3, $4)
                     ON CONFLICT DO UPDATE SET label = $4
                     "
@@ -257,14 +241,14 @@ pub fn document_txn_statements(
                 params!(
                     dir_id.as_param(),
                     rprop.id.as_param(),
-                    rprop.dom_id.as_param(),
+                    rprop.ns_id.as_param(),
                     &rprop.label
                 ),
             ));
 
             for attr in rprop.attributes {
                 stmts.push((
-                    "INSERT INTO dom_res_attrlabel (dir_id, id, prop_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
+                    "INSERT INTO ns_res_attrlabel (dir_id, id, prop_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
                     params!(dir_id.as_param(), attr.id.as_param(), rprop.id.as_param(), attr.label)
                 ));
             }
@@ -342,7 +326,7 @@ struct NotIn<'a, I>(&'a str, I);
 fn gc(
     table: &str,
     NotIn(id, keep): NotIn<impl Iterator<Item = impl Literal>>,
-    dir_id: ObjId,
+    dir_id: DirectoryId,
 ) -> (Cow<'static, str>, Vec<Param>) {
     (
         format!(

@@ -144,7 +144,7 @@ async fn test_mtls_verified() {
     let ca = authly_ca().with_new_key_pair().self_signed();
     let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
     let client_cert = ca.sign(
-        client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
+        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
@@ -167,7 +167,7 @@ async fn test_mtls_verified() {
 
     assert_eq!(
         text_response,
-        "it works: peer_service_eid=cf2e74c3f26240908e1b4e8817bfde7c"
+        "it works: peer_service_eid=e.cf2e74c3f26240908e1b4e8817bfde7c"
     );
 }
 
@@ -199,7 +199,7 @@ async fn test_mtls_server_cert_through_csr() {
 
     // let server_cert = ca.sign(gen_key_pair().server_cert_csr("localhost", Duration::hours(1)));
     let client_cert = ca.sign(
-        client_cert("cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
+        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
@@ -222,7 +222,7 @@ async fn test_mtls_server_cert_through_csr() {
 
     assert_eq!(
         text_response,
-        "it works: peer_service_eid=cf2e74c3f26240908e1b4e8817bfde7c"
+        "it works: peer_service_eid=e.cf2e74c3f26240908e1b4e8817bfde7c"
     );
 }
 

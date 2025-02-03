@@ -1,21 +1,21 @@
 use argon2::{password_hash::SaltString, Argon2};
-use authly_common::id::{Eid, ObjId};
+use authly_common::id::{AttrId, Eid, PropId};
 use authly_db::{param::AsParam, Db, DbResult, FromRow, Row};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 use indoc::indoc;
 
-use crate::id::BuiltinID;
+use crate::id::BuiltinProp;
 
 pub struct EntityPasswordHash {
     pub eid: Eid,
     pub secret_hash: String,
 }
 
-pub struct EntityAttrs(pub FnvHashSet<ObjId>);
+pub struct EntityAttrs(pub FnvHashSet<AttrId>);
 
-pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<ObjId>> {
-    struct EntityAttr(ObjId);
+pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<AttrId>> {
+    struct EntityAttr(AttrId);
 
     impl FromRow for EntityAttr {
         fn from_row(row: &mut impl Row) -> Self {
@@ -45,7 +45,7 @@ impl FromRow for EntityPasswordHash {
 
 pub async fn find_local_directory_entity_password_hash_by_entity_ident(
     deps: &impl Db,
-    ident_prop_id: ObjId,
+    ident_prop_id: PropId,
     ident_fingerprint: &[u8],
 ) -> DbResult<Option<EntityPasswordHash>> {
     deps.query_map_opt(
@@ -60,7 +60,7 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
         params!(
             ident_prop_id.as_param(),
             ident_fingerprint,
-            BuiltinID::PropPasswordHash.to_obj_id().as_param()
+            PropId::from(BuiltinProp::PasswordHash).as_param()
         ),
     )
     .await

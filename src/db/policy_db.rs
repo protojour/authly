@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use authly_common::{
-    id::{Eid, ObjId},
+    id::{AttrId, Eid, PolicyId},
     policy::{
         code::{to_bytecode, PolicyValue},
         engine::PolicyEngine,
@@ -33,13 +33,13 @@ pub struct PolicyPostcard {
 
 #[derive(Debug)]
 pub struct DbPolicyBinding {
-    pub attr_matcher: BTreeSet<ObjId>,
-    pub policies: BTreeSet<ObjId>,
+    pub attr_matcher: BTreeSet<AttrId>,
+    pub policies: BTreeSet<PolicyId>,
 }
 
 #[derive(Debug)]
 pub struct PoliciesWithBindings {
-    pub policies: Vec<Identified<ObjId, PolicyPostcard>>,
+    pub policies: Vec<Identified<PolicyId, PolicyPostcard>>,
     pub bindings: Vec<DbPolicyBinding>,
 }
 
@@ -63,19 +63,13 @@ pub async fn load_svc_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<Po
         policies,
     } in policy_data.bindings
     {
-        policy_engine.add_trigger(
-            attr_matcher
-                .iter()
-                .map(ObjId::to_any)
-                .collect::<BTreeSet<_>>(),
-            policies,
-        );
+        policy_engine.add_trigger(attr_matcher, policies);
     }
 
     Ok(policy_engine)
 }
 
-impl TryFromRow for Identified<ObjId, PolicyPostcard> {
+impl TryFromRow for Identified<PolicyId, PolicyPostcard> {
     type Error = postcard::Error;
 
     fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
@@ -92,7 +86,7 @@ pub async fn load_svc_policies_with_bindings(
 ) -> DbResult<PoliciesWithBindings> {
     let bindings = list_svc_implied_policy_bindings(deps, svc_id).await?;
 
-    let policy_ids = BTreeSet::<ObjId>::from_iter(
+    let policy_ids = BTreeSet::<PolicyId>::from_iter(
         bindings
             .iter()
             .flat_map(|binding| binding.policies.iter().copied()),
@@ -133,9 +127,9 @@ async fn list_svc_implied_policy_bindings(
                 CAST(group_concat(pb_pol.policy_id, '') AS BLOB) policies
             FROM polbind_policy pb_pol
             JOIN polbind_attr_match pb_am ON pb_am.polbind_id = pb_pol.polbind_id
-            JOIN dom_res_attrlabel ra ON ra.id = pb_am.attr_id
-            JOIN dom_res_prop rp ON rp.id = ra.prop_id
-            JOIN svc_domain sdom ON sdom.dom_id = rp.dom_id
+            JOIN ns_res_attrlabel ra ON ra.id = pb_am.attr_id
+            JOIN ns_res_prop rp ON rp.id = ra.prop_id
+            JOIN svc_namespace sdom ON sdom.ns_id = rp.ns_id
             WHERE sdom.svc_eid = $1
             GROUP BY pb_pol.polbind_id
             "

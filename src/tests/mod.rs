@@ -52,6 +52,8 @@ async fn compile_and_apply_doc(
 
             anyhow!("doc compile error)")
         })?;
+
+    // TODO: Improve testing by transacting the same document twice
     for (idx, result) in ctx
         .get_db()
         .transact(document_db::document_txn_statements(compiled_doc, deks)?)

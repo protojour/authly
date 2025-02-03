@@ -8,7 +8,7 @@
 
 use authly_common::{
     access_token::{Authly, AuthlyAccessTokenClaims},
-    id::ObjId,
+    id::AttrId,
 };
 use axum::RequestPartsExt;
 use axum_extra::{
@@ -35,7 +35,7 @@ pub enum AccessTokenError {
 /// There's a benchmark for it which reveals it runs in about 30 µs on my development machine.
 pub fn create_access_token(
     session: &Session,
-    user_attributes: FnvHashSet<ObjId>,
+    user_attributes: FnvHashSet<AttrId>,
     instance: &AuthlyInstance,
 ) -> Result<String, AccessTokenError> {
     let jwt_header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);

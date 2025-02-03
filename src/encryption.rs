@@ -5,7 +5,7 @@ use aes_gcm_siv::{
     Aes256GcmSiv, Key, KeyInit,
 };
 use anyhow::{anyhow, Context};
-use authly_common::id::ObjId;
+use authly_common::id::PropId;
 use authly_db::Db;
 use rand::{rngs::OsRng, Rng, RngCore};
 use serde::Deserialize;
@@ -13,20 +13,20 @@ use serde_json::json;
 use time::OffsetDateTime;
 use tracing::info;
 
-use crate::{db::cryptography_db, id::BuiltinID, util::serde::Hex, EnvConfig, IsLeaderDb};
+use crate::{db::cryptography_db, id::BuiltinProp, util::serde::Hex, EnvConfig, IsLeaderDb};
 
 /// The set of Data Encryption Keys used by authly
 #[derive(Default, Debug)]
 pub struct DecryptedDeks {
-    deks: HashMap<ObjId, AesKey>,
+    deks: HashMap<PropId, AesKey>,
 }
 
 impl DecryptedDeks {
-    pub fn new(deks: HashMap<ObjId, AesKey>) -> Self {
+    pub fn new(deks: HashMap<PropId, AesKey>) -> Self {
         Self { deks }
     }
 
-    pub fn get(&self, id: ObjId) -> anyhow::Result<&AesKey> {
+    pub fn get(&self, id: PropId) -> anyhow::Result<&AesKey> {
         self.deks
             .get(&id)
             .ok_or_else(|| anyhow!("no DEK present for {id}"))
@@ -298,14 +298,14 @@ pub async fn gen_prop_deks(
     deps: &impl Db,
     decrypted_master: &DecryptedMaster,
     is_leader: IsLeaderDb,
-) -> anyhow::Result<HashMap<ObjId, AesKey>> {
+) -> anyhow::Result<HashMap<PropId, AesKey>> {
     let old_encrypted_deks = cryptography_db::list_all_cr_prop_deks(deps).await?;
-    let mut new_encrypted_deks: HashMap<ObjId, EncryptedDek> = Default::default();
-    let mut decrypted_deks: HashMap<ObjId, AesKey> = Default::default();
+    let mut new_encrypted_deks: HashMap<PropId, EncryptedDek> = Default::default();
+    let mut decrypted_deks: HashMap<PropId, AesKey> = Default::default();
 
     for id in all_encrypted_props() {
         let decrypted_dek = if let Some(encrypted) = old_encrypted_deks.get(&id) {
-            let nonce = nonce_from_slice(&encrypted.nonce)?;
+            let nonce = encrypted.nonce;
             let decrypted_dek = decrypted_master
                 .key
                 .aes()
@@ -320,7 +320,7 @@ pub async fn gen_prop_deks(
             let ciph = decrypted_master.key.aes().encrypt(&nonce, dek.as_slice())?;
 
             new_encrypted_deks.insert(
-                id.to_obj_id(),
+                id.into(),
                 EncryptedDek {
                     nonce,
                     ciph,
@@ -331,7 +331,7 @@ pub async fn gen_prop_deks(
             AesKey { key: dek }
         };
 
-        decrypted_deks.insert(id.to_obj_id(), decrypted_dek);
+        decrypted_deks.insert(id.into(), decrypted_dek);
     }
 
     if is_leader.0 && !new_encrypted_deks.is_empty() {
@@ -341,8 +341,8 @@ pub async fn gen_prop_deks(
     Ok(decrypted_deks)
 }
 
-fn all_encrypted_props() -> impl Iterator<Item = BuiltinID> {
-    BuiltinID::iter().filter(|id| id.is_encrypted_prop())
+fn all_encrypted_props() -> impl Iterator<Item = BuiltinProp> {
+    BuiltinProp::iter().filter(|id| id.is_encrypted())
 }
 
 fn load_key(bytes: impl IntoIterator<Item = u8>) -> anyhow::Result<Key<Aes256GcmSiv>> {

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Debug, future::Future, marker::PhantomData};
 
-use authly_common::id::Id128;
+use authly_common::id::Id128DynamicArrayConv;
 use hiqlite::Params;
 use itertools::Itertools;
 use thiserror::Error;
@@ -121,13 +121,13 @@ pub trait Row {
     }
 
     #[track_caller]
-    fn get_id<K>(&mut self, idx: &str) -> Id128<K> {
-        Id128::from_array(&self.get_blob_array(idx))
+    fn get_id<T: Id128DynamicArrayConv>(&mut self, idx: &str) -> T {
+        T::try_from_array_dynamic(&self.get_blob_array(idx)).unwrap()
     }
 
     /// Read Ids that have been produced with sqlite `group_concat` producing a concatenated BLOB
     #[track_caller]
-    fn get_ids_concatenated<K>(&mut self, idx: &str) -> IdsConcatenated<K> {
+    fn get_ids_concatenated<T>(&mut self, idx: &str) -> IdsConcatenated<T> {
         IdsConcatenated {
             iter: self.get_blob(idx).into_iter(),
             _phantom: PhantomData,
@@ -135,16 +135,16 @@ pub trait Row {
     }
 }
 
-pub struct IdsConcatenated<K> {
+pub struct IdsConcatenated<T> {
     iter: std::vec::IntoIter<u8>,
-    _phantom: PhantomData<K>,
+    _phantom: PhantomData<T>,
 }
 
-impl<K> Iterator for IdsConcatenated<K> {
-    type Item = Id128<K>;
+impl<T: Id128DynamicArrayConv> Iterator for IdsConcatenated<T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(Id128::from_array(&self.iter.next_array()?))
+        T::try_from_array_dynamic(&self.iter.next_array()?)
     }
 }
 

@@ -1,4 +1,4 @@
-use authly_common::id::ObjId;
+use authly_common::id::DirectoryId;
 use serde::{Deserialize, Serialize};
 
 /// Message type used by the Authly message bus (hiqlite notify mechanism).
@@ -17,7 +17,7 @@ pub enum ClusterMessage {
     /// It can also mean the directory was added or removed.
     DirectoryChanged {
         /// The directory ID that changed
-        dir_id: ObjId,
+        dir_id: DirectoryId,
     },
 
     /// Broadcast message to all connected clients

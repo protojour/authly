@@ -1,6 +1,9 @@
-use authly_common::{id::AnyId, policy::code::OpCode};
+use authly_common::{
+    id::{AttrId, Eid, PropId},
+    policy::code::OpCode,
+};
 
-use crate::id::BuiltinID;
+use crate::id::BuiltinProp;
 
 use super::expr::{Expr, Global, Term};
 
@@ -55,12 +58,12 @@ impl Codegen {
         match term {
             Term::Label(label) => self
                 .ops
-                .push(OpCode::LoadConstId(AnyId::from(label.0).to_uint())),
+                .push(OpCode::LoadConstEntityId(Eid::from(label.0).to_uint())),
             Term::Field(global, label) => match global {
                 Global::Subject => {
-                    if label.0 == BuiltinID::PropEntity.to_obj_id().to_bytes() {
+                    if label.0 == PropId::from(BuiltinProp::Entity).to_raw_array() {
                         self.ops.push(OpCode::LoadSubjectId(
-                            BuiltinID::PropEntity.to_obj_id().to_uint(),
+                            PropId::from(BuiltinProp::Entity).to_uint(),
                         ));
                     } else {
                         self.ops.push(OpCode::LoadSubjectAttrs);
@@ -72,7 +75,7 @@ impl Codegen {
             },
             Term::Attr(_prop, attr) => self
                 .ops
-                .push(OpCode::LoadConstId(AnyId::from(attr.0).to_uint())),
+                .push(OpCode::LoadConstAttrId(AttrId::from(attr.0).to_uint())),
             Term::Error => {}
         }
     }
