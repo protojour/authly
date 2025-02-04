@@ -1,10 +1,10 @@
 use authly_common::{
-    id::{AttrId, PropId},
+    id::{AnyId, AttrId, PropId},
     service::NamespacePropertyMapping,
 };
-use authly_db::{param::AsParam, Db, DbResult, FromRow, Row};
+use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
-use indoc::indoc;
+use indoc::{formatdoc, indoc};
 use tracing::warn;
 
 use crate::{id::BuiltinProp, Eid};
@@ -137,4 +137,52 @@ pub async fn get_service_property_mapping(
     }
 
     Ok(mapping)
+}
+
+pub struct SvcNamespaceWithMetadata {
+    pub id: AnyId,
+    pub label: String,
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+impl TryFromRow for SvcNamespaceWithMetadata {
+    type Error = anyhow::Error;
+
+    fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.get_id("id"),
+            label: row.get_text("label"),
+            metadata: match row.get_opt_text("metadata") {
+                Some(metadata) => serde_json::from_str(&metadata)?,
+                None => None,
+            },
+        })
+    }
+}
+
+pub async fn list_service_namespace_with_metadata(
+    deps: &impl Db,
+    svc_eid: Eid,
+) -> DbResult<Vec<SvcNamespaceWithMetadata>> {
+    deps.query_filter_map(
+        formatdoc! {
+            "
+            SELECT
+                svc_namespace.ns_id id,
+                obj_label.label label,
+                obj_text_attr.value metadata
+            FROM svc_namespace
+            JOIN obj_label
+                ON obj_label.obj_id = svc_namespace.ns_id
+            LEFT JOIN obj_text_attr
+                ON obj_text_attr.obj_id = svc_namespace.ns_id
+                AND obj_text_attr.prop_id = {metadata}
+            WHERE svc_namespace.svc_eid = $1
+            ",
+            metadata = PropId::from(BuiltinProp::Metadata).literal()
+        }
+        .into(),
+        params!(svc_eid.as_param()),
+    )
+    .await
 }

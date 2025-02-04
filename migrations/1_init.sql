@@ -82,7 +82,6 @@ CREATE TABLE ent_rel (
 );
 
 -- Text attributes for any database object
--- TODO: Labels can move into a separate table since they require directory-oriented indexing?
 CREATE TABLE obj_text_attr (
     dir_id BLOB NOT NULL,
     obj_id BLOB NOT NULL,

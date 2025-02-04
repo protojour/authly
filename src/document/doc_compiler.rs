@@ -171,6 +171,14 @@ pub async fn compile_doc(
                 obj_id: id.into(),
                 label: domain.label.as_ref().to_string(),
             });
+
+            if let Some(metadata) = domain.metadata {
+                data.obj_text_attrs.push(ObjectTextAttr {
+                    obj_id: id.into(),
+                    prop_id: PropId::from(BuiltinProp::Metadata),
+                    value: serde_json::to_string(&metadata).expect("already valid json"),
+                });
+            }
         }
     }
 
@@ -183,6 +191,11 @@ pub async fn compile_doc(
                 prop_id: BuiltinProp::Username.into(),
                 ident: username.into_inner(),
             });
+        }
+
+        if let Some(metadata) = entity.metadata.take() {
+            comp.errors
+                .push(metadata.span(), CompileError::MetadataNotSupported);
         }
     }
 
@@ -204,6 +217,14 @@ pub async fn compile_doc(
         }
 
         data.service_ids.insert(eid);
+
+        if let Some(metadata) = entity.metadata.take() {
+            data.obj_text_attrs.push(ObjectTextAttr {
+                obj_id: (*entity.eid.as_ref()).into(),
+                prop_id: PropId::from(BuiltinProp::Metadata),
+                value: serde_json::to_string(&metadata).expect("already valid json"),
+            });
+        }
     }
 
     for email in mem::take(&mut doc.email) {

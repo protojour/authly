@@ -8,9 +8,8 @@ async fn test_metadata() -> anyhow::Result<()> {
         .service_client()
         .await?;
 
-    let label = client.label().await?;
-
-    assert_eq!(label, "testservice");
+    let metadata = client.metadata().await?;
+    assert_eq!(metadata.label(), "testservice");
 
     Ok(())
 }

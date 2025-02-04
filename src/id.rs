@@ -28,6 +28,8 @@ pub enum BuiltinProp {
     K8sServiceAccount = 6,
     /// A relation property representing "membership" relation
     RelEntityMembership = 7,
+    /// The `metadata` property from documents. Stored as a JSON-encoded text property.
+    Metadata = 8,
 }
 
 #[expect(clippy::enum_variant_names)]
@@ -68,12 +70,13 @@ impl BuiltinProp {
             Self::K8sServiceAccount => None,
             Self::AuthlyInstance => None,
             Self::RelEntityMembership => None,
+            Self::Metadata => None,
         }
     }
 
     pub const fn is_encrypted(self) -> bool {
         match self {
-            Self::Entity | Self::AuthlyRole | Self::RelEntityMembership => false,
+            Self::Entity | Self::AuthlyRole | Self::RelEntityMembership | Self::Metadata => false,
             Self::Username => true,
             Self::Email => true,
             Self::PasswordHash => false,

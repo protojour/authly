@@ -31,6 +31,7 @@ pub enum CompileError {
     UnresolvedPolicy,
     PolicyBodyMissing,
     AmbiguousPolicyOutcome,
+    MetadataNotSupported,
     Policy(PolicyCompileErrorKind),
     Db(String),
 }

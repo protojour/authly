@@ -2,7 +2,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
-    id::{Eid, Id128},
+    id::{Eid, Id128, Id128DynamicArrayConv},
     mtls_server::PeerServiceEntity,
     policy::{
         code::PolicyValue,
@@ -29,7 +29,9 @@ use crate::{
     ctx::{GetDb, GetInstance},
     db::{
         entity_db, policy_db,
-        service_db::{self, find_service_label_by_eid, ServicePropertyKind},
+        service_db::{
+            self, find_service_label_by_eid, ServicePropertyKind, SvcNamespaceWithMetadata,
+        },
     },
     id::{BuiltinAttr, BuiltinProp},
     proto::grpc_db_err,
@@ -64,9 +66,15 @@ where
             .map_err(grpc_db_err)?
             .ok_or_else(|| tonic::Status::internal("no service label"))?;
 
+        let namespaces =
+            service_db::list_service_namespace_with_metadata(self.ctx.get_db(), peer_svc.eid)
+                .await
+                .map_err(grpc_db_err)?;
+
         Ok(Response::new(proto::ServiceMetadata {
             entity_id: peer_svc.eid.to_raw_array().to_vec(),
             label,
+            namespaces: metadata::namespaces_with_metadata_to_proto(namespaces),
         }))
     }
 
@@ -384,4 +392,50 @@ fn verify_bearer(
 
 fn id_from_proto<K>(bytes: &[u8]) -> tonic::Result<Id128<K>> {
     Id128::from_raw_bytes(bytes).ok_or_else(|| tonic::Status::invalid_argument("invalid ID"))
+}
+
+mod metadata {
+    use prost_types::{value::Kind, ListValue, Struct, Value as PValue};
+    use serde_json::Value as JValue;
+
+    use super::*;
+
+    pub fn namespaces_with_metadata_to_proto(
+        input: Vec<SvcNamespaceWithMetadata>,
+    ) -> Vec<proto::NamespaceMetadata> {
+        input
+            .into_iter()
+            .map(|ns| proto::NamespaceMetadata {
+                // BUG: Protocal can't represent AnyId yet
+                namespace_id: (ns.id.to_array_dynamic()[1..]).to_vec(),
+                label: ns.label,
+                metadata: ns.metadata.map(json_object_to_proto),
+            })
+            .collect()
+    }
+
+    fn json_object_to_proto(object: serde_json::Map<String, JValue>) -> Struct {
+        let mut ztruct = Struct::default();
+
+        for (key, value) in object {
+            ztruct.fields.insert(key, json_value_to_proto(value));
+        }
+
+        ztruct
+    }
+
+    fn json_value_to_proto(value: serde_json::Value) -> PValue {
+        let kind = match value {
+            JValue::Null => Some(Kind::NullValue(0)),
+            JValue::Bool(b) => Some(Kind::BoolValue(b)),
+            JValue::Number(n) => n.as_f64().map(Kind::NumberValue),
+            JValue::String(s) => Some(Kind::StringValue(s)),
+            JValue::Array(vec) => Some(Kind::ListValue(ListValue {
+                values: vec.into_iter().map(json_value_to_proto).collect(),
+            })),
+            JValue::Object(map) => Some(Kind::StructValue(json_object_to_proto(map))),
+        };
+
+        PValue { kind }
+    }
 }

@@ -42,8 +42,9 @@ async fn main() {
             .unwrap();
 
         let client = client_builder.connect().await.unwrap();
-        let entity_id = client.entity_id().await.unwrap();
-        let label = client.label().await.unwrap();
+        let metadata = client.metadata().await.unwrap();
+        let entity_id = metadata.entity_id();
+        let label = metadata.label();
 
         info!("client running, entity_id={entity_id} label={label}, binding server to port 443");
 
@@ -159,7 +160,12 @@ async fn index(ctx: HtmlCtx) -> Markup {
 
 async fn tab_service(ctx: HtmlCtx) -> Result<Markup, Error> {
     let (entity_id, label) = if let Some(client) = ctx.client.as_ref() {
-        (client.entity_id().await?.to_string(), client.label().await?)
+        let metadata = client.metadata().await?;
+
+        (
+            metadata.entity_id().to_string(),
+            metadata.label().to_string(),
+        )
     } else {
         ("N/A".to_string(), "N/A".to_string())
     };
