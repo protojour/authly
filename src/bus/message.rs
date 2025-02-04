@@ -20,18 +20,27 @@ pub enum ClusterMessage {
         dir_id: DirectoryId,
     },
 
-    /// Broadcast message to all connected clients
-    ClientBroadcast(ClientMessage),
+    /// Broadcast message to all connected service instances
+    ServiceBroadcast(ServiceMessage),
 
     /// This message does not mean anything, a healthcheck module can send this message
-    /// and check whether it's received.
-    Ping,
+    /// to "itself" and check whether it's received again.
+    ClusterPing,
 }
 
-/// This will turn into a gRPC message broadcasted to all connected clients.
+/// This will turn into a gRPC message broadcasted to connected services.
+///
+/// The message is sometimes associated with a specific service Eid (and its connections),
+/// the messages can also be broadcasted to _all_ connected services.
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum ClientMessage {
+pub enum ServiceMessage {
     /// A message to tell clients to reset everything and reconnect to Authly.
     /// This includes re-loading certificates.
-    Reset,
+    ReloadCa,
+
+    /// Reload local caches
+    ReloadCache,
+
+    /// Send the Ping message to service instances
+    Ping,
 }

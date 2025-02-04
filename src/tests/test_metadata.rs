@@ -1,15 +1,21 @@
 use authly_common::{
     id::Eid,
-    proto::service::{self as proto, authly_service_client::AuthlyServiceClient},
+    proto::service::{
+        self as proto, authly_service_client::AuthlyServiceClient,
+        service_message::ServiceMessageKind,
+    },
 };
+use futures_util::StreamExt;
 use hexhex::hex_literal;
 use indoc::indoc;
 use itertools::Itertools;
 use serde_json::json;
+use tracing::info;
 
 use crate::{
-    proto::service_server::AuthlyServiceServerImpl, test_support::TestCtx,
-    tests::compile_and_apply_doc,
+    proto::service_server::AuthlyServiceServerImpl,
+    test_support::TestCtx,
+    tests::{compile_and_apply_doc, compile_and_apply_doc_only_once},
 };
 
 use super::tonic_request;
@@ -69,17 +75,47 @@ async fn test_svc_namespace_metadata() {
 
     metadata.namespaces.sort_by_key(|ns| ns.label.clone());
 
-    let [d1, d2, svc] = metadata.namespaces.into_iter().collect_array().unwrap();
+    {
+        let [d1, d2, svc] = metadata.namespaces.into_iter().collect_array().unwrap();
 
-    assert_eq!(d1.label, "d1");
-    let metadata_json = serde_json::Value::Object(authly_common::proto::proto_struct_to_json(
-        d1.metadata.unwrap(),
-    ));
-    assert_eq!(json!({ "some_key": "some_value" }), metadata_json);
+        assert_eq!(d1.label, "d1");
+        let metadata_json = serde_json::Value::Object(authly_common::proto::proto_struct_to_json(
+            d1.metadata.unwrap(),
+        ));
+        assert_eq!(json!({ "some_key": "some_value" }), metadata_json);
 
-    assert_eq!(d2.label, "d2");
-    assert!(d2.metadata.is_none());
+        assert_eq!(d2.label, "d2");
+        assert!(d2.metadata.is_none());
 
-    assert_eq!(svc.label, "svc");
-    assert!(svc.metadata.is_none());
+        assert_eq!(svc.label, "svc");
+        assert!(svc.metadata.is_none());
+    }
+
+    {
+        // test that the reload_cache event is sent when reloading the document
+        let mut msg_stream = client
+            .messages(tonic_request(proto::Empty {}, SVC))
+            .await
+            .unwrap()
+            .into_inner();
+
+        compile_and_apply_doc_only_once(doc, &ctx).await.unwrap();
+
+        let message_kind = msg_stream
+            .next()
+            .await
+            .unwrap()
+            .unwrap()
+            .service_message_kind
+            .unwrap();
+
+        match message_kind {
+            ServiceMessageKind::ReloadCache(_) => {
+                info!("received reload cache message!");
+            }
+            kind => {
+                panic!("received incorrect message {kind:?}");
+            }
+        }
+    }
 }

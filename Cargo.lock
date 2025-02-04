@@ -369,6 +369,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-rustls",
+ "tokio-stream",
  "tokio-util",
  "tonic",
  "tower 0.5.2",
@@ -384,7 +385,7 @@ dependencies = [
 [[package]]
 name = "authly-client"
 version = "0.0.5"
-source = "git+https://github.com/protojour/authly-lib.git?branch=namespace-metadata#e5cdfe97d8bafc019bcb174ed8b3ae7674921c45"
+source = "git+https://github.com/protojour/authly-lib.git#76c703fe12dffe504790deae812a50b5ff097573"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -411,7 +412,7 @@ dependencies = [
 [[package]]
 name = "authly-common"
 version = "0.0.5"
-source = "git+https://github.com/protojour/authly-lib.git?branch=namespace-metadata#e5cdfe97d8bafc019bcb174ed8b3ae7674921c45"
+source = "git+https://github.com/protojour/authly-lib.git#76c703fe12dffe504790deae812a50b5ff097573"
 dependencies = [
  "anyhow",
  "byteorder",

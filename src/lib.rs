@@ -5,12 +5,14 @@ use std::{
     ops::Deref,
     path::PathBuf,
     sync::Arc,
+    time::Duration,
 };
 
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use axum::{response::IntoResponse, Json};
-use ctx::GetDb;
+use bus::{message::ServiceMessage, service_events::ServiceEventDispatcher};
+use ctx::{GetDb, ServiceBus};
 use db::{cryptography_db, settings_db};
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
@@ -98,6 +100,7 @@ struct AuthlyState {
     instance: ArcSwap<AuthlyInstance>,
     /// Dynamically updatable settings:
     settings: ArcSwap<Settings>,
+    svc_event_dispatcher: ServiceEventDispatcher,
     /// Data Encryption Keys
     deks: ArcSwap<DecryptedDeks>,
     /// Signal triggered when the app is shutting down:
@@ -148,6 +151,23 @@ pub async fn serve() -> anyhow::Result<()> {
                 .into_service(),
         ),
     );
+
+    // spawn service pinger
+    {
+        let ctx = ctx.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(60 * 5)) => {
+                        ctx.service_broadcast_all(ServiceMessage::Ping);
+                    }
+                    _ = ctx.shutdown.cancelled() => {
+                        return;
+                    }
+                }
+            }
+        });
+    }
 
     #[cfg(feature = "dev")]
     if let Some(debug_web_port) = env_config.debug_web_port {
@@ -224,6 +244,8 @@ async fn initialize() -> anyhow::Result<Init> {
         CertificateDistributionPlatform::EtcDir
     };
 
+    let shutdown = tower_server::signal::termination_signal();
+
     let ctx = AuthlyCtx {
         state: Arc::new(AuthlyState {
             hql,
@@ -231,7 +253,8 @@ async fn initialize() -> anyhow::Result<Init> {
             settings: ArcSwap::new(Arc::new(Settings::default())),
             deks: ArcSwap::new(Arc::new(deks)),
             cert_distribution_platform,
-            shutdown: tower_server::signal::termination_signal(),
+            svc_event_dispatcher: ServiceEventDispatcher::new(shutdown.clone()),
+            shutdown,
             etc_dir: env_config.etc_dir.clone(),
             export_tls_to_etc: env_config.export_tls_to_etc,
         }),

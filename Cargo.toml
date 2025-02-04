@@ -87,6 +87,7 @@ thiserror = "2"
 time = { version = "0.3", features = ["serde"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-rustls = "0.26"
+tokio-stream = "0.1"
 tokio-util = { version = "0.7", features = ["io"] }
 tonic = { version = "0.12", default-features = false }
 tower = { version = "0.5", features = ["steer"] }
@@ -133,8 +134,8 @@ rust-version = "1.83"
 publish = false
 
 [workspace.dependencies]
-authly-common = { git = "https://github.com/protojour/authly-lib.git", branch = "namespace-metadata" }
-authly-client = { git = "https://github.com/protojour/authly-lib.git", branch = "namespace-metadata" }
+authly-common = { git = "https://github.com/protojour/authly-lib.git" }
+authly-client = { git = "https://github.com/protojour/authly-lib.git" }
 hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = false, features = [
     "auto-heal",
     "listen_notify_local",

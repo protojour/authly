@@ -138,6 +138,12 @@ CREATE TABLE ns_res_attrlabel (
     UNIQUE (prop_id, label)
 );
 
+-- Service entities
+CREATE TABLE svc (
+    dir_id BLOB NOT NULL,
+    svc_eid BLOB NOT NULL PRIMARY KEY
+);
+
 -- Service: namespace participation
 CREATE TABLE svc_namespace (
     dir_id BLOB NOT NULL,

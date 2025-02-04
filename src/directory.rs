@@ -7,7 +7,7 @@ use tracing::error;
 use crate::{
     bus::{message::ClusterMessage, BusError},
     cert::{client_cert, CertificateParamsExt},
-    ctx::{Broadcast, GetDb, GetDecryptedDeks, GetInstance},
+    ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance},
     db::document_db,
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
@@ -30,7 +30,7 @@ pub enum DirectoryError {
 
 /// Apply (write or overwrite) a document directory, publish change message
 pub async fn apply_document(
-    deps: &(impl GetDb + GetDecryptedDeks + Broadcast + Any),
+    deps: &(impl GetDb + GetDecryptedDeks + ClusterBus + Any),
     compiled_doc: CompiledDocument,
 ) -> Result<(), DirectoryError> {
     let dir_id = compiled_doc.dir_id;

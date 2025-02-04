@@ -7,14 +7,20 @@ use std::{
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use authly_db::sqlite_pool::{SqlitePool, Storage};
+use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
 
 use crate::{
-    bus::{handler::authly_node_handle_incoming_message, message::ClusterMessage, BusError},
+    bus::{
+        handler::authly_node_handle_incoming_message,
+        message::{ClusterMessage, ServiceMessage},
+        service_events::{ServiceEventDispatcher, ServiceMessageConnection},
+        BusError,
+    },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        Broadcast, GetDb, GetDecryptedDeks, GetInstance, LoadInstance, RedistributeCertificates,
-        SetInstance,
+        ClusterBus, GetDb, GetDecryptedDeks, GetInstance, LoadInstance, RedistributeCertificates,
+        ServiceBus, SetInstance,
     },
     db::cryptography_db,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
@@ -30,17 +36,27 @@ pub struct TestCtx {
     db: Option<SqlitePool>,
     instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
     deks: Arc<ArcSwap<DecryptedDeks>>,
+    svc_event_dispatcher: ServiceEventDispatcher,
 
     cluster_message_log: Arc<Mutex<Vec<ClusterMessage>>>,
+
+    /// When all TestCtx clones go out of scope,
+    /// the associated cancellation token will emit `cancelled` automatically
+    #[expect(unused)]
+    cancel_guard: Arc<DropGuard>,
 }
 
 impl TestCtx {
     pub fn new() -> Self {
+        let cancel = CancellationToken::new();
+
         Self {
             db: None,
             instance: None,
             deks: Default::default(),
+            svc_event_dispatcher: ServiceEventDispatcher::new(cancel.clone()),
             cluster_message_log: Default::default(),
+            cancel_guard: Arc::new(cancel.drop_guard()),
         }
     }
 
@@ -146,6 +162,10 @@ impl TestCtx {
         self.deks.as_ref().load_full()
     }
 
+    pub fn clear_cluster_message_log(&self) {
+        self.cluster_message_log.lock().unwrap().clear();
+    }
+
     #[track_caller]
     fn instance(&self) -> &ArcSwap<AuthlyInstance> {
         self.instance.as_ref().expect("TestCtx has no instance")
@@ -194,7 +214,7 @@ impl GetDecryptedDeks for TestCtx {
     }
 }
 
-impl Broadcast for TestCtx {
+impl ClusterBus for TestCtx {
     /// There isn't actually any broadcasting being done for the TestCtx,
     /// it's all done "synchronously":
     async fn broadcast_to_cluster(&self, message: ClusterMessage) -> Result<(), BusError> {
@@ -216,6 +236,20 @@ impl Broadcast for TestCtx {
         message: ClusterMessage,
     ) -> Result<(), BusError> {
         self.broadcast_to_cluster(message).await
+    }
+}
+
+impl ServiceBus for TestCtx {
+    fn service_subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection) {
+        self.svc_event_dispatcher.subscribe(svc_eid, connection);
+    }
+
+    fn service_broadcast(&self, svc_eid: Eid, msg: ServiceMessage) {
+        self.svc_event_dispatcher.broadcast(svc_eid, msg);
+    }
+
+    fn service_broadcast_all(&self, msg: ServiceMessage) {
+        self.svc_event_dispatcher.broadcast_all(msg);
     }
 }
 

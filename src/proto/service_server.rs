@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
@@ -26,7 +26,8 @@ use tracing::{info, warn};
 use crate::{
     access_control::{self, AuthorizedPeerService},
     access_token,
-    ctx::{GetDb, GetInstance},
+    bus::{message::ServiceMessage, service_events::ServiceMessageConnection},
+    ctx::{GetDb, GetInstance, ServiceBus},
     db::{
         entity_db, policy_db,
         service_db::{
@@ -52,7 +53,7 @@ impl<Ctx> AuthlyServiceServerImpl<Ctx> {
 #[tonic::async_trait]
 impl<Ctx> AuthlyService for AuthlyServiceServerImpl<Ctx>
 where
-    Ctx: GetDb + GetInstance + Send + Sync + 'static,
+    Ctx: GetDb + GetInstance + ServiceBus + Send + Sync + 'static,
 {
     type MessagesStream = BoxStream<'static, tonic::Result<proto::ServiceMessage>>;
 
@@ -275,20 +276,34 @@ where
 
         info!(?eid, ?remote_addr, "service subscribing to messages");
 
-        Ok(tonic::Response::new(
-            futures_util::stream::unfold((), |_| async move {
-                tokio::time::sleep(Duration::from_secs(60 * 5)).await;
+        let (sender, receiver) = tokio::sync::mpsc::channel(8);
 
-                Some((
+        self.ctx.service_subscribe(
+            eid,
+            ServiceMessageConnection {
+                sender,
+                addr: remote_addr,
+            },
+        );
+
+        use proto::service_message::ServiceMessageKind;
+
+        Ok(tonic::Response::new(
+            tokio_stream::wrappers::ReceiverStream::new(receiver)
+                .map(|msg| {
+                    let kind = match msg {
+                        ServiceMessage::ReloadCa => ServiceMessageKind::ReloadCa(proto::Empty {}),
+                        ServiceMessage::ReloadCache => {
+                            ServiceMessageKind::ReloadCache(proto::Empty {})
+                        }
+                        ServiceMessage::Ping => ServiceMessageKind::Ping(proto::Empty {}),
+                    };
+
                     Ok(proto::ServiceMessage {
-                        service_message_kind: Some(
-                            proto::service_message::ServiceMessageKind::Ping(proto::Empty {}),
-                        ),
-                    }),
-                    (),
-                ))
-            })
-            .boxed(),
+                        service_message_kind: Some(kind),
+                    })
+                })
+                .boxed(),
         ))
     }
 

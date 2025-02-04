@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId};
+use authly_common::id::{AnyId, AttrId, DirectoryId, Eid, PolicyId, PropId};
 use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
@@ -31,6 +31,29 @@ impl DbDirectoryObjectLabel {
         deps.query_map(
             // FIXME: unindexed query
             "SELECT obj_id, label FROM obj_label WHERE dir_id = $1".into(),
+            params!(dir_id.as_param()),
+        )
+        .await
+    }
+}
+
+pub struct DbDirectoryService {
+    pub svc_eid: Eid,
+}
+
+impl FromRow for DbDirectoryService {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self {
+            svc_eid: row.get_id("svc_eid"),
+        }
+    }
+}
+
+impl DbDirectoryService {
+    pub async fn query(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Vec<Self>> {
+        deps.query_map(
+            // FIXME: unindexed query
+            "SELECT svc_eid FROM svc WHERE dir_id = $1".into(),
             params!(dir_id.as_param()),
         )
         .await

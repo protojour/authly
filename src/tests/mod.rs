@@ -25,6 +25,7 @@ use crate::{
     db::service_db::{self, ServicePropertyKind},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     test_support::TestCtx,
+    util::remote_addr::RemoteAddr,
 };
 
 mod end2end;
@@ -91,6 +92,8 @@ async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> anyhow::R
 fn tonic_request<T>(msg: T, eid: Eid) -> tonic::Request<T> {
     let mut req = tonic::Request::new(msg);
     req.extensions_mut().insert(PeerServiceEntity(eid));
+    req.extensions_mut()
+        .insert(RemoteAddr("127.0.0.1:1337".parse().unwrap()));
     req
 }
 

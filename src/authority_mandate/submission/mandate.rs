@@ -22,7 +22,7 @@ use tracing::error;
 use crate::{
     bus::{message::ClusterMessage, BusError},
     cert::client_cert_csr,
-    ctx::{Broadcast, GetDb, GetDecryptedDeks, GetInstance, SetInstance},
+    ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance, SetInstance},
     db::cryptography_db,
 };
 
@@ -56,7 +56,7 @@ pub enum MandateSubmissionError {
 /// Perform submission to authority, mandate side.
 /// Talks to Authority through Authly Connect tunnel, using the AuthlyMandateSubmission protocol.
 pub async fn mandate_execute_submission(
-    deps: &(impl GetDb + GetInstance + SetInstance + GetDecryptedDeks + Broadcast),
+    deps: &(impl GetDb + GetInstance + SetInstance + GetDecryptedDeks + ClusterBus),
     token: String,
 ) -> Result<(), MandateSubmissionError> {
     // read URL from token
