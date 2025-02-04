@@ -20,7 +20,7 @@ const SVC_B: Eid = Eid::from_raw_array(hex_literal!("015362d6655447c6b7f44865bd1
 
 #[test_log::test(tokio::test)]
 async fn test_access_control_basic() {
-    let ctx = TestCtx::default().inmemory_db().await;
+    let ctx = TestCtx::new().inmemory_db().await;
     let doc = indoc! {
         r#"
         [authly-document]
@@ -161,7 +161,7 @@ async fn test_access_control_basic() {
 /// to a service depends correctly on the set of domains the service participates in.
 #[test_log::test(tokio::test)]
 async fn test_svc_domain_implied_policies() {
-    let ctx = TestCtx::default().inmemory_db().await;
+    let ctx = TestCtx::new().inmemory_db().await;
     let doc = indoc! {
         r#"
         [authly-document]

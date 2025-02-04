@@ -13,7 +13,7 @@ const ULTRADB: Eid = Eid::from_raw_array(hex_literal!("ec29ba1d23cb43f89b7c73db6
 
 #[test_log::test(tokio::test)]
 async fn test_ultradb() {
-    let ctx = TestCtx::default().inmemory_db().await;
+    let ctx = TestCtx::new().inmemory_db().await;
     compile_and_apply_doc_dir("examples/ultradb".into(), &ctx)
         .await
         .unwrap();

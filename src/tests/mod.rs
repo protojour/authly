@@ -9,7 +9,7 @@ use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
-use authly_db::{sqlite_pool::SqlitePool, Db};
+use authly_db::sqlite_pool::SqlitePool;
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -22,10 +22,7 @@ use tracing::{error, info_span, Instrument};
 use crate::{
     cert::Cert,
     ctx::GetDb,
-    db::{
-        document_db,
-        service_db::{self, ServicePropertyKind},
-    },
+    db::service_db::{self, ServicePropertyKind},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     test_support::TestCtx,
 };
@@ -86,28 +83,7 @@ async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> anyhow::R
             anyhow!("doc compile error)")
         })?;
 
-    let mut has_errors = false;
-
-    for (idx, result) in ctx
-        .get_db()
-        .transact(document_db::document_txn_statements(
-            compiled_doc,
-            &ctx.get_decrypted_deks_or_default(),
-        )?)
-        .await
-        .unwrap()
-        .into_iter()
-        .enumerate()
-    {
-        if let Err(err) = result {
-            error!(?err, ?idx, "apply doc stmt");
-            has_errors = true;
-        }
-    }
-
-    if has_errors {
-        panic!("could not apply document, see tracing errors");
-    }
+    crate::directory::apply_document(ctx, compiled_doc).await?;
 
     Ok(())
 }

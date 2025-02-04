@@ -25,16 +25,25 @@ use crate::{
 
 /// The TestCtx allows writing tests that don't require the whole app running.
 /// E.g. it supports an in-memory database.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct TestCtx {
     db: Option<SqlitePool>,
     instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
-    deks: Option<Arc<ArcSwap<DecryptedDeks>>>,
+    deks: Arc<ArcSwap<DecryptedDeks>>,
 
     cluster_message_log: Arc<Mutex<Vec<ClusterMessage>>>,
 }
 
 impl TestCtx {
+    pub fn new() -> Self {
+        Self {
+            db: None,
+            instance: None,
+            deks: Default::default(),
+            cluster_message_log: Default::default(),
+        }
+    }
+
     pub async fn inmemory_db(mut self) -> Self {
         let pool = SqlitePool::new(Storage::Memory, 1);
         {
@@ -114,7 +123,7 @@ impl TestCtx {
                 .unwrap();
 
         self.db = Some(db);
-        self.deks = Some(Arc::new(ArcSwap::new(Arc::new(decrypted_deks))));
+        self.deks = Arc::new(ArcSwap::new(Arc::new(decrypted_deks)));
         self.instance = Some(Arc::new(ArcSwap::new(Arc::new(instance))));
         self
     }
@@ -123,35 +132,23 @@ impl TestCtx {
         let db = self.db.unwrap();
 
         let decrypted_master = DecryptedMaster::fake_for_test();
-        self.deks = Some(Arc::new(ArcSwap::new(Arc::new(DecryptedDeks::new(
+        self.deks = Arc::new(ArcSwap::new(Arc::new(DecryptedDeks::new(
             gen_prop_deks(&db, &decrypted_master, IsLeaderDb(true))
                 .await
                 .unwrap(),
-        )))));
+        ))));
 
         self.db = Some(db);
         self
     }
 
     pub fn get_decrypted_deks(&self) -> Arc<DecryptedDeks> {
-        self.deks.as_ref().unwrap().load_full()
-    }
-
-    pub fn get_decrypted_deks_or_default(&self) -> Arc<DecryptedDeks> {
-        match self.deks.as_ref() {
-            Some(deks) => deks.load_full(),
-            None => Arc::new(DecryptedDeks::default()),
-        }
+        self.deks.as_ref().load_full()
     }
 
     #[track_caller]
     fn instance(&self) -> &ArcSwap<AuthlyInstance> {
         self.instance.as_ref().expect("TestCtx has no instance")
-    }
-
-    #[track_caller]
-    fn deks(&self) -> &ArcSwap<DecryptedDeks> {
-        self.deks.as_ref().expect("TestCtx has no deks")
     }
 }
 
@@ -188,12 +185,12 @@ impl SetInstance for TestCtx {
 impl GetDecryptedDeks for TestCtx {
     #[track_caller]
     fn get_decrypted_deks(&self) -> arc_swap::Guard<Arc<DecryptedDeks>> {
-        self.deks().load()
+        self.deks.load()
     }
 
     #[track_caller]
     fn load_decrypted_deks(&self) -> Arc<DecryptedDeks> {
-        self.deks().load_full()
+        self.deks.load_full()
     }
 }
 

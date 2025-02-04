@@ -87,7 +87,7 @@ pub async fn post_document(
         .await
         .map_err(|_| (StatusCode::UNPROCESSABLE_ENTITY, "invalid document").into_response())?;
 
-    directory::apply_document(compiled_doc, &ctx)
+    directory::apply_document(&ctx, compiled_doc)
         .await
         .map_err(|_| {
             (

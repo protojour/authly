@@ -18,7 +18,7 @@ const SVC: Eid = Eid::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9
 
 #[test_log::test(tokio::test)]
 async fn test_svc_namespace_metadata() {
-    let ctx = TestCtx::default().inmemory_db().await;
+    let ctx = TestCtx::new().inmemory_db().await;
     let doc = indoc! {
         r#"
         [authly-document]

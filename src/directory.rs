@@ -1,4 +1,4 @@
-use std::fs;
+use std::{any::Any, fs};
 
 use authly_common::id::Eid;
 use authly_db::{Db, DbError};
@@ -7,7 +7,7 @@ use tracing::error;
 use crate::{
     bus::{message::ClusterMessage, BusError},
     cert::{client_cert, CertificateParamsExt},
-    ctx::{Broadcast, GetDb, GetInstance},
+    ctx::{Broadcast, GetDb, GetDecryptedDeks, GetInstance},
     db::document_db,
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
@@ -23,39 +23,46 @@ pub enum DirectoryError {
 
     #[error("bus error: {0}")]
     Bus(#[from] BusError),
+
+    #[error("transaction statement {0} failed: {1}")]
+    DbTransaction(usize, DbError),
 }
 
 /// Apply (write or overwrite) a document directory, publish change message
 pub async fn apply_document(
+    deps: &(impl GetDb + GetDecryptedDeks + Broadcast + Any),
     compiled_doc: CompiledDocument,
-    ctx: &AuthlyCtx,
 ) -> Result<(), DirectoryError> {
     let dir_id = compiled_doc.dir_id;
 
     let service_ids = compiled_doc.data.service_ids.clone();
 
-    let deks = ctx.deks.load_full();
+    let deks = deps.load_decrypted_deks();
 
-    for result in ctx
+    for (idx, result) in deps
         .get_db()
         .transact(
             document_db::document_txn_statements(compiled_doc, &deks)
                 .map_err(DirectoryError::Context)?,
         )
         .await?
+        .into_iter()
+        .enumerate()
     {
-        result?;
+        result.map_err(|err| DirectoryError::DbTransaction(idx, err))?;
     }
 
-    if ctx.export_tls_to_etc {
-        for svc_eid in service_ids {
-            if let Err(err) = export_service_identity(svc_eid, ctx) {
-                error!(?err, ?svc_eid, "unable to export identity");
+    if let Some(authly_ctx) = (deps as &dyn Any).downcast_ref::<AuthlyCtx>() {
+        if authly_ctx.export_tls_to_etc {
+            for svc_eid in service_ids {
+                if let Err(err) = export_service_identity(svc_eid, authly_ctx) {
+                    error!(?err, ?svc_eid, "unable to export identity");
+                }
             }
         }
     }
 
-    ctx.broadcast_to_cluster(ClusterMessage::DirectoryChanged { dir_id })
+    deps.broadcast_to_cluster(ClusterMessage::DirectoryChanged { dir_id })
         .await?;
 
     Ok(())
