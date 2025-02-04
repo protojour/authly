@@ -10,7 +10,7 @@ use fnv::FnvHashSet;
 use time::{Duration, OffsetDateTime};
 
 pub fn authly_benchmark(c: &mut Criterion) {
-    let ctx = TestCtx::default().lite_instance();
+    let ctx = TestCtx::new().lite_instance();
     let session = Session {
         token: SessionToken::new_random(),
         eid: Eid::random(),

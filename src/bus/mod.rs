@@ -3,6 +3,7 @@ use tokio::sync::broadcast;
 pub mod cluster;
 pub mod handler;
 pub mod message;
+pub mod service_events;
 
 #[derive(thiserror::Error, Debug)]
 pub enum BusError {

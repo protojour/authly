@@ -2,14 +2,14 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use authly_common::{
-    document::Document, id::Eid, proto::connect::authly_connect_server::AuthlyConnectServer,
-    service::NamespacePropertyMapping,
+    document::Document, id::Eid, mtls_server::PeerServiceEntity,
+    proto::connect::authly_connect_server::AuthlyConnectServer, service::NamespacePropertyMapping,
 };
 use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
-use authly_db::{sqlite_pool::SqlitePool, Db};
+use authly_db::sqlite_pool::SqlitePool;
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -17,16 +17,15 @@ use rustls::{
     RootCertStore, ServerConfig,
 };
 use tokio_util::sync::{CancellationToken, DropGuard};
+use tracing::{error, info_span, Instrument};
 
 use crate::{
     cert::Cert,
     ctx::GetDb,
-    db::{
-        document_db,
-        service_db::{self, ServicePropertyKind},
-    },
+    db::service_db::{self, ServicePropertyKind},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     test_support::TestCtx,
+    util::remote_addr::RemoteAddr,
 };
 
 mod end2end;
@@ -35,6 +34,7 @@ mod test_authly_connect;
 mod test_authority_mandate;
 mod test_demo;
 mod test_document;
+mod test_metadata;
 mod test_tls;
 mod test_ultradb;
 
@@ -59,36 +59,42 @@ async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Resul
 
 async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> {
     // For testing purposes, do this twice for each document, the second time will be a "no-op" re-application:
-    for stage in ["initial apply", "re-apply"] {
-        let doc = Document::from_toml(toml)?;
-        let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
-            .await
-            .map_err(|errors| {
-                for error in errors {
-                    println!("{stage}: {error:?}: `{}`", &toml[error.span()])
-                }
 
-                anyhow!("{stage}: doc compile error)")
-            })?;
+    compile_and_apply_doc_only_once(toml, ctx)
+        .instrument(info_span!("initial apply"))
+        .await?;
 
-        for (idx, result) in ctx
-            .get_db()
-            .transact(document_db::document_txn_statements(
-                compiled_doc,
-                &ctx.get_decrypted_deks_or_default(),
-            )?)
-            .await
-            .unwrap()
-            .into_iter()
-            .enumerate()
-        {
-            if let Err(err) = result {
-                panic!("{stage}: apply doc stmt {idx}: {err:?}");
-            }
-        }
-    }
+    compile_and_apply_doc_only_once(toml, ctx)
+        .instrument(info_span!("re-apply"))
+        .await?;
 
     Ok(())
+}
+
+/// "only once" version, don't use this directly unless testing event propagation
+async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> {
+    let doc = Document::from_toml(toml)?;
+    let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
+        .await
+        .map_err(|errors| {
+            for error in errors {
+                error!("{error:?}: `{}`", &toml[error.span()])
+            }
+
+            anyhow!("doc compile error)")
+        })?;
+
+    crate::directory::apply_document(ctx, compiled_doc).await?;
+
+    Ok(())
+}
+
+fn tonic_request<T>(msg: T, eid: Eid) -> tonic::Request<T> {
+    let mut req = tonic::Request::new(msg);
+    req.extensions_mut().insert(PeerServiceEntity(eid));
+    req.extensions_mut()
+        .insert(RemoteAddr("127.0.0.1:1337".parse().unwrap()));
+    req
 }
 
 fn rustls_server_config_no_client_auth(

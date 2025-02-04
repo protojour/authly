@@ -150,6 +150,19 @@ pub fn document_txn_statements(
 
     // service - namespace/domain
     {
+        stmts.push(gc(
+            "svc",
+            NotIn("svc_eid", data.service_ids.iter().copied()),
+            dir_id,
+        ));
+
+        for svc_id in data.service_ids.iter().copied() {
+            stmts.push((
+                "INSERT INTO svc (dir_id, svc_eid) VALUES ($1, $2) ON CONFLICT DO NOTHING".into(),
+                params!(dir_id.as_param(), svc_id.as_param()),
+            ));
+        }
+
         // not sure how to "GC" this?
         stmts.push((
             "DELETE FROM svc_namespace WHERE dir_id = $1".into(),

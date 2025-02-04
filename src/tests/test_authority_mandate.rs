@@ -24,16 +24,8 @@ use crate::{
 
 #[test(tokio::test)]
 async fn test_mandate_registration_failure() {
-    let a_ctx = TestCtx::default()
-        .inmemory_db()
-        .await
-        .supreme_instance()
-        .await;
-    let m_ctx = TestCtx::default()
-        .inmemory_db()
-        .await
-        .supreme_instance()
-        .await;
+    let a_ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
+    let m_ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
 
     let actor = Actor(Eid::random());
     let token = authority_generate_submission_token(
@@ -59,23 +51,11 @@ async fn test_mandate_registration_failure() {
 
 #[test(tokio::test)]
 async fn test_mandate_registration() {
-    let authority_ctx = TestCtx::default()
-        .inmemory_db()
-        .await
-        .supreme_instance()
-        .await;
+    let authority_ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
     // Two mandate wannabes:
     let m_ctxs = [
-        TestCtx::default()
-            .inmemory_db()
-            .await
-            .supreme_instance()
-            .await,
-        TestCtx::default()
-            .inmemory_db()
-            .await
-            .supreme_instance()
-            .await,
+        TestCtx::new().inmemory_db().await.supreme_instance().await,
+        TestCtx::new().inmemory_db().await.supreme_instance().await,
     ];
 
     let (server_connect_uri, _drop) = spawn_test_connect_server(

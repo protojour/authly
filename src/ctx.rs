@@ -2,10 +2,15 @@
 
 use std::{future::Future, sync::Arc};
 
+use authly_common::id::Eid;
 use authly_db::Db;
 
 use crate::{
-    bus::{message::ClusterMessage, BusError},
+    bus::{
+        message::{ClusterMessage, ServiceMessage},
+        service_events::ServiceMessageConnection,
+        BusError,
+    },
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
     AuthlyCtx,
@@ -40,7 +45,7 @@ pub trait GetDecryptedDeks {
     fn load_decrypted_deks(&self) -> Arc<DecryptedDeks>;
 }
 
-pub trait Broadcast {
+pub trait ClusterBus {
     /// Send broadcast message to the Authly cluster unconditionally
     fn broadcast_to_cluster(
         &self,
@@ -52,6 +57,15 @@ pub trait Broadcast {
         &self,
         message: ClusterMessage,
     ) -> impl Future<Output = Result<(), BusError>>;
+}
+
+pub trait ServiceBus {
+    /// Register a subscriber for service messages.
+    fn service_subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection);
+
+    fn service_broadcast(&self, svc_eid: Eid, msg: ServiceMessage);
+
+    fn service_broadcast_all(&self, msg: ServiceMessage);
 }
 
 pub trait RedistributeCertificates {
@@ -94,7 +108,7 @@ impl GetDecryptedDeks for AuthlyCtx {
     }
 }
 
-impl Broadcast for AuthlyCtx {
+impl ClusterBus for AuthlyCtx {
     async fn broadcast_to_cluster(&self, message: ClusterMessage) -> Result<(), BusError> {
         crate::bus::cluster::authly_ctx_notify_cluster_wide(self, message).await
     }
@@ -108,6 +122,22 @@ impl Broadcast for AuthlyCtx {
         } else {
             Ok(())
         }
+    }
+}
+
+impl ServiceBus for AuthlyCtx {
+    fn service_subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection) {
+        self.state
+            .svc_event_dispatcher
+            .subscribe(svc_eid, connection);
+    }
+
+    fn service_broadcast_all(&self, msg: ServiceMessage) {
+        self.state.svc_event_dispatcher.broadcast_all(msg);
+    }
+
+    fn service_broadcast(&self, svc_eid: Eid, msg: ServiceMessage) {
+        self.state.svc_event_dispatcher.broadcast(svc_eid, msg);
     }
 }
 

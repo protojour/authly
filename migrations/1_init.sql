@@ -82,7 +82,6 @@ CREATE TABLE ent_rel (
 );
 
 -- Text attributes for any database object
--- TODO: Labels can move into a separate table since they require directory-oriented indexing?
 CREATE TABLE obj_text_attr (
     dir_id BLOB NOT NULL,
     obj_id BLOB NOT NULL,
@@ -137,6 +136,12 @@ CREATE TABLE ns_res_attrlabel (
     label TEXT NOT NULL,
 
     UNIQUE (prop_id, label)
+);
+
+-- Service entities
+CREATE TABLE svc (
+    dir_id BLOB NOT NULL,
+    svc_eid BLOB NOT NULL PRIMARY KEY
 );
 
 -- Service: namespace participation

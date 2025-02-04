@@ -7,14 +7,20 @@ use std::{
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use authly_db::sqlite_pool::{SqlitePool, Storage};
+use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
 
 use crate::{
-    bus::{handler::authly_node_handle_incoming_message, message::ClusterMessage, BusError},
+    bus::{
+        handler::authly_node_handle_incoming_message,
+        message::{ClusterMessage, ServiceMessage},
+        service_events::{ServiceEventDispatcher, ServiceMessageConnection},
+        BusError,
+    },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        Broadcast, GetDb, GetDecryptedDeks, GetInstance, LoadInstance, RedistributeCertificates,
-        SetInstance,
+        ClusterBus, GetDb, GetDecryptedDeks, GetInstance, LoadInstance, RedistributeCertificates,
+        ServiceBus, SetInstance,
     },
     db::cryptography_db,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
@@ -25,16 +31,35 @@ use crate::{
 
 /// The TestCtx allows writing tests that don't require the whole app running.
 /// E.g. it supports an in-memory database.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct TestCtx {
     db: Option<SqlitePool>,
     instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
-    deks: Option<Arc<ArcSwap<DecryptedDeks>>>,
+    deks: Arc<ArcSwap<DecryptedDeks>>,
+    svc_event_dispatcher: ServiceEventDispatcher,
 
     cluster_message_log: Arc<Mutex<Vec<ClusterMessage>>>,
+
+    /// When all TestCtx clones go out of scope,
+    /// the associated cancellation token will emit `cancelled` automatically
+    #[expect(unused)]
+    cancel_guard: Arc<DropGuard>,
 }
 
 impl TestCtx {
+    pub fn new() -> Self {
+        let cancel = CancellationToken::new();
+
+        Self {
+            db: None,
+            instance: None,
+            deks: Default::default(),
+            svc_event_dispatcher: ServiceEventDispatcher::new(cancel.clone()),
+            cluster_message_log: Default::default(),
+            cancel_guard: Arc::new(cancel.drop_guard()),
+        }
+    }
+
     pub async fn inmemory_db(mut self) -> Self {
         let pool = SqlitePool::new(Storage::Memory, 1);
         {
@@ -114,7 +139,7 @@ impl TestCtx {
                 .unwrap();
 
         self.db = Some(db);
-        self.deks = Some(Arc::new(ArcSwap::new(Arc::new(decrypted_deks))));
+        self.deks = Arc::new(ArcSwap::new(Arc::new(decrypted_deks)));
         self.instance = Some(Arc::new(ArcSwap::new(Arc::new(instance))));
         self
     }
@@ -123,35 +148,27 @@ impl TestCtx {
         let db = self.db.unwrap();
 
         let decrypted_master = DecryptedMaster::fake_for_test();
-        self.deks = Some(Arc::new(ArcSwap::new(Arc::new(DecryptedDeks::new(
+        self.deks = Arc::new(ArcSwap::new(Arc::new(DecryptedDeks::new(
             gen_prop_deks(&db, &decrypted_master, IsLeaderDb(true))
                 .await
                 .unwrap(),
-        )))));
+        ))));
 
         self.db = Some(db);
         self
     }
 
     pub fn get_decrypted_deks(&self) -> Arc<DecryptedDeks> {
-        self.deks.as_ref().unwrap().load_full()
+        self.deks.as_ref().load_full()
     }
 
-    pub fn get_decrypted_deks_or_default(&self) -> Arc<DecryptedDeks> {
-        match self.deks.as_ref() {
-            Some(deks) => deks.load_full(),
-            None => Arc::new(DecryptedDeks::default()),
-        }
+    pub fn clear_cluster_message_log(&self) {
+        self.cluster_message_log.lock().unwrap().clear();
     }
 
     #[track_caller]
     fn instance(&self) -> &ArcSwap<AuthlyInstance> {
         self.instance.as_ref().expect("TestCtx has no instance")
-    }
-
-    #[track_caller]
-    fn deks(&self) -> &ArcSwap<DecryptedDeks> {
-        self.deks.as_ref().expect("TestCtx has no deks")
     }
 }
 
@@ -188,16 +205,16 @@ impl SetInstance for TestCtx {
 impl GetDecryptedDeks for TestCtx {
     #[track_caller]
     fn get_decrypted_deks(&self) -> arc_swap::Guard<Arc<DecryptedDeks>> {
-        self.deks().load()
+        self.deks.load()
     }
 
     #[track_caller]
     fn load_decrypted_deks(&self) -> Arc<DecryptedDeks> {
-        self.deks().load_full()
+        self.deks.load_full()
     }
 }
 
-impl Broadcast for TestCtx {
+impl ClusterBus for TestCtx {
     /// There isn't actually any broadcasting being done for the TestCtx,
     /// it's all done "synchronously":
     async fn broadcast_to_cluster(&self, message: ClusterMessage) -> Result<(), BusError> {
@@ -219,6 +236,20 @@ impl Broadcast for TestCtx {
         message: ClusterMessage,
     ) -> Result<(), BusError> {
         self.broadcast_to_cluster(message).await
+    }
+}
+
+impl ServiceBus for TestCtx {
+    fn service_subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection) {
+        self.svc_event_dispatcher.subscribe(svc_eid, connection);
+    }
+
+    fn service_broadcast(&self, svc_eid: Eid, msg: ServiceMessage) {
+        self.svc_event_dispatcher.broadcast(svc_eid, msg);
+    }
+
+    fn service_broadcast_all(&self, msg: ServiceMessage) {
+        self.svc_event_dispatcher.broadcast_all(msg);
     }
 }
 

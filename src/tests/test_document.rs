@@ -10,7 +10,7 @@ use crate::{
 
 #[test_log::test(tokio::test)]
 async fn test_store_doc_trivial() {
-    let ctx = TestCtx::default().inmemory_db().await;
+    let ctx = TestCtx::new().inmemory_db().await;
     let doc = indoc! {
         r#"
         [authly-document]

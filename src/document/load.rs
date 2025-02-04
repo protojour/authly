@@ -67,7 +67,7 @@ pub(crate) async fn load_cfg_documents(
                     }
                 };
 
-                directory::apply_document(compiled_doc, ctx).await?;
+                directory::apply_document(ctx, compiled_doc).await?;
             } else {
                 info!(?path, "unchanged");
             }
