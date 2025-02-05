@@ -128,5 +128,5 @@ k8s-test-setup:
         --dry-run=client \
         | kubectl apply -f -
 
-docker-test: generate-testdata dev-image testservice-image
+docker-test-deploy: generate-testdata dev-image testservice-image
     RUST_PROFILE=debug docker compose -f testfiles/docker/docker-compose.yml up

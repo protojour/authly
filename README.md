@@ -17,7 +17,7 @@ Attributes can be used to model roles, resources, actions and other IAM concepts
 Authly is available as a multi-arch (amd64/arm64) Docker image:
 
 ```bash
-docker run ghcr.io/protojour/authly
+docker run ghcr.io/protojour/authly:pre-alpha
 ```
 
 It uses an embedded database and _can_ run independently, _in principle_. However, it is not intended to run directly exposed to the internet, and should have access to a secrets store. Refer to [Quickstart](#quickstart) for more complete examples.
@@ -39,7 +39,7 @@ just k8s-test-deploy
 A minimal `docker compose` development example is available in [`testfiles/docker/docker-compose.yml`](testfiles/docker/docker-compose.yml).
 
 ```bash
-just docker-test
+just docker-test-deploy
 ```
 
 ## Security features
@@ -52,7 +52,7 @@ Authly is not yet audited. We invite anyone to examine or critique its security 
 
 ## Feature roadmap
 
-Authly is beta software, currently with a minimal feature set, but several high-level features are planned:
+Authly is pre-alpha software, currently with a minimal feature set, but several high-level features are planned:
 
 - [x] Attribute-based data model
 - [x] Policy DSL
@@ -63,17 +63,14 @@ Authly is beta software, currently with a minimal feature set, but several high-
 - [x] Docker example setup
 - [x] Minimal login UI
 - [ ] Federation and authority/mandate relations
-- [ ] OAuth 2.0 (2.1) support
+- [ ] OAuth 2.0 + OpenID Connect support
 - [ ] `authly-client` language bindings
-- [ ] `authly-client`-based minimalist sidecar proxy
+- [ ] `authly-client` standalone sidecar proxy
 - [ ] Detailed documentation
-- [ ] Improved login UI
 - [ ] User registration and recovery
 - [ ] SMTP email support
 - [ ] OATH TOTP support for authenticator apps
 - [ ] OATH HOTP support for recovery codes
-- [ ] OpenID Connect support
-- [ ] WebAuthn/Passkeys support
 
 ## License
 
