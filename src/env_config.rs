@@ -37,6 +37,7 @@ pub struct EnvConfig {
 
     /// OpenBao URL for master encryption key storage
     pub bao_url: Option<String>,
+
     /// OpenBao token support for legacy setups
     pub bao_token: Option<String>,
 

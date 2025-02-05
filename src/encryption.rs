@@ -96,12 +96,6 @@ impl AesKey {
 }
 
 #[derive(Deserialize)]
-struct PalOutput {
-    pub version: Hex,
-    pub plaintext: Hex,
-}
-
-#[derive(Deserialize)]
 struct BaoAuthOutput {
     pub auth: BaoAuthData,
 }
