@@ -1,8 +1,0 @@
-global:
-  namespace: authly-test
-server:
-  dev:
-    enabled: true
-csi:
-  agent:
-    enabled: false
