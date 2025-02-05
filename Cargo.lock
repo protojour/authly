@@ -385,7 +385,7 @@ dependencies = [
 [[package]]
 name = "authly-client"
 version = "0.0.5"
-source = "git+https://github.com/protojour/authly-lib.git#76c703fe12dffe504790deae812a50b5ff097573"
+source = "git+https://github.com/protojour/authly-lib.git#79d73225466950b3dd7a6df1b478c53c7343b72e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -412,7 +412,7 @@ dependencies = [
 [[package]]
 name = "authly-common"
 version = "0.0.5"
-source = "git+https://github.com/protojour/authly-lib.git#76c703fe12dffe504790deae812a50b5ff097573"
+source = "git+https://github.com/protojour/authly-lib.git#79d73225466950b3dd7a6df1b478c53c7343b72e"
 dependencies = [
  "anyhow",
  "byteorder",

@@ -2,6 +2,7 @@
 
 use std::time::Instant;
 
+use authly_client::AccessControl;
 use authly_common::id::Eid;
 use cookie::Cookie;
 use hexhex::hex_literal;
@@ -89,7 +90,7 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
         let outcome = authly_client
             .access_control_request()
             .access_token(access_token.clone())
-            .send()
+            .evaluate()
             .await
             .unwrap();
 
@@ -112,7 +113,7 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
             .access_control_request()
             .resource_attribute("testservice", "ontology/action", "read")?
             .access_token(access_token.clone())
-            .send()
+            .evaluate()
             .await
             .unwrap();
 
@@ -125,7 +126,7 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
             .access_control_request()
             .resource_attribute("testservice", "ontology/action", "deploy")?
             .access_token(access_token.clone())
-            .send()
+            .evaluate()
             .await
             .unwrap();
 
