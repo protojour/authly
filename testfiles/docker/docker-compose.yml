@@ -32,6 +32,7 @@ services:
   openbao:
     image: ghcr.io/openbao/openbao
     environment:
+      # do not use this approach in production
       BAO_DEV_ROOT_TOKEN_ID: theenigmaticbaobunofancientsecrets
     command: server -dev
 

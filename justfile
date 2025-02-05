@@ -91,11 +91,13 @@ testservice-image:
 
 # deploy local development version of authly to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
 k8s-test-deploy: generate-testdata dev-image testservice-image k8s-test-setup
+    kubectl apply -f testfiles/k8s/openbao.yaml
     kubectl apply -f testfiles/k8s/authly.yaml
     kubectl apply -f testfiles/k8s/testservice.yaml
     kubectl apply -f testfiles/k8s/arx.yaml
     kubectl apply -f testfiles/k8s/routing.yaml
 
+    kubectl delete pods --namespace=authly-test -l 'app=openbao' &
     kubectl delete pods --namespace=authly-test -l 'app=authly' &
     kubectl delete pods --namespace=authly-test -l 'app=testservice' &
     kubectl delete pods --namespace=authly-test -l 'app=arx' &
