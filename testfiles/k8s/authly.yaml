@@ -39,7 +39,7 @@ metadata:
   name: authly-config
 data:
   AUTHLY_ID: 05f06a77d9a06a7d31c43ad931f1f7669495363df30224f7b129b54f16c3b768
-  AUTHLY_PAL_URL: "http://localhost:6666"
+  AUTHLY_BAO_URL: "http://openbao:8200"
   AUTHLY_K8S: "true"
   AUTHLY_K8S_AUTH_HOSTNAME: authly-k8s
   AUTHLY_K8S_AUTH_SERVER_PORT: "2443"
@@ -192,13 +192,6 @@ spec:
             requests:
               memory: 32Mi
               cpu: 100m
-      initContainers:
-        - name: authly-pal
-          image: protojour/authly-pal:dev
-          restartPolicy: Always
-          env:
-            - name: K8S_INSECURE
-              value: "true"
       volumes:
         - name: authly-cluster-key
           secret:

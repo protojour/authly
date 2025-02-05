@@ -35,8 +35,10 @@ pub struct EnvConfig {
     /// Database directory
     pub data_dir: PathBuf,
 
-    pub pal_url: Option<String>,
+    /// OpenBao URL for master encryption key storage
     pub bao_url: Option<String>,
+
+    /// OpenBao token support for legacy setups
     pub bao_token: Option<String>,
 
     pub cluster_node_id: Option<u64>,
@@ -94,7 +96,6 @@ impl Default for EnvConfig {
             etc_dir: PathBuf::from("/etc/authly"),
             data_dir: PathBuf::from("/var/lib/authly/data"),
 
-            pal_url: None,
             bao_url: None,
             bao_token: None,
 

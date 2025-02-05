@@ -96,9 +96,13 @@ impl AesKey {
 }
 
 #[derive(Deserialize)]
-struct PalOutput {
-    pub version: Hex,
-    pub plaintext: Hex,
+struct BaoAuthOutput {
+    pub auth: BaoAuthData,
+}
+
+#[derive(Deserialize)]
+struct BaoAuthData {
+    pub client_token: String,
 }
 
 #[derive(Deserialize)]
@@ -179,16 +183,13 @@ pub async fn load_decrypted_deks(
 async fn gen_new_master(env_config: &EnvConfig) -> anyhow::Result<DecryptedMaster> {
     if let Some(bao_url) = &env_config.bao_url {
         let id = &env_config.id;
-        let Some(bao_token) = &env_config.bao_token else {
-            return Err(anyhow!("fatal: no bao token set"));
-        };
+        let bao_token = get_bao_token(env_config).await?;
+
         let mut plaintext: [u8; 32] = [0; 32];
-
         OsRng.fill(plaintext.as_mut_slice());
-
         let master = Hex(plaintext.to_vec());
 
-        let vault_output: BaoCreateSecretOutput = reqwest::Client::new()
+        let bao_output: BaoCreateSecretOutput = reqwest::Client::new()
             .post(format!("{bao_url}/v1/secret/data/authly-master-key-{id}"))
             .header("x-vault-token", bao_token.clone())
             .json(&json!({
@@ -199,11 +200,11 @@ async fn gen_new_master(env_config: &EnvConfig) -> anyhow::Result<DecryptedMaste
             .send()
             .await?
             .error_for_status()
-            .context("fatal: vault error")?
+            .context("fatal: failed to create master key in bao")?
             .json()
             .await?;
 
-        let version = vault_output.data.version;
+        let version = bao_output.data.version;
 
         Ok(DecryptedMaster {
             encrypted: MasterVersion {
@@ -212,28 +213,6 @@ async fn gen_new_master(env_config: &EnvConfig) -> anyhow::Result<DecryptedMaste
             },
             key: AesKey {
                 key: load_key(master.0)?,
-            },
-        })
-    } else if let Some(pal_url) = &env_config.pal_url {
-        let pal_output: PalOutput = reqwest::Client::new()
-            .post(format!("{pal_url}/api/v0/key"))
-            .json(&json!({
-                "key_id": "authly-master",
-            }))
-            .send()
-            .await?
-            .error_for_status()
-            .context("fatal: authly-pal error")?
-            .json()
-            .await?;
-
-        Ok(DecryptedMaster {
-            encrypted: MasterVersion {
-                version: pal_output.version.0,
-                created_at: time::OffsetDateTime::now_utc(),
-            },
-            key: AesKey {
-                key: load_key(pal_output.plaintext.0)?,
             },
         })
     } else {
@@ -247,12 +226,12 @@ async fn decrypt_master(
 ) -> anyhow::Result<DecryptedMaster> {
     if let Some(bao_url) = &env_config.bao_url {
         let id = &env_config.id;
+        let bao_token = get_bao_token(env_config).await?;
+
         let version: [u8; 8] = encrypted.version.as_slice().try_into().expect("");
         let version = u64::from_be_bytes(version);
-        let Some(bao_token) = &env_config.bao_token else {
-            return Err(anyhow!("fatal: no bao token set"));
-        };
-        let vault_output: BaoReadSecretOutput = reqwest::Client::new()
+
+        let bao_output: BaoReadSecretOutput = reqwest::Client::new()
             .get(format!(
                 "{bao_url}/v1/secret/data/authly-master-key-{id}?version={version}"
             ))
@@ -260,33 +239,13 @@ async fn decrypt_master(
             .send()
             .await?
             .error_for_status()
-            .context("fatal: vault error")?
+            .context("fatal: failed to fetch master key in bao")?
             .json()
             .await?;
         Ok(DecryptedMaster {
             encrypted,
             key: AesKey {
-                key: load_key(vault_output.data.data.master_key.0.into_iter())?,
-            },
-        })
-    } else if let Some(pal_url) = &env_config.pal_url {
-        let pal_output: PalOutput = reqwest::Client::new()
-            .post(format!("{pal_url}/api/v0/key"))
-            .json(&json!({
-                "key_id": "authly-master",
-                "version": hexhex::hex(&encrypted.version).to_string(),
-            }))
-            .send()
-            .await?
-            .error_for_status()
-            .context("fatal: authly-crypt error")?
-            .json()
-            .await?;
-
-        Ok(DecryptedMaster {
-            encrypted,
-            key: AesKey {
-                key: load_key(pal_output.plaintext.0)?,
+                key: load_key(bao_output.data.data.master_key.0.into_iter())?,
             },
         })
     } else {
@@ -358,4 +317,31 @@ pub fn random_nonce() -> Nonce<Aes256GcmSiv> {
 pub fn nonce_from_slice(slice: &[u8]) -> anyhow::Result<Nonce<Aes256GcmSiv>> {
     Nonce::<Aes256GcmSiv>::from_exact_iter(slice.iter().copied())
         .ok_or_else(|| anyhow!("invalid nonce length"))
+}
+
+async fn get_bao_token(env_config: &EnvConfig) -> anyhow::Result<String> {
+    if let Some(bao_token) = &env_config.bao_token {
+        Ok(bao_token.clone())
+    } else if env_config.k8s {
+        let svc_token =
+            std::fs::read_to_string("/var/run/secrets/kubernetes.io/serviceaccount/token").unwrap();
+        let Some(bao_url) = &env_config.bao_url else {
+            panic!("fatal: no bao url found")
+        };
+        let bao_output: BaoAuthOutput = reqwest::Client::new()
+            .post(format!("{bao_url}/v1/auth/kubernetes/login"))
+            .json(&json!({
+                "role": "authly",
+                "jwt": svc_token,
+            }))
+            .send()
+            .await?
+            .error_for_status()
+            .context("fatal: bao authentication error")?
+            .json()
+            .await?;
+        Ok(bao_output.auth.client_token)
+    } else {
+        panic!("fatal: no bao token found")
+    }
 }
