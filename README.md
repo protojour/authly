@@ -28,7 +28,7 @@ Examples should be run using our `justfile` tasks. Refer to the [just](https://j
 
 ### Kubernetes example (recommended)
 
-An example Kubernetes deployment is available in [`testfiles/k8s`](testfiles/k8s), which includes the Authly-compatible [Arx gateway](https://github.com/protojour/arx), [OpenBao](https://openbao.org/) for its main encryption key, the correct routing and setup for Authly to provision an example service with mTLS, and uses the Kubernetes Secrets for its core identity.
+An example Kubernetes deployment is available in [`testfiles/k8s`](testfiles/k8s), which includes the Authly-compatible [Arx gateway](https://github.com/protojour/arx), [OpenBao](https://openbao.org/) for its main encryption key, the correct routing and setup for Authly to provision [an example service](crates/authly-testservice) with mTLS, and uses Kubernetes Secrets for its core identity.
 
 ```bash
 just k8s-test-deploy
@@ -46,7 +46,7 @@ just docker-test-deploy
 
 The Authly server relies on mTLS for service client authentication, and can provision such services with client certificates from a (mesh-local or global) Certificate Authority, either manually (CLI commands), through a native [Rust client](https://crates.io/crates/authly-client), through its language bindings (TBA), or a minimalist sidecar proxy (TBA).
 
-It uses an embedded [`hiqlite`](https://github.com/sebadob/hiqlite) database with envelope encrypted user data for encryption-at-rest.
+It uses an embedded [`hiqlite`](https://github.com/sebadob/hiqlite) database with envelope encrypted user data for encryption-at-rest. The master encryption key should be stored in a secure way.
 
 Authly is not yet audited. We invite anyone to examine or critique its security model, and report any vulnerabilities.
 
