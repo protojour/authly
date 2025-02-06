@@ -156,7 +156,7 @@ pub fn document_txn_statements(
             dir_id,
         ));
 
-        for svc_id in data.service_ids.iter().copied() {
+        for svc_id in data.service_ids.iter() {
             stmts.push((
                 "INSERT INTO svc (dir_id, svc_eid) VALUES ($1, $2) ON CONFLICT DO NOTHING".into(),
                 params!(dir_id.as_param(), svc_id.as_param()),

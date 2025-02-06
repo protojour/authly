@@ -192,7 +192,7 @@ async fn tab_service(ctx: HtmlCtx) -> Result<Markup, Error> {
             vec![]
         };
 
-    properties.sort_by(|(ns_prop_a, _), (ns_prop_b, _)| ns_prop_a.cmp(&ns_prop_b));
+    properties.sort_by(|(ns_prop_a, _), (ns_prop_b, _)| ns_prop_a.cmp(ns_prop_b));
 
     Ok(html! {
         (render_nav_tab_list(0, &ctx))

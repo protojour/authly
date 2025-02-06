@@ -41,7 +41,6 @@ mod test_ultradb;
 async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Result<()> {
     let mut doc_files: Vec<_> = std::fs::read_dir(dir)
         .unwrap()
-        .into_iter()
         .map(|result| {
             let path = result.unwrap().path();
             let doc = std::fs::read_to_string(&path).unwrap();
@@ -51,7 +50,7 @@ async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Resul
     doc_files.sort_by_key(|(path, _)| path.clone());
 
     for (_, doc) in doc_files {
-        compile_and_apply_doc(&doc, &ctx).await?;
+        compile_and_apply_doc(&doc, ctx).await?;
     }
 
     Ok(())
