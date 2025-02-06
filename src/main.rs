@@ -26,14 +26,14 @@ enum Command {
     /// Run Authly in server/cluster mode
     Serve,
 
-    /// Generate a new unique AUTHLY_ID.
-    GenerateAuthlyId,
-
     /// Check if an Authly server is running at localhost
     Ready,
 
     /// Import documents and do general configuration, then exit
     Configure,
+
+    /// Generate a new unique AUTHLY_ID.
+    GenerateAuthlyId,
 
     /// Issue a cluster key. Exports to `$AUTHLY_ETC_DIR/cluster/`.
     IssueClusterKey,
@@ -47,15 +47,10 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from("info"))
         .init();
 
-    info!("🧠 Authly v{VERSION}");
-
     match Cli::parse().command {
-        Some(Command::Serve) => serve().await?,
-        Some(Command::GenerateAuthlyId) => {
-            let mut id = [0u8; 32];
-            OsRng.fill(id.as_mut_slice());
-
-            println!("Generated Authly ID: {}", hexhex::hex(&id));
+        Some(Command::Serve) => {
+            info!("🔒 Authly v{VERSION}");
+            serve().await?
         }
         Some(Command::Ready) => {
             reqwest::Client::new()
@@ -65,6 +60,12 @@ async fn main() -> anyhow::Result<()> {
                 .error_for_status()?;
         }
         Some(Command::Configure) => configure().await?,
+        Some(Command::GenerateAuthlyId) => {
+            let mut id = [0u8; 32];
+            OsRng.fill(id.as_mut_slice());
+
+            println!("Generated Authly ID: {}", hexhex::hex(&id));
+        }
         Some(Command::IssueClusterKey) => {
             let env_config = EnvConfig::load();
 
