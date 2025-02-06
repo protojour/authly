@@ -1,0 +1,13 @@
+# TLS cert for the Authly cluster. Used only by Authly itself, not exposed to other services.
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.name" . }}-cluster-key
+type: kubernetes.io/tls
+data:
+  # common name
+  {{- $cn := print "*." .Release.Name "-cluster" -}}
+  {{- $cert := genSelfSignedCert $cn nil (list $cn) 10000 }}
+  tls.crt: {{ $cert.Cert | b64enc }}
+  tls.key: {{ $cert.Key | b64enc }}

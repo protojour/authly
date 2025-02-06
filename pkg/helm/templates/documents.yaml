@@ -1,0 +1,8 @@
+{{ $globPattern := print .Values.documentDirectory "/*.toml" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.name" . }}-documents
+data:
+{{ (.Files.Glob $globPattern).AsConfig | indent 2 }}

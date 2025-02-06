@@ -1812,7 +1812,7 @@ dependencies = [
 [[package]]
 name = "hiqlite"
 version = "0.5.0"
-source = "git+https://github.com/sebadob/hiqlite.git#dfdd7955803f233b0efc28673a3ab1876bca19f6"
+source = "git+https://github.com/sebadob/hiqlite.git#75352f0bea639db04c9d9675cdb577779c637aa1"
 dependencies = [
  "axum 0.8.1",
  "axum-server",
@@ -4386,9 +4386,9 @@ checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
 
 [[package]]
 name = "tower-server"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1320c97f6fcf478b2337872791a4792df946f707672d52127fc7f5e5ef2d53c0"
+checksum = "0fb9568699387f59414345fbb07178b37c38fcde8c738facc8247c0588f3676a"
 dependencies = [
  "anyhow",
  "arc-swap",

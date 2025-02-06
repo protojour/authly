@@ -44,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_target(true)
         .with_level(true)
-        .with_env_filter(EnvFilter::from("info"))
+        .with_env_filter(EnvFilter::from_env("AUTHLY_LOG"))
         .init();
 
     info!("🧠 Authly v{VERSION}");

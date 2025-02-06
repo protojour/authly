@@ -1,0 +1,31 @@
+# Basic configuration environment variables:
+{{ $name := print (include "authly.name" .) "-config" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ $name }}
+data:
+  {{ if (lookup "v1" "ConfigMap" .Release.Namespace $name).data }}
+  AUTHLY_ID: {{ (lookup "v1" "ConfigMap" .Release.Namespace $name).data.AUTHLY_ID }}
+  {{ else }}
+  AUTHLY_ID: {{ include "authly.randHex" 64 }}
+  {{ end }}
+  AUTHLY_LOG: info
+  AUTHLY_BAO_URL: "http://openbao:8200"
+  AUTHLY_K8S: "true"
+  AUTHLY_K8S_STATEFULSET: {{ .Release.Name }}
+  AUTHLY_K8S_HEADLESS_SVC: {{ include "authly.fullname" . }}-cluster
+  AUTHLY_K8S_AUTH_HOSTNAME: {{ include "authly.fullname" . }}-k8s
+  AUTHLY_K8S_AUTH_SERVER_PORT: "2443"
+---
+# Secrets for the Authly cluster:
+# (this will be removed soon)
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.name" . }}-secrets
+stringData:
+  AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
+  AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
