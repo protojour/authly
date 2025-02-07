@@ -47,6 +47,7 @@ pub struct TestCtx {
 }
 
 impl TestCtx {
+    #[expect(clippy::new_without_default)]
     pub fn new() -> Self {
         let cancel = CancellationToken::new();
 
