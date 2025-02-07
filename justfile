@@ -1,3 +1,5 @@
+import 'scripts/k3d-ops/justfile'
+
 authly_id := "bf78d3c3bf94695c43b56540ffe23beace66ec53e35eee3f5be4c9a5cda70748"
 debug_web_port := "12345"
 
@@ -91,7 +93,7 @@ testservice-image:
     docker build . -f testservice.Dockerfile -t protojour/authly-testservice:dev
 
 # deploy local development version of authly w/demo apps to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
-k8s-demo-deploy: dev-image testservice-image
+k8s-demo-deploy: (k3d "authly-dev") dev-image testservice-image
     # idempotent preparation
     -kubectl create namespace authly-test
     mkdir -p pkg/helm/authly-documents && cp examples/demo/* pkg/helm/authly-documents/

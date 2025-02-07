@@ -1,0 +1,62 @@
+
+k3d_config := '''
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+registries:
+  use:
+    - k3d-registry-dev.local:5000
+    - k3d-registry-dockerd.local:5000
+  config: |
+    mirrors:
+      \"*\":
+        endpoint:
+          - \"http://k3d-registry-dockerd.local:5000\"
+options:
+  k3s:
+    extraArgs:
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:*
+'''
+
+k3d cluster_name: k3d_registries (k3d_cluster cluster_name)
+
+k3d_cluster cluster_name *flags:
+    #!/usr/bin/env bash
+
+    if ! k3d cluster list --no-headers | grep -q {{ cluster_name }}; then
+        echo "creating k3d cluster \"{{ cluster_name }}\""
+        tmpfile=$(mktemp)
+        echo $tmpfile
+        echo "{{ k3d_config }}" | tee $tmpfile
+
+        k3d cluster create {{ cluster_name }} \
+            --config $tmpfile \
+            -s 1 \
+            -p 8080:80@loadbalancer \
+            -p 8443:443@loadbalancer
+
+        rm $tmpfile
+    else
+        echo "cluster \"{{ cluster_name }}\" exists"
+    fi
+
+    if ! kubectl get crd | grep -q gatewayclasses; then
+        kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+    fi
+
+k3d_registries:
+    #!/usr/bin/env bash
+
+    if ! k3d registry list --no-headers | grep -q 'k3d-registry-dockerd.local'; then
+        echo "creating dockerd registry"
+        k3d registry create \
+            -i ligfx/k3d-registry-dockerd:v0.6 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            registry-dockerd.local
+    fi
+
+    if ! k3d registry list --no-headers | grep -q 'k3d-registry-dev.local'; then
+        echo "creating dev registry"
+        k3d registry create registry-dev.local --port 11111
+    fi
