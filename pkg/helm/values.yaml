@@ -11,7 +11,7 @@ cluster:
 image:
   repository: protojour/authly
   tag: ""
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
 serviceAccount:
   # Whether to create service account
