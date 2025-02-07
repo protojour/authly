@@ -1,4 +1,34 @@
 authly_id := "bf78d3c3bf94695c43b56540ffe23beace66ec53e35eee3f5be4c9a5cda70748"
+debug_web_port := "12345"
+
+# default target
+target := "x86_64-unknown-linux-musl"
+
+# run debug version on localhost. Necessary for running end-to-end tests.
+rundev: dev-environment generate-testdata
+    AUTHLY_ID={{ authly_id }} \
+    AUTHLY_LOG=info \
+    AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
+    AUTHLY_HOSTNAME=localhost \
+    AUTHLY_SERVER_PORT=1443 \
+    AUTHLY_DATA_DIR=.local/data \
+    AUTHLY_ETC_DIR=.local/etc \
+    AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
+    AUTHLY_BAO_URL=http://localhost:8200 \
+    AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
+        cargo run -p authly --features dev serve
+
+# run release version on localhost
+runrelease: dev-environment generate-testdata
+    AUTHLY_ID={{ authly_id }} \
+    AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
+    AUTHLY_HOSTNAME=localhost \
+    AUTHLY_SERVER_PORT=1443 \
+    AUTHLY_DATA_DIR=.local/data \
+    AUTHLY_ETC_DIR=.local/etc \
+    AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
+    AUTHLY_BAO_URL=http://localhost:8200 \
+        cargo run --release -p authly serve
 
 # setup docker dev environment
 dev-environment:
@@ -28,34 +58,6 @@ generate-testdata:
             cargo run -p authly --features dev configure
     fi
 
-debug_web_port := "12345"
-
-# run debug version on localhost. Necessary for running end-to-end tests.
-rundev: dev-environment generate-testdata
-    AUTHLY_ID={{ authly_id }} \
-    AUTHLY_LOG=info \
-    AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
-    AUTHLY_HOSTNAME=localhost \
-    AUTHLY_SERVER_PORT=1443 \
-    AUTHLY_DATA_DIR=.local/data \
-    AUTHLY_ETC_DIR=.local/etc \
-    AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
-    AUTHLY_BAO_URL=http://localhost:8200 \
-    AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
-        cargo run -p authly --features dev serve
-
-# run release version on localhost
-runrelease: dev-environment generate-testdata
-    AUTHLY_ID={{ authly_id }} \
-    AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
-    AUTHLY_HOSTNAME=localhost \
-    AUTHLY_SERVER_PORT=1443 \
-    AUTHLY_DATA_DIR=.local/data \
-    AUTHLY_ETC_DIR=.local/etc \
-    AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
-    AUTHLY_BAO_URL=http://localhost:8200 \
-        cargo run --release -p authly serve
-
 # clean up data files used for local run
 cleanlocal:
     -rm -r .local
@@ -63,9 +65,6 @@ cleanlocal:
 # run end2end tests, these are dependent on `rundev` running in the background
 end2end:
     cargo test -- --include-ignored
-
-# default target
-target := "x86_64-unknown-linux-musl"
 
 # build musl binaries
 musl *flags:
