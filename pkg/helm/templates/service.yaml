@@ -81,4 +81,5 @@ spec:
       from:
         - podSelector:
             matchLabels:
-              app: authly
+              app.kubernetes.io/name: {{ template "authly.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
