@@ -96,10 +96,15 @@ testservice-image:
 k8s-demo-deploy: (k3d "authly-dev") dev-image testservice-image
     # idempotent preparation
     -kubectl create namespace authly-test
-    mkdir -p pkg/helm/authly-documents && cp examples/demo/* pkg/helm/authly-documents/
     HELM_MAX_HISTORY=2 \
         helm upgrade --install openbao ./testfiles/k8s/charts/openbao-authly-dev-0.0.1.tgz \
         --namespace authly-test
+
+    # create the "documents" ConfigMap outside of Helm (this is specified in Authly values override file)
+    kubectl create configmap authly-documents \
+        -n authly-test \
+        --from-file=examples/demo/ -o yaml \
+        --dry-run=client | kubectl apply -f -
 
     # (re-)deploy Authly using helm
     HELM_MAX_HISTORY=10 \
@@ -124,5 +129,10 @@ k8s-refresh-authly: dev-image
 k8s-refresh-testservice: testservice-image
     kubectl delete pods --namespace=authly-test -l 'app=testservice'
 
+# package up the Authly Helm chart
+helm-package:
+    helm package pkg/helm
+
+# deploy docker-compose demo
 docker-test-deploy: generate-testdata dev-image testservice-image
     RUST_PROFILE=debug docker compose -f testfiles/docker/docker-compose.yml up

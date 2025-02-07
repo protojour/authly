@@ -13,6 +13,17 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
+# Control how startup documents are provided to Authly
+documents:
+  # Whether the Chart should create an empty `authly-documents` ConfigMap.
+  # If this is set to false, this resource will not be controlled by Helm,
+  # and must be created manually. The Authly application will not be able
+  # to start without it.
+  createConfigMap: true
+
+  # A map of key (filename) - value (file contents) documents
+  files: {}
+
 serviceAccount:
   # Whether to create service account
   create: true
@@ -23,10 +34,6 @@ serviceAccount:
 persistentVolume:
   # How much space to allocate on persistent volume
   size: 256Mi
-
-# A directory containing Authly documents which will be scanned by Authly on startup.
-# The directory is relative to the directory containing Chart.yaml (this directory).
-documentDirectory: authly-documents
 
 pod:
   # Extra labels to put on Authly pods

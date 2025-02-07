@@ -1,8 +1,9 @@
-{{ $globPattern := print .Values.documentDirectory "/*.toml" }}
+{{- if  .Values.documents.createConfigMap -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: {{ include "authly.namespace" . }}
   name: {{ include "authly.name" . }}-documents
 data:
-{{ (.Files.Glob $globPattern).AsConfig | indent 2 }}
+{{- toYaml .Values.documents.files | nindent 2 -}}
+{{- end }}

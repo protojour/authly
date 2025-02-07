@@ -6,3 +6,7 @@ image:
 pod:
   extraLabels:
     authlyDev: restart
+
+documents:
+  # The documents ConfigMap is created in Justfile
+  createConfigMap: false
