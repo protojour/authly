@@ -141,4 +141,4 @@ hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = f
     "listen_notify_local",
     "sqlite",
 ] }
-tower-server = "0.3"
+tower-server = "0.3.1"

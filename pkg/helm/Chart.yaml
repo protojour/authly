@@ -1,0 +1,14 @@
+apiVersion: v2
+version: 0.0.1
+appVersion: "0.0.1"
+name: authly
+description: Authly Digital Identity
+type: application
+
+annotations:
+  artifacthub.io/category: security
+  artifacthub.io/prerelease: "true"
+
+home: "https://github.com/protojour/authly"
+sources:
+  - "https://github.com/protojour/authly"

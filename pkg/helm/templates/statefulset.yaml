@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "authly.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+spec:
+  serviceName: {{ template "authly.fullname" . }}-cluster
+  replicas: {{ .Values.cluster.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "authly.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ template "authly.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- if  .Values.pod.extraLabels -}}
+          {{- toYaml .Values.pod.extraLabels | nindent 8 -}}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "authly.serviceaccount.name" . }}
+      containers:
+        - name: authly
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/authly", "serve"]
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - containerPort: 443
+            - containerPort: 2443
+            - containerPort: 7855
+            - containerPort: 7856
+          # livenessProbe:
+          #   httpGet:
+          #     scheme: HTTP
+          #     port: 8200
+          #     path: /health
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 30
+          envFrom:
+            - configMapRef:
+                name: authly-config
+            - secretRef:
+                name: {{ include "authly.name" . }}-secrets
+          volumeMounts:
+            # persistent volume:
+            - mountPath: /var/lib/authly
+              name: {{ include "authly.name" . }}-data
+            # TLS secret:
+            - mountPath: /etc/authly/cluster
+              readOnly: true
+              name: {{ include "authly.name" . }}-cluster-key
+            # TODO: make conditional?
+            - mountPath: /etc/authly/documents
+              readOnly: true
+              name: {{ include "authly.name" . }}-documents
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 100m
+      volumes:
+        - name: {{ include "authly.name" . }}-cluster-key
+          secret:
+            secretName: {{ include "authly.name" . }}-cluster-key
+        - name: {{ include "authly.name" . }}-documents
+          configMap:
+            name: {{ include "authly.name" . }}-documents
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ include "authly.name" . }}-data
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: {{ .Values.persistentVolume.size }}
+        # In case you want to specify the storage class.
+        # You should always(!) prefer local over some replicated abstraction layer.
+        # Authly cares about replication itself already.
+        #storageClassName: local-path

@@ -1,0 +1,32 @@
+# The authly service account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.serviceaccount.name" . }}
+automountServiceAccountToken: true
+---
+# The kubernetes roles given to authly
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.name" . }}-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "watch", "list", "create", "patch", "update"]
+---
+# Binds `authly-role` to `authly`
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.name" . }}-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "authly.serviceaccount.name" . }}
+roleRef:
+  kind: Role
+  name: {{ include "authly.name" . }}-role
+  apiGroup: rbac.authorization.k8s.io

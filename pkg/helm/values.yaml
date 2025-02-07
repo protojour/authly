@@ -1,0 +1,33 @@
+global:
+  # -- The namespace to deploy to. Defaults to the `helm` installation namespace.
+  namespace: ""
+
+# Authly cluster-related values
+cluster:
+  # How many replicas to run
+  replicas: 1
+
+# The Authly container image to use
+image:
+  repository: protojour/authly
+  tag: ""
+  pullPolicy: Always
+
+serviceAccount:
+  # Whether to create service account
+  create: true
+
+  # Service account name, defaults to fullname
+  name: ""
+
+persistentVolume:
+  # How much space to allocate on persistent volume
+  size: 256Mi
+
+# A directory containing Authly documents which will be scanned by Authly on startup.
+# The directory is relative to the directory containing Chart.yaml (this directory).
+documentDirectory: authly-documents
+
+pod:
+  # Extra labels to put on Authly pods
+  extraLabels: {}

@@ -1,0 +1,8 @@
+# Helm values for Authly in development/demo mode
+image:
+  tag: dev
+  pullPolicy: Always
+
+pod:
+  extraLabels:
+    authlyDev: restart

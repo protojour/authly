@@ -90,6 +90,7 @@ spec:
     metadata:
       labels:
         app: arx
+        authlyDev: restart
     spec:
       serviceAccountName: arx
       enableServiceLinks: false

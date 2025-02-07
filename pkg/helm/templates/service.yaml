@@ -1,0 +1,84 @@
+# The Authly API service:
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.fullname" . }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ template "authly.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: api
+      protocol: TCP
+      port: 443
+      targetPort: 443
+---
+# The Authly service for k8s authentication:
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.fullname" . }}-k8s
+spec:
+  selector:
+    app.kubernetes.io/name: {{ template "authly.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: k8s-auth-api
+      protocol: TCP
+      port: 443
+      targetPort: 2443
+---
+# The Authly cluster headless service.
+# Only used for Authly pods talking to themselves and other authly pods part of the same Authly cluster:
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.fullname" . }}-cluster
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ template "authly.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: cluster-api
+      protocol: TCP
+      port: 7855
+      targetPort: 7855
+    - name: cluster-raft
+      protocol: TCP
+      port: 7856
+      targetPort: 7856
+---
+# The Authly network policy:
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  namespace: {{ include "authly.namespace" . }}
+  name: {{ include "authly.name" . }}-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "authly.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Open up 443 (authly server port) and 2443 (authly k8s auth port) to every pod:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 2443
+    # Open up the cluster ports to the Authly pod only:
+    - ports:
+        - protocol: TCP
+          port: 7855
+        - protocol: TCP
+          port: 7856
+      from:
+        - podSelector:
+            matchLabels:
+              app: authly
