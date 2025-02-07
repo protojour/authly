@@ -7,12 +7,16 @@ use authly::{
     serve, EnvConfig,
 };
 use clap::{Parser, Subcommand};
+use mimalloc::MiMalloc;
 use rand::{rngs::OsRng, Rng};
 use time::Duration;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[derive(Parser)]
 #[command(version, about, arg_required_else_help(true))]
