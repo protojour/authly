@@ -97,7 +97,9 @@ k8s-demo-deploy: (k3d "authly-dev") dev-image testservice-image
     # idempotent preparation
     -kubectl create namespace authly-test
     mkdir -p pkg/helm/authly-documents && cp examples/demo/* pkg/helm/authly-documents/
-    kubectl apply -f testfiles/k8s/demo/openbao.yaml
+    HELM_MAX_HISTORY=2 \
+        helm upgrade --install openbao ./testfiles/k8s/charts/openbao-authly-dev-0.0.1.tgz \
+        --namespace authly-test
 
     # (re-)deploy Authly using helm
     HELM_MAX_HISTORY=10 \
