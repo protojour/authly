@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use authly_common::{
-    id::Eid,
+    id::{Eid, Id128DynamicArrayConv},
     proto::mandate_submission::{self as proto},
 };
 use rcgen::CertificateParams;
@@ -99,5 +99,5 @@ impl TryFrom<(proto::AuthlyCertificate, AuthlyCertKind)> for AuthlyCert {
 }
 
 fn read_id(bytes: &[u8]) -> anyhow::Result<Eid> {
-    Eid::from_raw_bytes(bytes).ok_or_else(|| anyhow!("invalid ID"))
+    Eid::try_from_bytes_dynamic(bytes).ok_or_else(|| anyhow!("invalid ID"))
 }

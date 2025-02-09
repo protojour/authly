@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
-    id::{Eid, Id128, Id128DynamicArrayConv},
+    id::{kind::IdKind, Eid, Id128, Id128DynamicArrayConv},
     mtls_server::PeerServiceEntity,
     policy::{
         code::PolicyValue,
@@ -73,7 +73,7 @@ where
                 .map_err(grpc_db_err)?;
 
         Ok(Response::new(proto::ServiceMetadata {
-            entity_id: peer_svc.eid.to_raw_array().to_vec(),
+            entity_id: peer_svc.eid.to_array_dynamic().to_vec(),
             label,
             namespaces: metadata::namespaces_with_metadata_to_proto(namespaces),
         }))
@@ -111,7 +111,7 @@ where
 
                 Result::<_, tonic::Status>::Ok(proto::AccessToken {
                     token,
-                    entity_id: session.eid.to_raw_array().to_vec(),
+                    entity_id: session.eid.to_array_dynamic().to_vec(),
                 })
             },
         );
@@ -151,7 +151,7 @@ where
                                 .into_iter()
                                 .map(|(label, attr_id)| proto::AttributeMapping {
                                     label,
-                                    obj_id: attr_id.to_raw_array().to_vec(),
+                                    obj_id: attr_id.to_array_dynamic().to_vec(),
                                 })
                                 .collect(),
                         })
@@ -405,8 +405,9 @@ fn verify_bearer(
         .map_err(|_| tonic::Status::unauthenticated("access token not verified"))
 }
 
-fn id_from_proto<K>(bytes: &[u8]) -> tonic::Result<Id128<K>> {
-    Id128::from_raw_bytes(bytes).ok_or_else(|| tonic::Status::invalid_argument("invalid ID"))
+fn id_from_proto<K: IdKind>(bytes: &[u8]) -> tonic::Result<Id128<K>> {
+    Id128::<K>::try_from_bytes_dynamic(bytes)
+        .ok_or_else(|| tonic::Status::invalid_argument("invalid ID"))
 }
 
 mod metadata {
@@ -421,8 +422,7 @@ mod metadata {
         input
             .into_iter()
             .map(|ns| proto::NamespaceMetadata {
-                // BUG: Protocal can't represent AnyId yet
-                namespace_id: (ns.id.to_array_dynamic()[1..]).to_vec(),
+                namespace_id: ns.id.to_array_dynamic().to_vec(),
                 label: ns.label,
                 metadata: ns.metadata.map(json_object_to_proto),
             })
