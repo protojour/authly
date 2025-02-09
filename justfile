@@ -95,11 +95,11 @@ testservice-image:
 # deploy local development version of authly w/demo apps to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
 k8s-demo-deploy: (k3d "authly-dev") dev-image testservice-image
     # idempotent preparation
-    -kubectl create namespace authly-test
     HELM_MAX_HISTORY=2 \
-        helm upgrade --install openbao ./testfiles/k8s/charts/openbao-authly-dev-0.0.1.tgz \
-        --namespace authly-test
+        helm upgrade --install openbao ./testfiles/k8s/charts/openbao-authly-dev-0.0.2.tgz \
+        --namespace openbao-authly-dev --create-namespace
 
+    -kubectl create namespace authly-test
     # create the "documents" ConfigMap outside of Helm (this is specified in Authly values override file)
     kubectl create configmap authly-documents \
         -n authly-test \

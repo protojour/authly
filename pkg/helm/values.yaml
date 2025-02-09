@@ -31,6 +31,11 @@ serviceAccount:
   # Service account name, defaults to fullname
   name: ""
 
+# Secret management
+secrets:
+  # Set this URL to a non-empty string to use OpenBao (or Vault) with kubernetes auth as secret manager.
+  baoUrl: ""
+
 persistentVolume:
   # How much space to allocate on persistent volume
   size: 256Mi

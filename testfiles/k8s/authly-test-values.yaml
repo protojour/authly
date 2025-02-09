@@ -10,3 +10,6 @@ pod:
 documents:
   # The documents ConfigMap is created in Justfile
   createConfigMap: false
+
+secrets:
+  baoUrl: http://openbao.openbao-authly-dev.svc.cluster.local:8200
