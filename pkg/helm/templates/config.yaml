@@ -1,16 +1,15 @@
 # Basic configuration environment variables:
-{{ $name := print (include "authly.name" .) "-config" }}
+{{ $cfgName := print (include "authly.name" .) "-config" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: {{ include "authly.namespace" . }}
-  name: {{ $name }}
+  name: {{ $cfgName }}
 data:
-  {{ if (lookup "v1" "ConfigMap" .Release.Namespace $name).data }}
-  AUTHLY_ID: {{ (lookup "v1" "ConfigMap" .Release.Namespace $name).data.AUTHLY_ID }}
-  {{ else }}
-  AUTHLY_ID: {{ include "authly.randHex" 64 }}
-  {{ end }}
+  {{ $configmap := (lookup "v1" "ConfigMap" .Release.Namespace $cfgName) | default dict }}
+  {{ $data := (get $configmap "data") | default dict }}
+  {{ $authlyId := (get $data "AUTHLY_ID") | default (include "authly.randHex" 64) }}
+  AUTHLY_ID: {{ $authlyId }}
   AUTHLY_LOG: info
   AUTHLY_K8S: "true"
   AUTHLY_K8S_STATEFULSET: {{ .Release.Name }}
@@ -22,12 +21,16 @@ data:
   {{ end }}
 ---
 # Secrets for the Authly cluster:
-# (this will be removed soon)
+{{ $secretName := print (include "authly.name" .) "-secrets" }}
 apiVersion: v1
 kind: Secret
 metadata:
   namespace: {{ include "authly.namespace" . }}
-  name: {{ include "authly.name" . }}-secrets
+  name: {{ $secretName }}
 stringData:
-  AUTHLY_CLUSTER_API_SECRET: ifyougetholdofthisclassifiedpieceofinformationiwillunfortunatelyhavetokillyou
-  AUTHLY_CLUSTER_RAFT_SECRET: donttellanybodyabouttheverysecretstring
+  {{ $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) | default dict }}
+  {{ $stringData := (get $secret "stringData") | default dict }}
+  {{ $apiSecret := (get $stringData "AUTHLY_CLUSTER_API_SECRET") | default (randAlphaNum 32 | b64enc) }}
+  {{ $raftSecret := (get $stringData "AUTHLY_CLUSTER_RAFT_SECRET") | default (randAlphaNum 32 | b64enc) }}
+  AUTHLY_CLUSTER_API_SECRET: {{ $apiSecret | quote }}
+  AUTHLY_CLUSTER_RAFT_SECRET: {{ $raftSecret | quote }}
