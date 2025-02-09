@@ -8,6 +8,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use authly_common::id::Eid;
 use axum::{response::IntoResponse, Json};
@@ -221,6 +222,16 @@ async fn initialize() -> anyhow::Result<Init> {
     tls::init_tls_ring();
 
     let env_config = EnvConfig::load();
+    let secrets = authly_secrets::AuthlySecretsBuilder {
+        authly_id: env_config.id.0,
+        bao_url: env_config.bao_url.clone(),
+        bao_token: env_config.bao_token.clone(),
+    }
+    .build(reqwest::Client::new())
+    .map_err(|err| anyhow!("fatal: Failed to select secrets backend: {err}"))?;
+
+    info!("using `{}` secret backend", secrets.name());
+
     let node_config = hiqlite_node_config(&env_config);
     let hql = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
 
@@ -231,9 +242,12 @@ async fn initialize() -> anyhow::Result<Init> {
         err
     })?;
 
-    let deks =
-        encryption::load_decrypted_deks(&hql, IsLeaderDb(hql.is_leader_db().await), &env_config)
-            .await?;
+    let deks = encryption::load_decrypted_deks(
+        &hql,
+        IsLeaderDb(hql.is_leader_db().await),
+        secrets.as_ref(),
+    )
+    .await?;
     let instance =
         cryptography_db::load_authly_instance(IsLeaderDb(hql.is_leader_db().await), &hql, &deks)
             .await?;

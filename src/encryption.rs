@@ -4,16 +4,15 @@ use aes_gcm_siv::{
     aead::{Aead, Nonce},
     Aes256GcmSiv, Key, KeyInit,
 };
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use authly_common::id::PropId;
 use authly_db::Db;
-use rand::{rngs::OsRng, Rng, RngCore};
-use serde::Deserialize;
-use serde_json::json;
+use authly_secrets::AuthlySecrets;
+use rand::{rngs::OsRng, RngCore};
 use time::OffsetDateTime;
 use tracing::info;
 
-use crate::{db::cryptography_db, id::BuiltinProp, util::serde::Hex, EnvConfig, IsLeaderDb};
+use crate::{db::cryptography_db, id::BuiltinProp, IsLeaderDb};
 
 /// The set of Data Encryption Keys used by authly
 #[derive(Default, Debug)]
@@ -95,66 +94,31 @@ impl AesKey {
     }
 }
 
-#[derive(Deserialize)]
-struct BaoAuthOutput {
-    pub auth: BaoAuthData,
-}
-
-#[derive(Deserialize)]
-struct BaoAuthData {
-    pub client_token: String,
-}
-
-#[derive(Deserialize)]
-struct BaoCreateSecretOutput {
-    pub data: BaoCreateSecretData,
-}
-
-#[derive(Deserialize)]
-struct BaoCreateSecretData {
-    version: u64,
-}
-
-#[derive(Deserialize)]
-struct BaoReadSecretOutput {
-    pub data: BaoReadSecretData,
-}
-
-#[derive(Deserialize)]
-struct BaoReadSecretData {
-    pub data: BaoReadSecretDataData,
-}
-
-#[derive(Deserialize)]
-struct BaoReadSecretDataData {
-    pub master_key: Hex<[u8; 32]>,
-}
-
 pub async fn load_decrypted_deks(
     deps: &impl Db,
     is_leader: IsLeaderDb,
-    env_config: &EnvConfig,
+    secrets: &dyn AuthlySecrets,
 ) -> anyhow::Result<DecryptedDeks> {
     let mut opt_master_version = cryptography_db::load_cr_master_version(deps).await?;
 
     let deks = if is_leader.0 {
         match opt_master_version {
             None => {
-                let decrypted = gen_new_master(env_config).await?;
+                let decrypted = gen_new_master(secrets).await?;
                 cryptography_db::insert_cr_master_version(deps, decrypted.encrypted.clone())
                     .await?;
 
                 gen_prop_deks(deps, &decrypted, is_leader).await?
             }
             Some(version) => {
-                let decrypted = decrypt_master(version, env_config).await?;
+                let decrypted = decrypt_master(version, secrets).await?;
                 gen_prop_deks(deps, &decrypted, is_leader).await?
             }
         }
     } else {
         let decrypted_master = loop {
             match opt_master_version {
-                Some(version) => break decrypt_master(version, env_config).await?,
+                Some(version) => break decrypt_master(version, secrets).await?,
                 None => {
                     info!("waiting for leader to initialize master version");
                     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -180,77 +144,34 @@ pub async fn load_decrypted_deks(
     Ok(DecryptedDeks { deks })
 }
 
-async fn gen_new_master(env_config: &EnvConfig) -> anyhow::Result<DecryptedMaster> {
-    if let Some(bao_url) = &env_config.bao_url {
-        let id = &env_config.id;
-        let bao_token = get_bao_token(env_config).await?;
+async fn gen_new_master(secrets: &dyn AuthlySecrets) -> anyhow::Result<DecryptedMaster> {
+    let (version, secret) = secrets.gen_versioned("master-key").await?;
 
-        let mut plaintext: [u8; 32] = [0; 32];
-        OsRng.fill(plaintext.as_mut_slice());
-        let master = Hex(plaintext.to_vec());
-
-        let bao_output: BaoCreateSecretOutput = reqwest::Client::new()
-            .post(format!("{bao_url}/v1/secret/data/authly-master-key-{id}"))
-            .header("x-vault-token", bao_token.clone())
-            .json(&json!({
-                "data": {
-                    "master_key": master,
-                }
-            }))
-            .send()
-            .await?
-            .error_for_status()
-            .context("fatal: failed to create master key in bao")?
-            .json()
-            .await?;
-
-        let version = bao_output.data.version;
-
-        Ok(DecryptedMaster {
-            encrypted: MasterVersion {
-                version: version.to_be_bytes().to_vec(),
-                created_at: time::OffsetDateTime::now_utc(),
-            },
-            key: AesKey {
-                key: load_key(master.0)?,
-            },
-        })
-    } else {
-        Err(anyhow!("fatal: no secret store configured"))
-    }
+    Ok(DecryptedMaster {
+        encrypted: MasterVersion {
+            version: version.0,
+            created_at: time::OffsetDateTime::now_utc(),
+        },
+        key: AesKey {
+            key: load_key(secret.0)?,
+        },
+    })
 }
 
 async fn decrypt_master(
     encrypted: MasterVersion,
-    env_config: &EnvConfig,
+    secrets: &dyn AuthlySecrets,
 ) -> anyhow::Result<DecryptedMaster> {
-    if let Some(bao_url) = &env_config.bao_url {
-        let id = &env_config.id;
-        let bao_token = get_bao_token(env_config).await?;
+    let secret = secrets
+        .get_versioned("master-key", &encrypted.version)
+        .await?;
 
-        let version: [u8; 8] = encrypted.version.as_slice().try_into().expect("");
-        let version = u64::from_be_bytes(version);
-
-        let bao_output: BaoReadSecretOutput = reqwest::Client::new()
-            .get(format!(
-                "{bao_url}/v1/secret/data/authly-master-key-{id}?version={version}"
-            ))
-            .header("x-vault-token", bao_token.clone())
-            .send()
-            .await?
-            .error_for_status()
-            .context("fatal: failed to fetch master key in bao")?
-            .json()
-            .await?;
-        Ok(DecryptedMaster {
-            encrypted,
-            key: AesKey {
-                key: load_key(bao_output.data.data.master_key.0.into_iter())?,
-            },
-        })
-    } else {
-        Err(anyhow!("fatal: no secret store configured"))
-    }
+    Ok(DecryptedMaster {
+        encrypted,
+        key: AesKey {
+            key: load_key(secret.0)?,
+        },
+    })
 }
 
 pub async fn gen_prop_deks(
@@ -317,31 +238,4 @@ pub fn random_nonce() -> Nonce<Aes256GcmSiv> {
 pub fn nonce_from_slice(slice: &[u8]) -> anyhow::Result<Nonce<Aes256GcmSiv>> {
     Nonce::<Aes256GcmSiv>::from_exact_iter(slice.iter().copied())
         .ok_or_else(|| anyhow!("invalid nonce length"))
-}
-
-async fn get_bao_token(env_config: &EnvConfig) -> anyhow::Result<String> {
-    if let Some(bao_token) = &env_config.bao_token {
-        Ok(bao_token.clone())
-    } else if env_config.k8s {
-        let svc_token =
-            std::fs::read_to_string("/var/run/secrets/kubernetes.io/serviceaccount/token").unwrap();
-        let Some(bao_url) = &env_config.bao_url else {
-            panic!("fatal: no bao url found")
-        };
-        let bao_output: BaoAuthOutput = reqwest::Client::new()
-            .post(format!("{bao_url}/v1/auth/kubernetes/login"))
-            .json(&json!({
-                "role": "authly",
-                "jwt": svc_token,
-            }))
-            .send()
-            .await?
-            .error_for_status()
-            .context("fatal: bao authentication error")?
-            .json()
-            .await?;
-        Ok(bao_output.auth.client_token)
-    } else {
-        panic!("fatal: no bao token found")
-    }
 }

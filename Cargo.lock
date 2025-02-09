@@ -318,6 +318,7 @@ dependencies = [
  "authly-common",
  "authly-connect",
  "authly-db",
+ "authly-secrets",
  "authly-test-grpc",
  "authly-webstatic",
  "axum 0.7.9",
@@ -477,6 +478,21 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "authly-secrets"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "hexhex",
+ "rand",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.11",
+ "tokio",
 ]
 
 [[package]]
