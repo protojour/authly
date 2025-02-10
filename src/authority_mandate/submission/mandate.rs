@@ -83,7 +83,8 @@ pub async fn mandate_execute_submission(
     // The private key never leaves the mandate.
     // The certificate will be used in subsequent communication with the authority.
     let identity_csr = client_cert_csr(
-        &claims.authly.mandate_entity_id.to_string(),
+        "authly",
+        claims.authly.mandate_entity_id,
         time::Duration::days(365 * 100),
     )
     .serialize_request(deps.get_instance().private_key())

@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+use authly_common::id::Eid;
 use pem::{EncodeConfig, Pem};
 use rcgen::{
     BasicConstraints, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, KeyPair,
@@ -129,9 +130,12 @@ pub fn authly_ca() -> CertificateParams {
     params
 }
 
-pub fn server_cert(common_name: &str, not_after: Duration) -> CertificateParams {
-    let mut params =
-        CertificateParams::new(vec![common_name.to_string()]).expect("we know the name is valid");
+pub fn server_cert(
+    common_name: &str,
+    alt_names: impl Into<Vec<String>>,
+    not_after: Duration,
+) -> anyhow::Result<CertificateParams> {
+    let mut params = CertificateParams::new(alt_names)?;
     params
         .distinguished_name
         .push(DnType::CommonName, common_name);
@@ -143,15 +147,24 @@ pub fn server_cert(common_name: &str, not_after: Duration) -> CertificateParams 
     params.not_before = past(Duration::days(1));
     params.not_after = future(not_after);
 
-    params
+    Ok(params)
 }
 
-pub fn server_cert_csr(common_name: &str, not_after: Duration) -> CertificateParams {
-    let mut params =
-        CertificateParams::new(vec![common_name.to_string()]).expect("we know the name is valid");
+const EID_UNIQUE_IDENTIFIER: &[u64] = &[2, 5, 4, 45];
+
+pub fn server_cert_csr(
+    common_name: &str,
+    alt_names: impl Into<Vec<String>>,
+    not_after: Duration,
+) -> anyhow::Result<CertificateParams> {
+    let mut params = CertificateParams::new(alt_names)?;
     params
         .distinguished_name
         .push(DnType::CommonName, common_name);
+    params.distinguished_name.push(
+        DnType::CustomDnType(EID_UNIQUE_IDENTIFIER.to_vec()),
+        common_name,
+    );
     params.use_authority_key_identifier_extension = false;
     params.key_usages.push(KeyUsagePurpose::DigitalSignature);
     params
@@ -160,14 +173,18 @@ pub fn server_cert_csr(common_name: &str, not_after: Duration) -> CertificatePar
     params.not_before = past(Duration::days(1));
     params.not_after = future(not_after);
 
-    params
+    Ok(params)
 }
 
-pub fn client_cert(common_name: &str, not_after: Duration) -> CertificateParams {
+pub fn client_cert(common_name: &str, eid: Eid, not_after: Duration) -> CertificateParams {
     let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
     params
         .distinguished_name
         .push(DnType::CommonName, common_name);
+    params.distinguished_name.push(
+        DnType::CustomDnType(EID_UNIQUE_IDENTIFIER.to_vec()),
+        eid.to_string(),
+    );
     params.use_authority_key_identifier_extension = true;
     params.key_usages.push(KeyUsagePurpose::DigitalSignature);
     params
@@ -179,11 +196,15 @@ pub fn client_cert(common_name: &str, not_after: Duration) -> CertificateParams 
     params
 }
 
-pub fn client_cert_csr(common_name: &str, not_after: Duration) -> CertificateParams {
+pub fn client_cert_csr(common_name: &str, eid: Eid, not_after: Duration) -> CertificateParams {
     let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
     params
         .distinguished_name
         .push(DnType::CommonName, common_name);
+    params.distinguished_name.push(
+        DnType::CustomDnType(EID_UNIQUE_IDENTIFIER.to_vec()),
+        eid.to_string(),
+    );
     params.use_authority_key_identifier_extension = false;
     params.key_usages.push(KeyUsagePurpose::DigitalSignature);
     params

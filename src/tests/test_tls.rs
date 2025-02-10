@@ -1,6 +1,6 @@
 use std::{error::Error, sync::Arc};
 
-use authly_common::mtls_server::PeerServiceEntity;
+use authly_common::{id::Eid, mtls_server::PeerServiceEntity};
 use axum::{response::IntoResponse, Extension};
 use rcgen::CertificateSigningRequestParams;
 use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
@@ -12,10 +12,18 @@ use crate::{
     tests::{rustls_server_config_mtls, rustls_server_config_no_client_auth},
 };
 
+fn localhost() -> Vec<String> {
+    vec!["localhost".to_string()]
+}
+
 #[tokio::test]
 async fn test_tls_localhost_cert_ok() {
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
+    let server_cert = ca.sign(
+        server_cert("svc", localhost(), Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -41,8 +49,11 @@ async fn test_tls_localhost_cert_ok() {
 async fn test_tls_localhost_intermediate_cert_ok() {
     let root_ca = authly_ca().with_new_key_pair().self_signed();
     let intermediate_ca = root_ca.sign(authly_ca().with_new_key_pair());
-    let server_cert =
-        intermediate_ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
+    let server_cert = intermediate_ca.sign(
+        server_cert("svc", localhost(), Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
+    );
 
     let rustls_config_factory =
         rustls_server_config_no_client_auth(&[&server_cert, &intermediate_ca]).unwrap();
@@ -68,7 +79,11 @@ async fn test_tls_localhost_intermediate_cert_ok() {
 #[tokio::test]
 async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
+    let server_cert = ca.sign(
+        server_cert("svc", localhost(), Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -92,7 +107,11 @@ async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
 #[tokio::test]
 async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
+    let server_cert = ca.sign(
+        server_cert("svc", localhost(), Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -117,7 +136,11 @@ async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
 #[tokio::test]
 async fn test_tls_invalid_host_cert() {
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let server_cert = ca.sign(server_cert("gooofy", Duration::hours(1)).with_new_key_pair());
+    let server_cert = ca.sign(
+        server_cert("svc", vec!["gooofy".to_string()], Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -142,10 +165,13 @@ async fn test_tls_invalid_host_cert() {
 #[tokio::test]
 async fn test_mtls_verified() {
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
-    let client_cert = ca.sign(
-        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
+    let server_cert = ca.sign(
+        server_cert("svc", localhost(), Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
     );
+    let client_cert = ca
+        .sign(client_cert("svc", Eid::from_uint(777_666), Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -167,7 +193,7 @@ async fn test_mtls_verified() {
 
     assert_eq!(
         text_response,
-        "it works: peer_service_eid=e.cf2e74c3f26240908e1b4e8817bfde7c"
+        "it works: peer_service_eid=e.000000000000000000000000000bddc2"
     );
 }
 
@@ -176,7 +202,9 @@ async fn test_mtls_server_cert_through_csr() {
     let ca = authly_ca().with_new_key_pair().self_signed();
 
     let server_cert = {
-        let req = server_cert_csr("localhost", Duration::days(1)).with_new_key_pair();
+        let req = server_cert_csr("svc", localhost(), Duration::days(1))
+            .unwrap()
+            .with_new_key_pair();
 
         let csr_der = req
             .params
@@ -198,9 +226,8 @@ async fn test_mtls_server_cert_through_csr() {
     };
 
     // let server_cert = ca.sign(gen_key_pair().server_cert_csr("localhost", Duration::hours(1)));
-    let client_cert = ca.sign(
-        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
-    );
+    let client_cert = ca
+        .sign(client_cert("svc", Eid::from_uint(666_777), Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -222,7 +249,7 @@ async fn test_mtls_server_cert_through_csr() {
 
     assert_eq!(
         text_response,
-        "it works: peer_service_eid=e.cf2e74c3f26240908e1b4e8817bfde7c"
+        "it works: peer_service_eid=e.000000000000000000000000000a2c99"
     );
 }
 
@@ -230,7 +257,11 @@ async fn test_mtls_server_cert_through_csr() {
 #[tokio::test]
 async fn test_mtls_missing_client_identity() {
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
+    let server_cert = ca.sign(
+        server_cert("svc", localhost(), Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -255,10 +286,15 @@ async fn test_mtls_missing_client_identity() {
 #[tokio::test]
 async fn test_mtls_invalid_issuer() {
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let server_cert = ca.sign(server_cert("localhost", Duration::hours(1)).with_new_key_pair());
+    let server_cert = ca.sign(
+        server_cert("svc", localhost(), Duration::hours(1))
+            .unwrap()
+            .with_new_key_pair(),
+    );
 
     let bad_ca = authly_ca().with_new_key_pair().self_signed();
-    let bad_client_cert = bad_ca.sign(client_cert("1337", Duration::hours(1)).with_new_key_pair());
+    let bad_client_cert = bad_ca
+        .sign(client_cert("bad", Eid::from_uint(666), Duration::hours(1)).with_new_key_pair());
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _cancel) = spawn_server(rustls_config_factory).await;

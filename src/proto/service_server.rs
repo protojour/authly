@@ -15,7 +15,7 @@ use authly_common::{
 };
 use futures_util::{stream::BoxStream, StreamExt};
 use http::header::{AUTHORIZATION, COOKIE};
-use rcgen::CertificateSigningRequestParams;
+use rcgen::{CertificateSigningRequestParams, DnType};
 use rustls::pki_types::CertificateSigningRequestDer;
 use tonic::{
     metadata::{Ascii, MetadataMap},
@@ -243,12 +243,34 @@ where
         &self,
         request: Request<proto::CertificateSigningRequest>,
     ) -> tonic::Result<Response<proto::Certificate>> {
-        let _peer_svc_eid = svc_mtls_auth_trivial(request.extensions())?;
+        let peer_svc_eid = svc_mtls_auth_trivial(request.extensions())?;
 
         let csr_params = CertificateSigningRequestParams::from_der(
             &CertificateSigningRequestDer::from(request.into_inner().der),
         )
         .map_err(|_err| tonic::Status::invalid_argument("invalid Certificate Signing Request"))?;
+
+        let csr_entity_id = {
+            let entity_unique_id = csr_params
+                .params
+                .distinguished_name
+                .get(&DnType::from_oid(
+                    authly_common::certificate::oid::ENTITY_UNIQUE_IDENTIFIER,
+                ))
+                .ok_or_else(|| tonic::Status::invalid_argument("CSR missing Entity ID"))?;
+
+            match entity_unique_id {
+                rcgen::DnValue::PrintableString(printable_string) => printable_string.as_str(),
+                rcgen::DnValue::Utf8String(string) => string.as_str(),
+                _ => return Err(tonic::Status::invalid_argument("CSR missing Entity ID")),
+            }
+        };
+
+        if csr_entity_id != peer_svc_eid.to_string() {
+            return Err(tonic::Status::invalid_argument(
+                "CSR entity ID does not match peer identity",
+            ));
+        }
 
         // TODO: If a server certificate: Somehow verify that the peer service does not lie about its hostname/common name?
         // Authly would have to know its hostname in that case, if it's not the same as the service label.

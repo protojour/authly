@@ -22,11 +22,11 @@ pub enum AuthoritySubmissionError {
     #[error("token generation problem: {0}")]
     Token(#[from] jsonwebtoken::errors::Error),
 
-    #[error("csr missing common name")]
-    CsrMissingCommonName,
+    #[error("csr missing entity ID")]
+    CsrMissingEntityId,
 
-    #[error("csr common name mismatch")]
-    CsrCommonNameMismatch,
+    #[error("csr entity ID mismatch")]
+    CsrEntityIdMismatch,
 
     #[error("csr error: {0}")]
     CsrOther(rcgen::Error),
@@ -113,18 +113,20 @@ pub async fn authority_fulfill_submission(
     let mandate_eid = claims.mandate_entity_id;
 
     {
-        let common_name = csr_params
+        let entity_id = csr_params
             .params
             .distinguished_name
-            .get(&rcgen::DnType::CommonName)
-            .and_then(|cn| match cn {
-                DnValue::Utf8String(cn) => Some(cn),
+            .get(&rcgen::DnType::CustomDnType(
+                authly_common::certificate::oid::ENTITY_UNIQUE_IDENTIFIER.to_vec(),
+            ))
+            .and_then(|eid| match eid {
+                DnValue::Utf8String(eid) => Some(eid),
                 _ => None,
             })
-            .ok_or_else(|| AuthoritySubmissionError::CsrMissingCommonName)?;
+            .ok_or_else(|| AuthoritySubmissionError::CsrMissingEntityId)?;
 
-        if common_name != &mandate_eid.to_string() {
-            return Err(AuthoritySubmissionError::CsrCommonNameMismatch);
+        if entity_id != &mandate_eid.to_string() {
+            return Err(AuthoritySubmissionError::CsrEntityIdMismatch);
         }
     };
 

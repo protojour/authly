@@ -105,7 +105,7 @@ impl TestCtx {
             },
             {
                 let certificate =
-                    client_cert(&authly_id.eid.to_string(), time::Duration::days(365 * 100))
+                    client_cert("authly", authly_id.eid, time::Duration::days(365 * 100))
                         .self_signed(&authly_id.private_key)
                         .unwrap();
                 AuthlyCert {

@@ -88,8 +88,9 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn issue_cluster_key(common_name: &str, tls_path: ClusterTlsPath) -> anyhow::Result<()> {
-    let req = server_cert(common_name, Duration::days(10000)).with_new_key_pair();
+fn issue_cluster_key(hostname: &str, tls_path: ClusterTlsPath) -> anyhow::Result<()> {
+    let req = server_cert("authly", vec![hostname.to_string()], Duration::days(10000))?
+        .with_new_key_pair();
     let certificate = req.params.self_signed(&req.key)?;
 
     std::fs::create_dir_all(&tls_path.0)?;

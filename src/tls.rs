@@ -118,9 +118,9 @@ fn generate_mutual_tls_server_config(
     // Make the certificate valid for twice the rotation rate
     let not_after = time::Duration::try_from(rotation_rate)? * 2;
 
-    let server_cert = ctx
-        .get_instance()
-        .sign_with_local_ca(server_cert(hostname, not_after).with_new_key_pair());
+    let server_cert = ctx.get_instance().sign_with_local_ca(
+        server_cert("authly", vec![hostname.to_string()], not_after)?.with_new_key_pair(),
+    );
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("server private key: {err}"))?;
@@ -141,8 +141,9 @@ pub fn generate_tls_server_config(
     // Make the certificate valid for twice the rotation rate
     let not_after = time::Duration::try_from(rotation_rate)? * 2;
 
-    let server_cert =
-        instance.sign_with_local_ca(server_cert(hostname, not_after).with_new_key_pair());
+    let server_cert = instance.sign_with_local_ca(
+        server_cert("authly", vec![hostname.to_string()], not_after)?.with_new_key_pair(),
+    );
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("server private key: {err}"))?;

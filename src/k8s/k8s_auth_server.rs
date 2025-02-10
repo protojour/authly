@@ -112,6 +112,7 @@ async fn v0_authenticate_handler(
     let token_data = state.jwt_verifier.verify(bearer_authorization.token())?;
 
     let kubernetes_io = token_data.claims.kubernetes_io;
+    let common_name = kubernetes_io.serviceaccount.name.clone();
     let eid = service_db::find_service_eid_by_k8s_service_account_name(
         state.ctx.get_db(),
         &kubernetes_io.namespace,
@@ -133,7 +134,7 @@ async fn v0_authenticate_handler(
             .map_err(|_err| CsrError::InvalidPublicKey(eid))?;
 
         Ok(state.ctx.get_instance().sign_with_local_ca(
-            client_cert(&eid.to_string(), CERT_VALIDITY_PERIOD).with_owned_key(service_public_key),
+            client_cert(&common_name, eid, CERT_VALIDITY_PERIOD).with_owned_key(service_public_key),
         ))
     })
     .await
@@ -244,8 +245,14 @@ fn rustls_server_config(
         .as_deref()
         .unwrap_or(&env_config.hostname);
 
-    let server_cert = instance
-        .sign_with_local_ca(server_cert(hostname, time::Duration::days(365)).with_new_key_pair());
+    let server_cert = instance.sign_with_local_ca(
+        server_cert(
+            "authly",
+            vec![hostname.to_string()],
+            time::Duration::days(365),
+        )?
+        .with_new_key_pair(),
+    );
 
     let server_private_key_der = PrivateKeyDer::try_from(server_cert.key.serialize_der())
         .map_err(|err| anyhow!("k8s auth server private key: {err}"))?;

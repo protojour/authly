@@ -147,12 +147,10 @@ pub async fn load_authly_instance(
                         certs.push(cert);
                     }
                     AuthlyCertKind::Identity => {
-                        let certificate = client_cert(
-                            &authly_id.eid.to_string(),
-                            time::Duration::days(365 * 100),
-                        )
-                        .self_signed(&authly_id.private_key)
-                        .unwrap();
+                        let certificate =
+                            client_cert("authly", authly_id.eid, time::Duration::days(365 * 100))
+                                .self_signed(&authly_id.private_key)
+                                .unwrap();
                         let cert = AuthlyCert {
                             kind: AuthlyCertKind::Identity,
                             certifies: authly_id.eid,

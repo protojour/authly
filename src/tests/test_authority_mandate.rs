@@ -60,7 +60,13 @@ async fn test_mandate_registration() {
 
     let (server_connect_uri, _drop) = spawn_test_connect_server(
         rustls_server_config_no_client_auth(&[&authority_ctx.get_instance().sign_with_local_ca(
-            server_cert("localhost", time::Duration::hours(1)).with_new_key_pair(),
+            server_cert(
+                "authly",
+                vec!["localhost".to_string()],
+                time::Duration::hours(1),
+            )
+            .unwrap()
+            .with_new_key_pair(),
         )])
         .unwrap(),
         TunnelSecurity::Secure,

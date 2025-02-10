@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use authly_common::{
-    mtls_server::PeerServiceEntity, proto::connect::authly_connect_client::AuthlyConnectClient,
+    id::Eid, mtls_server::PeerServiceEntity,
+    proto::connect::authly_connect_client::AuthlyConnectClient,
 };
 use authly_connect::{
     client::new_authly_connect_grpc_client_service, tunnel::authly_connect_client_tunnel,
@@ -33,10 +34,17 @@ async fn test_connect_grpc() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let tunneled_server_cert =
-        ca.sign(server_cert("authly-connect", Duration::hours(1)).with_new_key_pair());
+    let tunneled_server_cert = ca.sign(
+        server_cert(
+            "svc",
+            vec!["authly-connect".to_string()],
+            Duration::hours(1),
+        )
+        .unwrap()
+        .with_new_key_pair(),
+    );
     let client_cert = ca.sign(
-        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
+        client_cert("client", Eid::from_uint(666_777), Duration::hours(1)).with_new_key_pair(),
     );
 
     let (local_url, _drop) = spawn_test_connect_server(
@@ -145,10 +153,17 @@ async fn test_connect_http() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let ca = authly_ca().with_new_key_pair().self_signed();
-    let tunneled_server_cert =
-        ca.sign(server_cert("authly-connect", Duration::hours(1)).with_new_key_pair());
+    let tunneled_server_cert = ca.sign(
+        server_cert(
+            "svc",
+            vec!["authly-connect".to_string()],
+            Duration::hours(1),
+        )
+        .unwrap()
+        .with_new_key_pair(),
+    );
     let client_cert = ca.sign(
-        client_cert("e.cf2e74c3f26240908e1b4e8817bfde7c", Duration::hours(1)).with_new_key_pair(),
+        client_cert("client", Eid::from_uint(666_777), Duration::hours(1)).with_new_key_pair(),
     );
     let (local_url, _drop) = spawn_test_connect_server(
         rustls_server_config_mtls(&[&tunneled_server_cert], &ca.der).unwrap(),
@@ -212,5 +227,5 @@ async fn test_connect_http() {
 
     info!("response: {response}");
 
-    assert!(response.ends_with("HELLO e.cf2e74c3f26240908e1b4e8817bfde7c!"));
+    assert!(response.ends_with("HELLO e.000000000000000000000000000a2c99!"));
 }
