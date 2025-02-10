@@ -4,7 +4,7 @@ use std::{borrow::Cow, collections::HashMap, str::FromStr, time::Duration};
 
 use aes_gcm_siv::aead::Aead;
 use anyhow::{anyhow, Context};
-use authly_common::id::{Eid, PropId};
+use authly_common::id::{PropId, ServiceId};
 use authly_db::{param::AsParam, Db, DbError, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
@@ -189,7 +189,7 @@ async fn load_or_generate_authly_id(
         Some(authly_id) => Ok(authly_id),
         None => {
             if is_leader.0 {
-                let eid = Eid::random();
+                let eid = ServiceId::random();
                 let private_key = key_pair();
 
                 debug!("initializing new authly ID");
@@ -215,7 +215,7 @@ async fn try_load_authly_id(
     deps: &impl Db,
     deks: &DecryptedDeks,
 ) -> Result<Option<AuthlyId>, CrDbError> {
-    struct Output(Eid, [u8; 12], Vec<u8>);
+    struct Output(ServiceId, [u8; 12], Vec<u8>);
 
     impl FromRow for Output {
         fn from_row(row: &mut impl Row) -> Self {
@@ -257,7 +257,7 @@ async fn try_load_authly_id(
 }
 
 pub async fn save_instance(
-    eid: Eid,
+    eid: ServiceId,
     private_key: &KeyPair,
     db: &impl Db,
     deks: &DecryptedDeks,

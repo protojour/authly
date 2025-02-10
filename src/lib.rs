@@ -10,7 +10,6 @@ use std::{
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
-use authly_common::id::Eid;
 use axum::{response::IntoResponse, Json};
 use bus::{message::ServiceMessage, service_events::ServiceEventDispatcher};
 use ctx::{GetDb, ServiceBus};

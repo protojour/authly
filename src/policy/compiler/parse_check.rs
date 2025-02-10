@@ -1,6 +1,7 @@
 //! This module takes the pest parse tree and transforms it into Expr,
 //! with basic type checking
 
+use authly_common::id::kind::Kind;
 use pest::{iterators::Pair, Span};
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    expr::{Expr, Global, Label, Term},
+    expr::{Expr, Global, Label128, Term},
     parser::Rule,
     ParseCtx, PolicyCompiler,
 };
@@ -59,11 +60,11 @@ impl PolicyCompiler<'_> {
     fn pest_term(&mut self, pair: Pair<Rule>) -> Term {
         match pair.as_rule() {
             Rule::label => {
-                let Some(label) = self.pest_any_label(pair) else {
+                let Some((kind, label)) = self.pest_entity_label(pair) else {
                     return Term::Error;
                 };
 
-                Term::Label(label)
+                Term::Entity(kind, label)
             }
             Rule::term_field => {
                 let mut pairs = pair.into_inner();
@@ -92,7 +93,7 @@ impl PolicyCompiler<'_> {
                     .doc_data
                     .find_attribute_by_label(property_label.0.into(), attr_label_str)
                 {
-                    Ok(id) => Label(id.to_raw_array()),
+                    Ok(id) => Label128(id.to_raw_array()),
                     Err(_) => {
                         self.pest_error(
                             span,
@@ -113,7 +114,7 @@ impl PolicyCompiler<'_> {
         }
     }
 
-    fn pest_any_label(&mut self, pair: Pair<Rule>) -> Option<Label> {
+    fn pest_entity_label(&mut self, pair: Pair<Rule>) -> Option<(Kind, Label128)> {
         let label = pair.as_str();
         let Some(namespace) = self.namespace.get_namespace(label) else {
             self.pest_error(
@@ -124,8 +125,8 @@ impl PolicyCompiler<'_> {
         };
 
         match &namespace.kind {
-            NamespaceKind::Entity(id) => Some(Label(id.to_raw_array())),
-            NamespaceKind::Service(id) => Some(Label(id.to_raw_array())),
+            NamespaceKind::Entity(id) => Some((id.kind(), Label128(id.to_raw_array()))),
+            NamespaceKind::Service(id) => Some((Kind::Service, Label128(id.to_raw_array()))),
             _ => {
                 self.pest_error(
                     pair.as_span(),
@@ -136,11 +137,11 @@ impl PolicyCompiler<'_> {
         }
     }
 
-    fn pest_property_label(&mut self, namespace: Pair<Rule>, prop: Pair<Rule>) -> Option<Label> {
+    fn pest_property_label(&mut self, namespace: Pair<Rule>, prop: Pair<Rule>) -> Option<Label128> {
         let ns_label = namespace.as_str();
         let prop_label = prop.as_str();
         match self.namespace.get_entry(ns_label, prop_label) {
-            Ok(NamespaceEntry::PropertyLabel(id)) => Some(Label(id.to_raw_array())),
+            Ok(NamespaceEntry::PropertyLabel(id)) => Some(Label128(id.to_raw_array())),
             Err(NsLookupErr::Namespace) => {
                 self.pest_error(
                     namespace.as_span(),

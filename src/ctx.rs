@@ -2,7 +2,7 @@
 
 use std::{future::Future, sync::Arc};
 
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use authly_db::Db;
 
 use crate::{
@@ -61,9 +61,9 @@ pub trait ClusterBus {
 
 pub trait ServiceBus {
     /// Register a subscriber for service messages.
-    fn service_subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection);
+    fn service_subscribe(&self, svc_id: ServiceId, connection: ServiceMessageConnection);
 
-    fn service_broadcast(&self, svc_eid: Eid, msg: ServiceMessage);
+    fn service_broadcast(&self, svc_id: ServiceId, msg: ServiceMessage);
 
     fn service_broadcast_all(&self, msg: ServiceMessage);
 }
@@ -126,7 +126,7 @@ impl ClusterBus for AuthlyCtx {
 }
 
 impl ServiceBus for AuthlyCtx {
-    fn service_subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection) {
+    fn service_subscribe(&self, svc_eid: ServiceId, connection: ServiceMessageConnection) {
         self.state
             .svc_event_dispatcher
             .subscribe(svc_eid, connection);
@@ -136,7 +136,7 @@ impl ServiceBus for AuthlyCtx {
         self.state.svc_event_dispatcher.broadcast_all(msg);
     }
 
-    fn service_broadcast(&self, svc_eid: Eid, msg: ServiceMessage) {
+    fn service_broadcast(&self, svc_eid: ServiceId, msg: ServiceMessage) {
         self.state.svc_event_dispatcher.broadcast(svc_eid, msg);
     }
 }

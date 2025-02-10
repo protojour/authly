@@ -1,4 +1,4 @@
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use authly_db::{param::AsParam, Db, DbError, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
@@ -74,7 +74,7 @@ pub async fn verify_then_invalidate_submission_code(
 
 pub async fn insert_authority_mandate(
     deps: &impl Db,
-    mandate_eid: Eid,
+    mandate_eid: ServiceId,
     granted_by: Actor,
     public_key: Vec<u8>,
     mandate_type: &'static str,

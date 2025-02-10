@@ -1,5 +1,5 @@
 use authly_common::{
-    id::Eid,
+    id::ServiceId,
     proto::service::{
         self as proto, authly_service_client::AuthlyServiceClient,
         service_message::ServiceMessageKind,
@@ -20,7 +20,7 @@ use crate::{
 
 use super::tonic_request;
 
-const SVC: Eid = Eid::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
+const SVC: ServiceId = ServiceId::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
 
 #[test_log::test(tokio::test)]
 async fn test_svc_namespace_metadata() {
@@ -38,7 +38,7 @@ async fn test_svc_namespace_metadata() {
         label = "d2"
 
         [[service-entity]]
-        eid = "e.e5462a0d22b54d9f9ca37bd96e9b9d8b"
+        eid = "s.e5462a0d22b54d9f9ca37bd96e9b9d8b"
         label = "svc"
 
         [[service-domain]]
@@ -54,7 +54,7 @@ async fn test_svc_namespace_metadata() {
         metadata = { ingored_too = "yes, really ignore" }
 
         [[service-entity]]
-        eid = "e.fa226c4fab3c44d1a6d96af0245d283d"
+        eid = "s.fa226c4fab3c44d1a6d96af0245d283d"
         label = "ignore_me_too"
 
         [[service-domain]]

@@ -1,6 +1,6 @@
 use std::{any::Any, fs};
 
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use authly_db::{Db, DbError};
 use tracing::error;
 
@@ -68,7 +68,7 @@ pub async fn apply_document(
     Ok(())
 }
 
-fn export_service_identity(svc_eid: Eid, ctx: &AuthlyCtx) -> anyhow::Result<()> {
+fn export_service_identity(svc_eid: ServiceId, ctx: &AuthlyCtx) -> anyhow::Result<()> {
     let pem = ctx
         .get_instance()
         .sign_with_local_ca(

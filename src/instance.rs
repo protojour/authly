@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use rcgen::{KeyPair, PublicKeyData};
 
 use crate::{
@@ -18,7 +18,7 @@ pub struct AuthlyInstance {
 /// IDs of the authly instance.
 /// Consists of Entity ID and key pair.
 pub struct AuthlyId {
-    pub eid: Eid,
+    pub eid: ServiceId,
     pub private_key: KeyPair,
 }
 
@@ -55,7 +55,7 @@ impl AuthlyInstance {
         }
     }
 
-    pub fn authly_eid(&self) -> Eid {
+    pub fn authly_eid(&self) -> ServiceId {
         self.authly_id.eid
     }
 

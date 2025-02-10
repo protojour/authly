@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use authly_client::AccessControl;
-use authly_common::id::Eid;
+use authly_common::id::{PersonaId, ServiceId};
 use cookie::Cookie;
 use hexhex::hex_literal;
 use hyper::header::SET_COOKIE;
@@ -81,7 +81,9 @@ async fn auth_session_cookie_to_access_token() -> anyhow::Result<()> {
 
     assert_eq!(
         access_token.claims.authly.entity_id,
-        hex_literal!("0fbcd73e1a884424a1615c3c3fdeebec").into()
+        PersonaId::from(hex_literal!("0fbcd73e1a884424a1615c3c3fdeebec"))
+            .try_into()
+            .unwrap()
     );
     assert_eq!(1, access_token.claims.authly.entity_attributes.len());
 

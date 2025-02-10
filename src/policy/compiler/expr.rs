@@ -3,6 +3,7 @@
 //! The policy expression is stored in serialized form in the database,
 //! so it's to be considered a stable format and requires care when extending.
 
+use authly_common::id::kind::Kind;
 use serde::{Deserialize, Serialize};
 
 /// Policy expression.
@@ -23,15 +24,15 @@ pub enum Expr {
 /// NB: The order of enum variants matters for postcard deserialization from DB.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Term {
-    Label(Label),
-    Field(Global, Label),
-    Attr(Label, Label),
+    Entity(Kind, Label128),
+    Field(Global, Label128),
+    Attr(Label128, Label128),
     Error,
 }
 
 /// A label resolved to an ID
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
-pub struct Label(pub [u8; 16]);
+pub struct Label128(pub [u8; 16]);
 
 /// Global object.
 ///

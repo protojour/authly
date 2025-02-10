@@ -4,9 +4,11 @@ use std::str::FromStr;
 use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
 
-use authly_common::id::{AnyId, AttrId, DirectoryId, DomainId, PolicyBindingId, PolicyId, PropId};
+use authly_common::id::{
+    AnyId, AttrId, DirectoryId, DomainId, EntityId, PolicyBindingId, PolicyId, PropId, ServiceId,
+};
 use authly_common::policy::code::PolicyValue;
-use authly_common::{document, id::Eid, property::QualifiedAttributeName};
+use authly_common::{document, property::QualifiedAttributeName};
 use authly_db::{Db, DbError};
 use serde::de::value::StrDeserializer;
 use serde::Deserialize;
@@ -74,8 +76,8 @@ pub struct Namespace {
 #[derive(Debug)]
 pub enum NamespaceKind {
     Authly,
-    Entity(Eid),
-    Service(Eid),
+    Entity(EntityId),
+    Service(ServiceId),
     Domain(DomainId),
     Policy(PolicyId),
 }
@@ -168,13 +170,13 @@ pub async fn compile_doc(
             comp.ns_add(&domain.label, NamespaceKind::Domain(id));
 
             data.obj_labels.push(ObjectLabel {
-                obj_id: id.into(),
+                obj_id: id.upcast(),
                 label: domain.label.as_ref().to_string(),
             });
 
             if let Some(metadata) = domain.metadata {
                 data.obj_text_attrs.push(ObjectTextAttr {
-                    obj_id: id.into(),
+                    obj_id: id.upcast(),
                     prop_id: PropId::from(BuiltinProp::Metadata),
                     value: serde_json::to_string(&metadata).expect("already valid json"),
                 });
@@ -200,27 +202,32 @@ pub async fn compile_doc(
     }
 
     for entity in &mut doc.service_entity {
-        let eid = *entity.eid.as_ref();
+        let Ok(svc_eid) = ServiceId::try_from(*entity.eid.as_ref()) else {
+            comp.errors
+                .push(entity.eid.span(), CompileError::MustBeAServiceId);
+            continue;
+        };
+
         if let Some(label) = &entity.label {
             data.obj_labels.push(ObjectLabel {
-                obj_id: eid.into(),
+                obj_id: svc_eid.upcast(),
                 label: label.as_ref().to_string(),
             });
         }
 
         if let Some(k8s) = mem::take(&mut entity.kubernetes_account) {
             data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: eid.into(),
+                obj_id: svc_eid.upcast(),
                 prop_id: BuiltinProp::K8sServiceAccount.into(),
                 value: format!("{}/{}", k8s.namespace, k8s.name),
             });
         }
 
-        data.service_ids.insert(eid);
+        data.service_ids.insert(svc_eid);
 
         if let Some(metadata) = entity.metadata.take() {
             data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: (*entity.eid.as_ref()).into(),
+                obj_id: svc_eid.upcast(),
                 prop_id: PropId::from(BuiltinProp::Metadata),
                 value: serde_json::to_string(&metadata).expect("already valid json"),
             });
@@ -245,7 +252,7 @@ pub async fn compile_doc(
         };
 
         data.obj_text_attrs.push(ObjectTextAttr {
-            obj_id: eid.into(),
+            obj_id: eid.upcast(),
             prop_id: BuiltinProp::PasswordHash.into(),
             value: hash.hash,
         });
@@ -275,7 +282,7 @@ pub async fn compile_doc(
 
     for doc_svc_domain in doc.service_domain {
         if let (Some(svc_eid), Some(dom_id)) = (
-            comp.ns_entity_lookup(&doc_svc_domain.service),
+            comp.ns_service_lookup(&doc_svc_domain.service),
             comp.ns_dyn_namespace_lookup(&doc_svc_domain.domain),
         ) {
             match DomainId::try_from(dom_id) {
@@ -324,7 +331,10 @@ fn seed_namespace(doc: &document::Document, comp: &mut CompileCtx) {
 
     for entity in &doc.service_entity {
         if let Some(label) = &entity.label {
-            comp.ns_add(label, NamespaceKind::Service(*entity.eid.get_ref()));
+            // this is error-checked elsewhere
+            if let Ok(svc_id) = ServiceId::try_from(*entity.eid.get_ref()) {
+                comp.ns_add(label, NamespaceKind::Service(svc_id));
+            }
         }
     }
 }
@@ -494,7 +504,7 @@ fn process_attribute_assignments(
     data: &mut CompiledDocumentData,
     comp: &mut CompileCtx,
 ) {
-    let mut assignments: Vec<(Eid, Spanned<QualifiedAttributeName>)> = vec![];
+    let mut assignments: Vec<(EntityId, Spanned<QualifiedAttributeName>)> = vec![];
 
     for entity in &mut doc.entity {
         for attribute in std::mem::take(&mut entity.attributes) {
@@ -721,27 +731,37 @@ impl CompileCtx {
         }
     }
 
-    fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<Eid> {
-        if key.as_ref().as_ref().starts_with("e.") {
-            return Eid::from_str(key.as_ref().as_ref()).ok();
+    fn ns_entity_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<EntityId> {
+        if let Ok(entity_id) = EntityId::from_str(key.as_ref().as_ref()) {
+            return Some(entity_id);
         }
 
         match self.ns_lookup_kind(key, CompileError::UnresolvedEntity)? {
             NamespaceKind::Entity(eid) => Some(*eid),
+            NamespaceKind::Service(eid) => Some(eid.upcast()),
+            _ => None,
+        }
+    }
+
+    fn ns_service_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<ServiceId> {
+        if let Ok(svc_id) = ServiceId::from_str(key.as_ref().as_ref()) {
+            return Some(svc_id);
+        }
+
+        match self.ns_lookup_kind(key, CompileError::UnresolvedEntity)? {
             NamespaceKind::Service(eid) => Some(*eid),
             _ => None,
         }
     }
 
     fn ns_dyn_namespace_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<AnyId> {
-        if key.as_ref().as_ref().starts_with("e.") {
-            let eid = Eid::from_str(key.as_ref().as_ref()).ok()?;
-            return Some(eid.into());
+        if let Ok(entity_id) = EntityId::from_str(key.as_ref().as_ref()) {
+            return Some(entity_id.upcast());
         }
 
         match self.ns_lookup_kind(key, CompileError::UnresolvedService)? {
-            NamespaceKind::Service(eid) => Some((*eid).into()),
-            NamespaceKind::Domain(dom_id) => Some((*dom_id).into()),
+            NamespaceKind::Service(eid) => Some(eid.upcast()),
+            NamespaceKind::Domain(dom_id) => Some(dom_id.upcast()),
             _ => {
                 self.errors
                     .push(key.span(), CompileError::UnresolvedService);

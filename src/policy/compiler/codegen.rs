@@ -1,5 +1,5 @@
 use authly_common::{
-    id::{AttrId, Eid, PropId},
+    id::{AttrId, EntityId, PropId},
     policy::code::OpCode,
 };
 
@@ -56,15 +56,14 @@ impl Codegen {
 
     fn codegen_term(&mut self, term: &Term) {
         match term {
-            Term::Label(label) => self
+            Term::Entity(kind, label) => self
                 .ops
-                .push(OpCode::LoadConstEntityId(Eid::from(label.0).to_uint())),
+                .push(OpCode::LoadConstEntityId(EntityId::new(*kind, label.0))),
             Term::Field(global, label) => match global {
                 Global::Subject => {
                     if label.0 == PropId::from(BuiltinProp::Entity).to_raw_array() {
-                        self.ops.push(OpCode::LoadSubjectId(
-                            PropId::from(BuiltinProp::Entity).to_uint(),
-                        ));
+                        self.ops
+                            .push(OpCode::LoadSubjectId(PropId::from(BuiltinProp::Entity)));
                     } else {
                         self.ops.push(OpCode::LoadSubjectAttrs);
                     }
@@ -73,9 +72,7 @@ impl Codegen {
                     self.ops.push(OpCode::LoadResourceAttrs);
                 }
             },
-            Term::Attr(_prop, attr) => self
-                .ops
-                .push(OpCode::LoadConstAttrId(AttrId::from(attr.0).to_uint())),
+            Term::Attr(_prop, attr) => self.ops.push(OpCode::LoadConstAttrId(AttrId::from(attr.0))),
             Term::Error => {}
         }
     }

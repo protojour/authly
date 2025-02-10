@@ -3,7 +3,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use authly_common::{
-    id::Eid,
+    id::ServiceId,
     proto::mandate_submission::{
         self as proto, authly_mandate_submission_client::AuthlyMandateSubmissionClient,
     },
@@ -133,7 +133,7 @@ pub fn mandate_decode_submission_token(
 
 pub fn mandate_identity_signing_request(
     deps: &dyn GetInstance,
-    mandate_eid: Eid,
+    mandate_eid: ServiceId,
 ) -> anyhow::Result<CertificateSigningRequest> {
     let common_name = mandate_eid.to_string();
     let params = {

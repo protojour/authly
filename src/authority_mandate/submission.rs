@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use authly_common::{
-    id::{Eid, Id128DynamicArrayConv},
+    id::{Id128DynamicArrayConv, ServiceId},
     proto::mandate_submission::{self as proto},
 };
 use rcgen::CertificateParams;
@@ -40,11 +40,11 @@ pub struct Authly {
     pub code: UrlSafeBase64,
 
     /// The entity ID handed by the authority to the mandate
-    pub mandate_entity_id: Eid,
+    pub mandate_entity_id: ServiceId,
 }
 
 pub struct CertifiedMandate {
-    pub mandate_eid: Eid,
+    pub mandate_eid: ServiceId,
     pub mandate_identity: AuthlyCert,
     pub mandate_local_ca: AuthlyCert,
 }
@@ -98,6 +98,6 @@ impl TryFrom<(proto::AuthlyCertificate, AuthlyCertKind)> for AuthlyCert {
     }
 }
 
-fn read_id(bytes: &[u8]) -> anyhow::Result<Eid> {
-    Eid::try_from_bytes_dynamic(bytes).ok_or_else(|| anyhow!("invalid ID"))
+fn read_id(bytes: &[u8]) -> anyhow::Result<ServiceId> {
+    ServiceId::try_from_bytes_dynamic(bytes).ok_or_else(|| anyhow!("invalid ID"))
 }

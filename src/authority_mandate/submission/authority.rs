@@ -1,6 +1,6 @@
 //! Submission, authority side
 
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use rand::{rngs::OsRng, Rng};
 use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
@@ -52,7 +52,7 @@ pub async fn authority_generate_submission_token(
     let expiration = now + SUBMISSION_CODE_EXPIRATION;
 
     // Assign new Entity ID to mandate
-    let mandate_entity_id = Eid::random();
+    let mandate_entity_id = ServiceId::random();
 
     let claims = SubmissionClaims {
         iat: now.unix_timestamp(),

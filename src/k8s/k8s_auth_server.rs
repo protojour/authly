@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -80,7 +80,7 @@ enum CsrError {
     Internal,
     Unauthorized,
     ServiceAccountNotFound,
-    InvalidPublicKey(Eid),
+    InvalidPublicKey(ServiceId),
 }
 
 impl IntoResponse for CsrError {

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use pem::{EncodeConfig, Pem};
 use rcgen::{
     BasicConstraints, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, KeyPair,
@@ -176,14 +176,14 @@ pub fn server_cert_csr(
     Ok(params)
 }
 
-pub fn client_cert(common_name: &str, eid: Eid, not_after: Duration) -> CertificateParams {
+pub fn client_cert(common_name: &str, svc_id: ServiceId, not_after: Duration) -> CertificateParams {
     let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
     params
         .distinguished_name
         .push(DnType::CommonName, common_name);
     params.distinguished_name.push(
         DnType::CustomDnType(EID_UNIQUE_IDENTIFIER.to_vec()),
-        eid.to_string(),
+        svc_id.to_string(),
     );
     params.use_authority_key_identifier_extension = true;
     params.key_usages.push(KeyUsagePurpose::DigitalSignature);
@@ -196,14 +196,18 @@ pub fn client_cert(common_name: &str, eid: Eid, not_after: Duration) -> Certific
     params
 }
 
-pub fn client_cert_csr(common_name: &str, eid: Eid, not_after: Duration) -> CertificateParams {
+pub fn client_cert_csr(
+    common_name: &str,
+    svc_id: ServiceId,
+    not_after: Duration,
+) -> CertificateParams {
     let mut params = CertificateParams::new(vec![]).expect("we know the name is valid");
     params
         .distinguished_name
         .push(DnType::CommonName, common_name);
     params.distinguished_name.push(
         DnType::CustomDnType(EID_UNIQUE_IDENTIFIER.to_vec()),
-        eid.to_string(),
+        svc_id.to_string(),
     );
     params.use_authority_key_identifier_extension = false;
     params.key_usages.push(KeyUsagePurpose::DigitalSignature);

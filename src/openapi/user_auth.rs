@@ -1,5 +1,8 @@
 use argon2::Argon2;
-use authly_common::mtls_server::PeerServiceEntity;
+use authly_common::{
+    id::{EntityId, PersonaId},
+    mtls_server::PeerServiceEntity,
+};
 use authly_db::DbError;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
@@ -15,7 +18,7 @@ use crate::{
     },
     id::{BuiltinAttr, BuiltinProp},
     session::{new_session_cookie, Session, SessionToken, SESSION_TTL},
-    AuthlyCtx, Eid,
+    AuthlyCtx,
 };
 
 pub enum AuthError {
@@ -63,7 +66,7 @@ pub enum AuthenticateRequest {
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticateResponse {
     token: Vec<u8>,
-    entity_id: Eid,
+    entity_id: PersonaId,
     authenticated: bool,
     mfa_needed: u64,
     mfa_done: Vec<String>,
@@ -107,15 +110,14 @@ pub async fn authenticate(
         }
     };
 
-    let eid = verify_secret(ehash, secret).await?;
-
-    let session = init_session(eid, &ctx).await?;
+    let persona_id = verify_secret(ehash, secret).await?;
+    let session = init_session(persona_id.upcast(), &ctx).await?;
 
     Ok((
         CookieJar::new().add(new_session_cookie(&session)),
         Json(AuthenticateResponse {
             token: session.token.0,
-            entity_id: eid,
+            entity_id: persona_id,
             authenticated: true,
             mfa_needed: 0,
             mfa_done: vec![],
@@ -128,7 +130,7 @@ pub async fn authenticate(
         .into_response())
 }
 
-async fn init_session(eid: Eid, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
+async fn init_session(eid: EntityId, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
     let session = Session {
         token: SessionToken::new_random(),
         eid,
@@ -140,7 +142,7 @@ async fn init_session(eid: Eid, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
     Ok(session)
 }
 
-async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<Eid, AuthError> {
+async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<PersonaId, AuthError> {
     // check Argon2 hash
     tokio::task::spawn_blocking(move || -> Result<(), AuthError> {
         use argon2::password_hash::PasswordHash;

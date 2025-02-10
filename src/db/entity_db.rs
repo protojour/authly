@@ -1,5 +1,5 @@
 use argon2::{password_hash::SaltString, Argon2};
-use authly_common::id::{AttrId, Eid, PropId};
+use authly_common::id::{AttrId, DirectoryId, EntityId, PersonaId, PropId};
 use authly_db::{param::AsParam, Db, DbResult, FromRow, Row};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
@@ -8,13 +8,13 @@ use indoc::indoc;
 use crate::id::BuiltinProp;
 
 pub struct EntityPasswordHash {
-    pub eid: Eid,
+    pub eid: PersonaId,
     pub secret_hash: String,
 }
 
 pub struct EntityAttrs(pub FnvHashSet<AttrId>);
 
-pub async fn list_entity_attrs(deps: &impl Db, eid: Eid) -> DbResult<FnvHashSet<AttrId>> {
+pub async fn list_entity_attrs(deps: &impl Db, eid: EntityId) -> DbResult<FnvHashSet<AttrId>> {
     struct EntityAttr(AttrId);
 
     impl FromRow for EntityAttr {
@@ -69,11 +69,11 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
 #[expect(unused)]
 pub async fn try_insert_entity_credentials(
     deps: &impl Db,
-    dir_id: Eid,
-    eid: Eid,
+    dir_id: DirectoryId,
+    eid: PersonaId,
     ident: String,
     secret: String,
-) -> anyhow::Result<Eid> {
+) -> anyhow::Result<PersonaId> {
     let secret_hash = tokio::task::spawn_blocking(move || -> anyhow::Result<String> {
         let salt = SaltString::generate(rand::thread_rng());
         Ok(

@@ -6,7 +6,7 @@ label = "pants"
 
 # expose the pants domain to the "ultradb" service
 [[service-domain]]
-service = "e.ec29ba1d23cb43f89b7c73db6f177a1d"
+service = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
 domain = "pants"
 
 [[resource-property]]

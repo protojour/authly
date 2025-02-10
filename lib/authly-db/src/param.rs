@@ -1,4 +1,6 @@
-use authly_common::id::{kind::IdKind, AnyId, Id128, Id128DynamicArrayConv};
+use authly_common::id::{
+    kind::IdKind, subset::IdKindSubset, DynamicId, Id128, Id128DynamicArrayConv,
+};
 
 pub trait AsParam: Sized {
     fn as_param(&self) -> hiqlite::Param;
@@ -10,7 +12,7 @@ impl<K: IdKind> AsParam for Id128<K> {
     }
 }
 
-impl AsParam for AnyId {
+impl<KS: IdKindSubset> AsParam for DynamicId<KS> {
     fn as_param(&self) -> hiqlite::Param {
         hiqlite::Param::Blob(self.to_array_dynamic().to_vec())
     }
