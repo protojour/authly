@@ -33,6 +33,8 @@ mod test_access_control;
 mod test_authly_connect;
 mod test_authority_mandate;
 mod test_demo;
+mod test_docs_clause_examples;
+mod test_docs_full_example;
 mod test_document;
 mod test_metadata;
 mod test_tls;
