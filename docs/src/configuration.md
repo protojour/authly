@@ -5,11 +5,11 @@ Configuration values are always read from the environment.
 These values are closely tied to the platform Authly runs on,
 and are not runtime-configurable.
 
-## `AUTHLY_ID`
+## `AUTHLY_UID`
 
 (**required**; 32-byte hex string; no default)
 
-A unique identifier for this Authly instance. It should be fairly unique, should never change, and is not particularly secret. Global uniqueness is not required, but a form of local uniqueness is required in closed systems running several authly instances. Can be generated with `docker run ghcr.io/protojour/authly generate-authly-id`.
+A unique identifier for this Authly instance. It should be fairly unique, should never change, and is not particularly secret. Global uniqueness is not required, but a form of local uniqueness is required in closed systems running several authly instances. Can be generated with `docker run ghcr.io/protojour/authly generate-authly-uid`.
 
 ## `AUTHLY_HOSTNAME`
 

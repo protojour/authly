@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 use crate::{AuthlySecrets, Secret, Version};
 
 pub struct BaoBackend {
-    authly_id: [u8; 32],
+    authly_uid: [u8; 32],
     url: String,
     client: reqwest::Client,
     token: Arc<Mutex<Token>>,
@@ -36,13 +36,13 @@ enum GetError {
 
 impl BaoBackend {
     pub fn new(
-        authly_id: [u8; 32],
+        authly_uid: [u8; 32],
         url: String,
         token: Option<String>,
         client: reqwest::Client,
     ) -> Self {
         Self {
-            authly_id,
+            authly_uid,
             url,
             token: Arc::new(Mutex::new(if let Some(token) = token {
                 Token {
@@ -108,7 +108,7 @@ impl BaoBackend {
     async fn gen_secret(&self, name: &str) -> anyhow::Result<(Version, Secret)> {
         let token = self.get_token().await?;
         let url = &self.url;
-        let authly_id = hex(self.authly_id);
+        let authly_uid = hex(self.authly_uid);
 
         let secret = {
             let mut secret: [u8; 32] = [0; 32];
@@ -118,7 +118,7 @@ impl BaoBackend {
 
         let bao_output: BaoCreateSecretOutput = self
             .client
-            .post(format!("{url}/v1/secret/data/authly-{name}-{authly_id}"))
+            .post(format!("{url}/v1/secret/data/authly-{name}-{authly_uid}"))
             .header("x-vault-token", token.as_ref())
             .json(&json!({
                 "data": {
@@ -139,9 +139,9 @@ impl BaoBackend {
     async fn try_get_secret(&self, name: &str, version: Option<&[u8]>) -> Result<Secret, GetError> {
         let token = self.get_token().await?;
         let url = &self.url;
-        let authly_id = hex(self.authly_id);
+        let authly_uid = hex(self.authly_uid);
 
-        let mut url = format!("{url}/v1/secret/data/authly-{name}-{authly_id}");
+        let mut url = format!("{url}/v1/secret/data/authly-{name}-{authly_uid}");
 
         if let Some(version) = version {
             let version: [u8; 8] = version

@@ -18,7 +18,7 @@ pub struct EnvConfig {
     /// It should be fairly unique, should never change, and is not particularly secret.
     /// Global uniqueness is not required, but a form of local uniqueness is required
     /// in closed systems running several authly instances.
-    pub id: Hex<[u8; 32]>,
+    pub uid: Hex<[u8; 32]>,
 
     /// The hostname against which to generate server certificates
     pub hostname: String,
@@ -71,8 +71,8 @@ impl EnvConfig {
             .extract()
             .unwrap();
 
-        if cfg.id.0 == NULL_ID {
-            panic!("AUTHLY_ID not specified");
+        if cfg.uid.0 == NULL_ID {
+            panic!("AUTHLY_UID not specified");
         }
 
         cfg
@@ -86,7 +86,7 @@ impl EnvConfig {
 impl Default for EnvConfig {
     fn default() -> Self {
         Self {
-            id: Hex(NULL_ID),
+            uid: Hex(NULL_ID),
 
             hostname: "authly".to_string(),
             server_port: 443,

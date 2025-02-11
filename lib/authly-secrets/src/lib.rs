@@ -30,7 +30,7 @@ pub trait AuthlySecrets {
 
 #[derive(Default)]
 pub struct AuthlySecretsBuilder {
-    pub authly_id: [u8; 32],
+    pub authly_uid: [u8; 32],
     pub bao_url: Option<String>,
     pub bao_token: Option<String>,
 }
@@ -39,7 +39,7 @@ impl AuthlySecretsBuilder {
     pub fn build(self, client: reqwest::Client) -> Result<Box<dyn AuthlySecrets>, &'static str> {
         if let Some(bao_url) = self.bao_url {
             Ok(Box::new(BaoBackend::new(
-                self.authly_id,
+                self.authly_uid,
                 bao_url,
                 self.bao_token,
                 client,

@@ -3,7 +3,7 @@ services:
   authly:
     image: protojour/authly:dev
     environment:
-      AUTHLY_ID: c865e85720e3c96feabdfe50c33acc75ac2069320de78d0d2c11497b092f1a8c
+      AUTHLY_UID: c865e85720e3c96feabdfe50c33acc75ac2069320de78d0d2c11497b092f1a8c
       AUTHLY_BAO_TOKEN: theenigmaticbaobunofancientsecrets
       AUTHLY_BAO_URL: http://openbao:8200
       AUTHLY_HOSTNAME: authly

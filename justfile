@@ -1,6 +1,6 @@
 import 'scripts/k3d-ops/justfile'
 
-authly_id := "bf78d3c3bf94695c43b56540ffe23beace66ec53e35eee3f5be4c9a5cda70748"
+authly_uid := "bf78d3c3bf94695c43b56540ffe23beace66ec53e35eee3f5be4c9a5cda70748"
 debug_web_port := "12345"
 
 # default target
@@ -8,7 +8,7 @@ target := "x86_64-unknown-linux-musl"
 
 # run debug version on localhost. Necessary for running end-to-end tests.
 rundev: dev-environment generate-testdata
-    AUTHLY_ID={{ authly_id }} \
+    AUTHLY_UID={{ authly_uid }} \
     AUTHLY_LOG=info \
     AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
     AUTHLY_HOSTNAME=localhost \
@@ -22,7 +22,7 @@ rundev: dev-environment generate-testdata
 
 # run release version on localhost
 runrelease: dev-environment generate-testdata
-    AUTHLY_ID={{ authly_id }} \
+    AUTHLY_UID={{ authly_uid }} \
     AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
     AUTHLY_HOSTNAME=localhost \
     AUTHLY_SERVER_PORT=1443 \
@@ -41,7 +41,7 @@ generate-testdata:
     #!/usr/bin/env bash
     if ! test -d .local; then
         mkdir .local
-        AUTHLY_ID={{ authly_id }} \
+        AUTHLY_UID={{ authly_uid }} \
         AUTHLY_ETC_DIR=.local/etc \
         AUTHLY_HOSTNAME=localhost \
         AUTHLY_K8S=true \
@@ -49,7 +49,7 @@ generate-testdata:
         AUTHLY_BAO_URL=http://localhost:8200 \
             cargo run -p authly --features dev issue-cluster-key
 
-        AUTHLY_ID={{ authly_id }} \
+        AUTHLY_UID={{ authly_uid }} \
         AUTHLY_LOG=info \
         AUTHLY_DOCUMENT_PATH="[examples/demo/]" \
         AUTHLY_DATA_DIR=.local/data \

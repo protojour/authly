@@ -36,8 +36,8 @@ enum Command {
     /// Import documents and do general configuration, then exit
     Configure,
 
-    /// Generate a new unique AUTHLY_ID.
-    GenerateAuthlyId,
+    /// Generate a new unique AUTHLY_UID.
+    GenerateAuthlyUid,
 
     /// Issue a cluster key. Exports to `$AUTHLY_ETC_DIR/cluster/`.
     IssueClusterKey,
@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
                 .error_for_status()?;
         }
         Some(Command::Configure) => configure().await?,
-        Some(Command::GenerateAuthlyId) => {
+        Some(Command::GenerateAuthlyUid) => {
             let mut id = [0u8; 32];
             OsRng.fill(id.as_mut_slice());
 
