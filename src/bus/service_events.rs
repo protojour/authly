@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use fnv::FnvHashMap;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
@@ -20,7 +20,7 @@ pub struct ServiceMessageConnection {
     pub addr: SocketAddr,
 }
 
-type SenderMap = FnvHashMap<Eid, Vec<ServiceMessageConnection>>;
+type SenderMap = FnvHashMap<ServiceId, Vec<ServiceMessageConnection>>;
 
 #[derive(Clone)]
 pub struct ServiceEventDispatcher {
@@ -36,7 +36,7 @@ impl ServiceEventDispatcher {
         }
     }
 
-    pub fn subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection) {
+    pub fn subscribe(&self, svc_eid: ServiceId, connection: ServiceMessageConnection) {
         self.clone()
             .spawn_watcher(svc_eid, connection.sender.clone());
 
@@ -54,7 +54,7 @@ impl ServiceEventDispatcher {
     }
 
     /// Broadcast to a single service (all connections)
-    pub fn broadcast(&self, svc_eid: Eid, msg: ServiceMessage) {
+    pub fn broadcast(&self, svc_eid: ServiceId, msg: ServiceMessage) {
         let mut slow_connections: Vec<ServiceMessageConnection> = vec![];
 
         {
@@ -101,7 +101,7 @@ impl ServiceEventDispatcher {
     }
 
     /// Collect connection statistics for each connected service
-    pub fn statistics(&self) -> BTreeMap<Eid, usize> {
+    pub fn statistics(&self) -> BTreeMap<ServiceId, usize> {
         let map = self.map.read().unwrap();
         let mut stats = BTreeMap::default();
 
@@ -113,7 +113,7 @@ impl ServiceEventDispatcher {
     }
 
     /// Spawn a watcher that calls `gc` when the sender's channel has been closed
-    fn spawn_watcher(self, svc_eid: Eid, sender: MsgSender) {
+    fn spawn_watcher(self, svc_eid: ServiceId, sender: MsgSender) {
         let sender = sender.clone();
 
         tokio::spawn(async move {
@@ -127,7 +127,7 @@ impl ServiceEventDispatcher {
     }
 
     // Remove senders associated with closed channels
-    fn gc(&self, svc_eid: Eid) {
+    fn gc(&self, svc_eid: ServiceId) {
         let mut map = self.map.write().unwrap();
         let Some(connections) = map.get_mut(&svc_eid) else {
             return;
@@ -147,7 +147,7 @@ impl ServiceEventDispatcher {
         }
     }
 
-    fn forget(&self, svc_eid: Eid, sender: &MsgSender) {
+    fn forget(&self, svc_eid: ServiceId, sender: &MsgSender) {
         let mut map = self.map.write().unwrap();
         let Some(connections) = map.get_mut(&svc_eid) else {
             return;

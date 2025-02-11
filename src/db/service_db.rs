@@ -1,5 +1,5 @@
 use authly_common::{
-    id::{AnyId, AttrId, PropId},
+    id::{AnyId, AttrId, PropId, ServiceId},
     service::NamespacePropertyMapping,
 };
 use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
@@ -7,7 +7,7 @@ use hiqlite::{params, Param};
 use indoc::{formatdoc, indoc};
 use tracing::warn;
 
-use crate::{id::BuiltinProp, Eid};
+use crate::id::BuiltinProp;
 
 #[derive(Debug)]
 pub struct ServiceProperty {
@@ -21,7 +21,7 @@ pub enum ServicePropertyKind {
     Resource,
 }
 
-pub async fn find_service_label_by_eid(deps: &impl Db, eid: Eid) -> DbResult<Option<String>> {
+pub async fn find_service_label_by_eid(deps: &impl Db, eid: ServiceId) -> DbResult<Option<String>> {
     struct SvcLabel(String);
 
     impl FromRow for SvcLabel {
@@ -47,8 +47,8 @@ pub async fn find_service_eid_by_k8s_service_account_name(
     deps: &impl Db,
     namespace: &str,
     account_name: &str,
-) -> DbResult<Option<Eid>> {
-    struct SvcEid(Eid);
+) -> DbResult<Option<ServiceId>> {
+    struct SvcEid(ServiceId);
 
     impl FromRow for SvcEid {
         fn from_row(row: &mut impl Row) -> Self {
@@ -74,7 +74,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
 
 pub async fn get_service_property_mapping(
     deps: &impl Db,
-    svc_eid: Eid,
+    svc_eid: ServiceId,
     property_kind: ServicePropertyKind,
 ) -> DbResult<NamespacePropertyMapping> {
     struct TypedRow(String, String, String, AttrId);
@@ -162,7 +162,7 @@ impl TryFromRow for SvcNamespaceWithMetadata {
 
 pub async fn list_service_namespace_with_metadata(
     deps: &impl Db,
-    svc_eid: Eid,
+    svc_eid: ServiceId,
 ) -> DbResult<Vec<SvcNamespaceWithMetadata>> {
     deps.query_filter_map(
         formatdoc! {

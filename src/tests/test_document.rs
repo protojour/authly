@@ -1,3 +1,4 @@
+use authly_common::id::ServiceId;
 use hexhex::hex_literal;
 use indoc::indoc;
 
@@ -17,13 +18,13 @@ async fn test_store_doc_trivial() {
         id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 
         [[service-entity]]
-        eid = "e.e5462a0d22b54d9f9ca37bd96e9b9d8b"
+        eid = "s.e5462a0d22b54d9f9ca37bd96e9b9d8b"
         label = "service1"
         attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
         kubernetes-account = { name = "testservice", namespace = "authly-test" }
 
         [[service-entity]]
-        eid = "e.015362d6655447c6b7f44865bd111c70"
+        eid = "s.015362d6655447c6b7f44865bd111c70"
         label = "service2"
         "#
     };
@@ -33,7 +34,7 @@ async fn test_store_doc_trivial() {
     assert_eq!(
         entity_db::list_entity_attrs(
             ctx.get_db(),
-            hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b").into()
+            ServiceId::from(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b")).upcast()
         )
         .await
         .unwrap()
@@ -44,7 +45,7 @@ async fn test_store_doc_trivial() {
     assert_eq!(
         entity_db::list_entity_attrs(
             ctx.get_db(),
-            hex_literal!("015362d6655447c6b7f44865bd111c70").into()
+            ServiceId::from(hex_literal!("015362d6655447c6b7f44865bd111c70")).upcast()
         )
         .await
         .unwrap()

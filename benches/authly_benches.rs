@@ -4,7 +4,7 @@ use authly::{
     session::{Session, SessionToken},
     test_support::TestCtx,
 };
-use authly_common::id::{AttrId, Eid};
+use authly_common::id::{AttrId, PersonaId};
 use criterion::{criterion_group, criterion_main, Criterion};
 use fnv::FnvHashSet;
 use time::{Duration, OffsetDateTime};
@@ -13,7 +13,7 @@ pub fn authly_benchmark(c: &mut Criterion) {
     let ctx = TestCtx::new().lite_instance();
     let session = Session {
         token: SessionToken::new_random(),
-        eid: Eid::random(),
+        eid: PersonaId::random().upcast(),
         expires_at: OffsetDateTime::now_utc() + Duration::days(42),
     };
     let user_attributes = FnvHashSet::from_iter([AttrId::random(), AttrId::random()]);

@@ -1,7 +1,7 @@
 use std::env;
 use std::sync::Arc;
 
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use authly_common::mtls_server::PeerServiceEntity;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -303,7 +303,7 @@ fn render_nav_tab_list(selected: usize, ctx: &HtmlCtx) -> Markup {
 
 struct HtmlCtx {
     client: Option<authly_client::Client>,
-    peer_service_entity: Option<Eid>,
+    peer_service_entity: Option<ServiceId>,
     access_token: Option<Arc<authly_client::AccessToken>>,
     prefix: String,
 }

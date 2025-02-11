@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use authly_common::{
-    id::Eid,
+    id::ServiceId,
     proto::service::{self as proto, authly_service_client::AuthlyServiceClient},
 };
 use hexhex::hex_literal;
@@ -9,7 +9,8 @@ use hexhex::hex_literal;
 use super::{compile_and_apply_doc_dir, tonic_request};
 use crate::{proto::service_server::AuthlyServiceServerImpl, test_support::TestCtx};
 
-const ULTRADB: Eid = Eid::from_raw_array(hex_literal!("ec29ba1d23cb43f89b7c73db6f177a1d"));
+const ULTRADB: ServiceId =
+    ServiceId::from_raw_array(hex_literal!("ec29ba1d23cb43f89b7c73db6f177a1d"));
 
 #[test_log::test(tokio::test)]
 async fn test_ultradb() {

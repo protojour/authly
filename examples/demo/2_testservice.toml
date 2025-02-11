@@ -2,7 +2,7 @@
 id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 
 [[service-entity]]
-eid = "e.f3e799137c034e1eb4cd3e4f65705932"
+eid = "s.f3e799137c034e1eb4cd3e4f65705932"
 label = "testservice"
 attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
 kubernetes-account = { name = "testservice", namespace = "authly-test" }
@@ -13,11 +13,11 @@ label = "role"
 attributes = ["ui/user", "ui/admin"]
 
 [[entity-attribute-assignment]]
-entity = "e.0fbcd73e1a884424a1615c3c3fdeebec"
+entity = "p.0fbcd73e1a884424a1615c3c3fdeebec"
 attributes = ["testservice:role:ui/user"]
 
 [[entity-attribute-assignment]]
-entity = "e.96bf83f88cbf455fa356553f7fca1b9e"
+entity = "p.96bf83f88cbf455fa356553f7fca1b9e"
 attributes = ["testservice:role:ui/admin"]
 
 [[resource-property]]

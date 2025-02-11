@@ -5,19 +5,19 @@ id = "18d70399-0e89-46b8-81ce-a6a16e5db7cc"
 # The gateway is responsible for opening up the public aspects of Authly
 # to the world outside the cluster:
 [[service-entity]]
-eid = "e.3c2f40b3f47a4d9b9129b1e7c15fbc04"
+eid = "s.3c2f40b3f47a4d9b9129b1e7c15fbc04"
 label = "arx"
 attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
 kubernetes-account = { name = "arx", namespace = "memoriam-test" }
 
 [[service-entity]]
-eid = "e.ec29ba1d23cb43f89b7c73db6f177a1d"
+eid = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
 label = "ultradb"
 attributes = []
 kubernetes-account = { name = "domaindb", namespace = "dbtest" }
 
 [[service-entity]]
-eid = "e.a1c6134658dd4120823fdc42bb2f42ad"
+eid = "s.a1c6134658dd4120823fdc42bb2f42ad"
 label = "ultradb_gui"
 
 [[entity-property]]

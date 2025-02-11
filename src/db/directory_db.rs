@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use authly_common::id::{AnyId, AttrId, DirectoryId, Eid, PolicyId, PropId};
+use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
 use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
@@ -38,7 +38,7 @@ impl DbDirectoryObjectLabel {
 }
 
 pub struct DbDirectoryService {
-    pub svc_eid: Eid,
+    pub svc_eid: ServiceId,
 }
 
 impl FromRow for DbDirectoryService {

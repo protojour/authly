@@ -4,7 +4,8 @@ use std::{
 };
 
 use authly_common::id::{
-    AnyId, AttrId, DirectoryId, DomainId, Eid, PolicyBindingId, PolicyId, PropId,
+    AnyId, AttrId, DirectoryId, DomainId, EntityId, PersonaId, PolicyBindingId, PolicyId, PropId,
+    ServiceId,
 };
 use authly_db::DbError;
 
@@ -29,6 +30,7 @@ pub enum CompileError {
     UnresolvedProperty,
     UnresolvedAttribute,
     UnresolvedPolicy,
+    MustBeAServiceId,
     PolicyBodyMissing,
     AmbiguousPolicyOutcome,
     MetadataNotSupported,
@@ -68,9 +70,9 @@ pub struct CompiledDocumentData {
     pub obj_labels: Vec<ObjectLabel>,
     pub entity_password: Vec<EntityPassword>,
 
-    pub service_ids: BTreeSet<Eid>,
+    pub service_ids: BTreeSet<ServiceId>,
 
-    pub service_domains: Vec<(Eid, DomainId)>,
+    pub service_domains: Vec<(ServiceId, DomainId)>,
 
     pub entity_relations: Vec<CompiledEntityRelation>,
 
@@ -83,7 +85,7 @@ pub struct CompiledDocumentData {
 
 #[derive(Debug)]
 pub struct EntityIdent {
-    pub eid: Eid,
+    pub eid: EntityId,
     pub prop_id: PropId,
     pub ident: String,
 }
@@ -103,21 +105,21 @@ pub struct ObjectLabel {
 
 #[derive(Debug)]
 pub struct EntityPassword {
-    pub eid: Eid,
+    pub eid: PersonaId,
     pub hash: String,
 }
 
 #[derive(Debug)]
 pub struct CompiledEntityAttributeAssignment {
-    pub eid: Eid,
+    pub eid: EntityId,
     pub attrid: AttrId,
 }
 
 #[derive(Debug)]
 pub struct CompiledEntityRelation {
-    pub subject: Eid,
+    pub subject: EntityId,
     pub relation: PropId,
-    pub object: Eid,
+    pub object: EntityId,
 }
 
 #[derive(Debug)]

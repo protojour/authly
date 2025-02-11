@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use authly_common::{
-    id::{AttrId, Eid, PolicyId},
+    id::{AttrId, PolicyId, ServiceId},
     policy::{
         code::{to_bytecode, PolicyValue},
         engine::PolicyEngine,
@@ -44,7 +44,7 @@ pub struct PoliciesWithBindings {
 }
 
 /// Load the policy engine for a service
-pub async fn load_svc_policy_engine(deps: &impl Db, svc_eid: Eid) -> DbResult<PolicyEngine> {
+pub async fn load_svc_policy_engine(deps: &impl Db, svc_eid: ServiceId) -> DbResult<PolicyEngine> {
     let policy_data = load_svc_policies_with_bindings(deps, svc_eid).await?;
 
     debug!(?policy_data, ?svc_eid, "loaded policy data!!!!");
@@ -82,7 +82,7 @@ impl TryFromRow for Identified<PolicyId, PolicyPostcard> {
 
 pub async fn load_svc_policies_with_bindings(
     deps: &impl Db,
-    svc_id: Eid,
+    svc_id: ServiceId,
 ) -> DbResult<PoliciesWithBindings> {
     let bindings = list_svc_implied_policy_bindings(deps, svc_id).await?;
 
@@ -117,7 +117,7 @@ impl FromRow for DbPolicyBinding {
 
 async fn list_svc_implied_policy_bindings(
     deps: &impl Db,
-    svc_id: Eid,
+    svc_id: ServiceId,
 ) -> DbResult<Vec<DbPolicyBinding>> {
     deps.query_map(
         indoc! {

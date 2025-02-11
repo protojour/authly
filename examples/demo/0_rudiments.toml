@@ -9,7 +9,7 @@ SERVER_CERT_ROTATION_RATE = "3m"
 # The gateway is responsible for opening up the public aspects of Authly
 # to the world outside the cluster:
 [[service-entity]]
-eid = "e.3c2f40b3f47a4d9b9129b1e7c15fbc04"
+eid = "s.3c2f40b3f47a4d9b9129b1e7c15fbc04"
 label = "arx"
 attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
 kubernetes-account = { name = "arx", namespace = "authly-test" }

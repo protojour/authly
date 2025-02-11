@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use authly_common::{
     access_token::AuthlyAccessTokenClaims,
-    id::{kind::IdKind, Eid, Id128, Id128DynamicArrayConv},
+    id::{Id128DynamicArrayConv, ServiceId},
     mtls_server::PeerServiceEntity,
     policy::{
         code::PolicyValue,
@@ -185,9 +185,10 @@ where
                 params.subject_attrs.insert(attr);
             }
 
-            params
-                .subject_eids
-                .insert(BuiltinProp::Entity.into(), user_claims.authly.entity_id);
+            params.subject_eids.insert(
+                BuiltinProp::Entity.into(),
+                user_claims.authly.entity_id.try_into().unwrap(),
+            );
         }
 
         // additional subject attributes
@@ -198,7 +199,7 @@ where
         // resolve attributes of all of the peers of the peer service
         // TODO: improve concurrency?
         for subject_entity_id in request.peer_entity_ids {
-            let subject_entity_id: Eid = id_from_proto(&subject_entity_id)?;
+            let subject_entity_id: ServiceId = id_from_proto(&subject_entity_id)?;
 
             let subject_entity_property_mapping = service_db::get_service_property_mapping(
                 self.ctx.get_db(),
@@ -343,7 +344,7 @@ where
 }
 
 /// Just extract the peer entity id without checking any required roles
-fn svc_mtls_auth_trivial(extensions: &tonic::Extensions) -> tonic::Result<Eid> {
+fn svc_mtls_auth_trivial(extensions: &tonic::Extensions) -> tonic::Result<ServiceId> {
     let peer_svc_eid = extensions
         .get::<PeerServiceEntity>()
         .ok_or_else(|| tonic::Status::unauthenticated("invalid service identity"))?;
@@ -427,9 +428,8 @@ fn verify_bearer(
         .map_err(|_| tonic::Status::unauthenticated("access token not verified"))
 }
 
-fn id_from_proto<K: IdKind>(bytes: &[u8]) -> tonic::Result<Id128<K>> {
-    Id128::<K>::try_from_bytes_dynamic(bytes)
-        .ok_or_else(|| tonic::Status::invalid_argument("invalid ID"))
+fn id_from_proto<T: Id128DynamicArrayConv>(bytes: &[u8]) -> tonic::Result<T> {
+    T::try_from_bytes_dynamic(bytes).ok_or_else(|| tonic::Status::invalid_argument("invalid ID"))
 }
 
 mod metadata {

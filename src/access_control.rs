@@ -1,4 +1,4 @@
-use authly_common::id::{AttrId, Eid};
+use authly_common::id::{AttrId, ServiceId};
 use authly_db::DbError;
 use fnv::FnvHashSet;
 
@@ -10,7 +10,7 @@ pub enum SvcAccessControlError {
 }
 
 pub struct AuthorizedPeerService {
-    pub eid: Eid,
+    pub eid: ServiceId,
 
     #[expect(unused)]
     pub attributes: FnvHashSet<AttrId>,
@@ -64,10 +64,10 @@ impl<T: AuthlyRole> VerifyAuthlyRole for T {
 /// This currently does not use policies, it only checks whether the service is assigned the required attribute.
 pub async fn authorize_peer_service(
     deps: &impl GetDb,
-    svc_eid: Eid,
+    svc_eid: ServiceId,
     required_authly_roles: &[BuiltinAttr],
 ) -> Result<AuthorizedPeerService, SvcAccessControlError> {
-    let attributes = entity_db::list_entity_attrs(deps.get_db(), svc_eid)
+    let attributes = entity_db::list_entity_attrs(deps.get_db(), svc_eid.upcast())
         .await
         .map_err(SvcAccessControlError::Db)?;
 

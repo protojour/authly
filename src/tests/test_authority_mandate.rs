@@ -1,4 +1,4 @@
-use authly_common::id::Eid;
+use authly_common::id::PersonaId;
 use authly_connect::TunnelSecurity;
 use itertools::Itertools;
 use rcgen::CertificateSigningRequestParams;
@@ -27,7 +27,7 @@ async fn test_mandate_registration_failure() {
     let a_ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
     let m_ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
 
-    let actor = Actor(Eid::random());
+    let actor = Actor(PersonaId::random().upcast());
     let token = authority_generate_submission_token(
         &a_ctx,
         "http://localhost".to_string(),
@@ -78,7 +78,7 @@ async fn test_mandate_registration() {
     )
     .await;
 
-    let actor = Actor(Eid::random());
+    let actor = Actor(PersonaId::random().upcast());
     let mut tokens = vec![];
     let mut claims = vec![];
 

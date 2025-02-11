@@ -16,7 +16,7 @@ services:
     volumes:
       - authly-data:/var/lib/authly/data
       - authly-certs:/etc/authly/certs
-      - testservice-identity:/etc/authly/service/e.f3e799137c034e1eb4cd3e4f65705932
+      - testservice-identity:/etc/authly/service/s.f3e799137c034e1eb4cd3e4f65705932
       - ../../.local/etc/cluster:/etc/authly/cluster:ro
       - ../../examples/demo:/etc/authly/documents:ro
     command: serve

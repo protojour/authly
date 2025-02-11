@@ -1,9 +1,9 @@
 use super::compiler::{
-    expr::{Expr, Global, Label, Term},
+    expr::{Expr, Global, Label128, Term},
     PolicyCompiler,
 };
 use authly_common::{
-    id::{AttrId, Eid, PropId},
+    id::{kind::Kind, AttrId, PropId, ServiceId},
     policy::code::OpCode,
 };
 
@@ -15,7 +15,7 @@ use crate::{
     id::BuiltinProp,
 };
 
-const SVC: Eid = Eid::from_uint(42);
+const SVC: ServiceId = ServiceId::from_uint(42);
 const ROLE: PropId = PropId::from_uint(1337);
 const ROLE_ROOT: AttrId = AttrId::from_uint(1338);
 
@@ -38,7 +38,7 @@ fn test_env() -> (Namespaces, CompiledDocumentData) {
     let mut doc_data = CompiledDocumentData::default();
     doc_data.domain_ent_props.push(CompiledProperty {
         id: ROLE,
-        ns_id: SVC.into(),
+        ns_id: SVC.upcast(),
         label: "role".to_string(),
         attributes: vec![CompiledAttribute {
             id: ROLE_ROOT,
@@ -71,9 +71,9 @@ fn subject_entity_equals_svc() -> Expr {
     Expr::Equals(
         Term::Field(
             Global::Subject,
-            Label(PropId::from(BuiltinProp::Entity).to_raw_array()),
+            Label128(PropId::from(BuiltinProp::Entity).to_raw_array()),
         ),
-        Term::Label(Label(SVC.to_raw_array())),
+        Term::Entity(Kind::Service, Label128(SVC.to_raw_array())),
     )
 }
 
@@ -89,8 +89,11 @@ fn test_expr_equals() {
 fn test_expr_field_attribute() {
     assert_eq!(
         Expr::Contains(
-            Term::Field(Global::Subject, Label(ROLE.to_raw_array())),
-            Term::Attr(Label(ROLE.to_raw_array()), Label(ROLE_ROOT.to_raw_array()))
+            Term::Field(Global::Subject, Label128(ROLE.to_raw_array())),
+            Term::Attr(
+                Label128(ROLE.to_raw_array()),
+                Label128(ROLE_ROOT.to_raw_array())
+            )
         ),
         to_expr("Subject.svc:role contains svc:role:root")
     );
@@ -141,15 +144,15 @@ fn test_expr_logical_paren() {
 fn test_opcodes() {
     assert_eq!(
         vec![
-            OpCode::LoadSubjectId(PropId::from(BuiltinProp::Entity).to_uint()),
-            OpCode::LoadConstEntityId(SVC.to_uint()),
+            OpCode::LoadSubjectId(PropId::from(BuiltinProp::Entity)),
+            OpCode::LoadConstEntityId(SVC.upcast()),
             OpCode::IsEq,
-            OpCode::LoadSubjectId(PropId::from(BuiltinProp::Entity).to_uint()),
-            OpCode::LoadConstEntityId(SVC.to_uint()),
+            OpCode::LoadSubjectId(PropId::from(BuiltinProp::Entity)),
+            OpCode::LoadConstEntityId(SVC.upcast()),
             OpCode::IsEq,
             OpCode::And,
-            OpCode::LoadSubjectId(PropId::from(BuiltinProp::Entity).to_uint()),
-            OpCode::LoadConstEntityId(SVC.to_uint()),
+            OpCode::LoadSubjectId(PropId::from(BuiltinProp::Entity)),
+            OpCode::LoadConstEntityId(SVC.upcast()),
             OpCode::IsEq,
             OpCode::Or,
             OpCode::Return,

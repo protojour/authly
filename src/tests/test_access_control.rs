@@ -1,5 +1,5 @@
 use authly_common::{
-    id::{AttrId, Eid},
+    id::{AttrId, ServiceId},
     policy::{
         code::PolicyValue,
         engine::{AccessControlParams, NoOpPolicyTracer},
@@ -15,8 +15,10 @@ use crate::{
     tests::{compile_and_apply_doc, ServiceProperties},
 };
 
-const SVC_A: Eid = Eid::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
-const SVC_B: Eid = Eid::from_raw_array(hex_literal!("015362d6655447c6b7f44865bd111c70"));
+const SVC_A: ServiceId =
+    ServiceId::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
+const SVC_B: ServiceId =
+    ServiceId::from_raw_array(hex_literal!("015362d6655447c6b7f44865bd111c70"));
 
 #[test_log::test(tokio::test)]
 async fn test_access_control_basic() {
@@ -27,11 +29,11 @@ async fn test_access_control_basic() {
         id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 
         [[service-entity]]
-        eid = "e.e5462a0d22b54d9f9ca37bd96e9b9d8b"
+        eid = "s.e5462a0d22b54d9f9ca37bd96e9b9d8b"
         label = "svc_a"
 
         [[service-entity]]
-        eid = "e.015362d6655447c6b7f44865bd111c70"
+        eid = "s.015362d6655447c6b7f44865bd111c70"
         label = "svc_b"
 
         [[entity-property]]
@@ -173,11 +175,11 @@ async fn test_svc_domain_implied_policies() {
         label = "bar"
 
         [[service-entity]]
-        eid = "e.e5462a0d22b54d9f9ca37bd96e9b9d8b"
+        eid = "s.e5462a0d22b54d9f9ca37bd96e9b9d8b"
         label = "svc_a"
 
         [[service-entity]]
-        eid = "e.015362d6655447c6b7f44865bd111c70"
+        eid = "s.015362d6655447c6b7f44865bd111c70"
         label = "svc_b"
 
         [[service-domain]]

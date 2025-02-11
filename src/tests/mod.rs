@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use authly_common::{
-    document::Document, id::Eid, mtls_server::PeerServiceEntity,
+    document::Document, id::ServiceId, mtls_server::PeerServiceEntity,
     proto::connect::authly_connect_server::AuthlyConnectServer, service::NamespacePropertyMapping,
 };
 use authly_connect::{
@@ -88,7 +88,7 @@ async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> anyhow::R
     Ok(())
 }
 
-fn tonic_request<T>(msg: T, eid: Eid) -> tonic::Request<T> {
+fn tonic_request<T>(msg: T, eid: ServiceId) -> tonic::Request<T> {
     let mut req = tonic::Request::new(msg);
     req.extensions_mut().insert(PeerServiceEntity(eid));
     req.extensions_mut()
@@ -198,7 +198,7 @@ struct ServiceProperties {
 }
 
 impl ServiceProperties {
-    async fn load(svc_eid: Eid, conn: &SqlitePool) -> Self {
+    async fn load(svc_eid: ServiceId, conn: &SqlitePool) -> Self {
         let resource =
             service_db::get_service_property_mapping(conn, svc_eid, ServicePropertyKind::Resource)
                 .await

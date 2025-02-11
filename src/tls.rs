@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use futures_util::StreamExt;
 use pem::{EncodeConfig, Pem};
 use rcgen::CertificateParams;
@@ -18,8 +18,8 @@ use crate::{AuthlyCtx, AuthlyInstance};
 #[derive(Clone, Debug)]
 pub struct AuthlyCert {
     pub kind: AuthlyCertKind,
-    pub certifies: Eid,
-    pub signed_by: Eid,
+    pub certifies: ServiceId,
+    pub signed_by: ServiceId,
     pub params: CertificateParams,
     pub der: CertificateDer<'static>,
 }

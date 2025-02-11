@@ -5,7 +5,7 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use authly_common::id::Eid;
+use authly_common::id::ServiceId;
 use authly_db::sqlite_pool::{SqlitePool, Storage};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
@@ -89,7 +89,7 @@ impl TestCtx {
     /// With AuthlyInstance that doesn't use the database
     pub fn lite_instance(mut self) -> Self {
         let authly_id = AuthlyId {
-            eid: Eid::random(),
+            eid: ServiceId::random(),
             private_key: key_pair(),
         };
         let certs = vec![
@@ -241,11 +241,11 @@ impl ClusterBus for TestCtx {
 }
 
 impl ServiceBus for TestCtx {
-    fn service_subscribe(&self, svc_eid: Eid, connection: ServiceMessageConnection) {
+    fn service_subscribe(&self, svc_eid: ServiceId, connection: ServiceMessageConnection) {
         self.svc_event_dispatcher.subscribe(svc_eid, connection);
     }
 
-    fn service_broadcast(&self, svc_eid: Eid, msg: ServiceMessage) {
+    fn service_broadcast(&self, svc_eid: ServiceId, msg: ServiceMessage) {
         self.svc_event_dispatcher.broadcast(svc_eid, msg);
     }
 

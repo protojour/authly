@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use authly_common::id::Eid;
+use authly_common::id::EntityId;
 use cookie::{Cookie, Expiration, SameSite};
 use rand::Rng;
 use time::OffsetDateTime;
@@ -15,7 +15,7 @@ pub const SESSION_COOKIE_NAME: &str = "session-cookie";
 
 pub struct Session {
     pub token: SessionToken,
-    pub eid: Eid,
+    pub eid: EntityId,
     pub expires_at: time::OffsetDateTime,
 }
 

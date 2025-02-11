@@ -1,6 +1,6 @@
 use std::{error::Error, sync::Arc};
 
-use authly_common::{id::Eid, mtls_server::PeerServiceEntity};
+use authly_common::{id::ServiceId, mtls_server::PeerServiceEntity};
 use axum::{response::IntoResponse, Extension};
 use rcgen::CertificateSigningRequestParams;
 use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
@@ -170,8 +170,9 @@ async fn test_mtls_verified() {
             .unwrap()
             .with_new_key_pair(),
     );
-    let client_cert = ca
-        .sign(client_cert("svc", Eid::from_uint(777_666), Duration::hours(1)).with_new_key_pair());
+    let client_cert = ca.sign(
+        client_cert("svc", ServiceId::from_uint(777_666), Duration::hours(1)).with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -193,7 +194,7 @@ async fn test_mtls_verified() {
 
     assert_eq!(
         text_response,
-        "it works: peer_service_eid=e.000000000000000000000000000bddc2"
+        "it works: peer_service_eid=s.000000000000000000000000000bddc2"
     );
 }
 
@@ -226,8 +227,9 @@ async fn test_mtls_server_cert_through_csr() {
     };
 
     // let server_cert = ca.sign(gen_key_pair().server_cert_csr("localhost", Duration::hours(1)));
-    let client_cert = ca
-        .sign(client_cert("svc", Eid::from_uint(666_777), Duration::hours(1)).with_new_key_pair());
+    let client_cert = ca.sign(
+        client_cert("svc", ServiceId::from_uint(666_777), Duration::hours(1)).with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _drop) = spawn_server(rustls_config_factory).await;
@@ -249,7 +251,7 @@ async fn test_mtls_server_cert_through_csr() {
 
     assert_eq!(
         text_response,
-        "it works: peer_service_eid=e.000000000000000000000000000a2c99"
+        "it works: peer_service_eid=s.000000000000000000000000000a2c99"
     );
 }
 
@@ -293,8 +295,9 @@ async fn test_mtls_invalid_issuer() {
     );
 
     let bad_ca = authly_ca().with_new_key_pair().self_signed();
-    let bad_client_cert = bad_ca
-        .sign(client_cert("bad", Eid::from_uint(666), Duration::hours(1)).with_new_key_pair());
+    let bad_client_cert = bad_ca.sign(
+        client_cert("bad", ServiceId::from_uint(666), Duration::hours(1)).with_new_key_pair(),
+    );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
     let (server_port, _cancel) = spawn_server(rustls_config_factory).await;

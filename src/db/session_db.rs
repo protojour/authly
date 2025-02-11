@@ -1,4 +1,4 @@
-use authly_common::id::Eid;
+use authly_common::id::EntityId;
 use authly_db::{param::AsParam, Db, DbError, DbResult, Row, TryFromRow};
 use hiqlite::{params, Param};
 use time::OffsetDateTime;
@@ -20,7 +20,7 @@ pub async fn store_session(deps: &impl Db, session: &Session) -> DbResult<()> {
 }
 
 pub async fn get_session(deps: &impl Db, token: SessionToken) -> DbResult<Option<Session>> {
-    struct SessionData(Eid, OffsetDateTime);
+    struct SessionData(EntityId, OffsetDateTime);
 
     impl TryFromRow for SessionData {
         type Error = DbError;
