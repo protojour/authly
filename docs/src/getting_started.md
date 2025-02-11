@@ -14,4 +14,4 @@ As a result, Authly requires a minimum set of key components to run:
 
 Our [example Kubernetes setup](https://github.com/protojour/authly/tree/main/testfiles/k8s) features Authly itself, Arx, OpenBao and [an example service](https://github.com/protojour/authly/tree/main/crates/authly-testservice). A similar example is available for [docker compose](https://github.com/protojour/authly/tree/main/testfiles/docker/docker-compose.yml).
 
-For Kubernetes installation, use our [Helm chart](https://github.com/protojour/authly/tree/main/pkg/helm/templates/Chart.yaml).
+For Kubernetes installation, use our [Helm chart](https://github.com/protojour/authly/tree/main/pkg/helm/).
