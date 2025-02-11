@@ -156,9 +156,9 @@
 <p>Configuration values are always read from the environment.</p>
 <p>These values are closely tied to the platform Authly runs on,
 and are not runtime-configurable.</p>
-<h2 id="authly_id"><a class="header" href="#authly_id"><code>AUTHLY_ID</code></a></h2>
+<h2 id="authly_uid"><a class="header" href="#authly_uid"><code>AUTHLY_UID</code></a></h2>
 <p>(<strong>required</strong>; 32-byte hex string; no default)</p>
-<p>A unique identifier for this Authly instance. It should be fairly unique, should never change, and is not particularly secret. Global uniqueness is not required, but a form of local uniqueness is required in closed systems running several authly instances. Can be generated with <code>docker run ghcr.io/protojour/authly generate-authly-id</code>.</p>
+<p>A unique identifier for this Authly instance. It should be fairly unique, should never change, and is not particularly secret. Global uniqueness is not required, but a form of local uniqueness is required in closed systems running several authly instances. Can be generated with <code>docker run ghcr.io/protojour/authly generate-authly-uid</code>.</p>
 <h2 id="authly_hostname"><a class="header" href="#authly_hostname"><code>AUTHLY_HOSTNAME</code></a></h2>
 <p>(string; default <code>authly</code>)</p>
 <p>The hostname against which to generate server certificates.</p>
