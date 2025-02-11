@@ -97,7 +97,7 @@ testservice-image:
     docker build . -f testservice.Dockerfile -t protojour/authly-testservice:dev
 
 # deploy local development version of authly w/demo apps to authly-test k8s namespace. Cluster should be a k3d cluster running k3d-registry-dockerd.
-k8s-demo-deploy: (k3d "authly-dev") dev-image testservice-image
+k8s-demo-deploy: (k3d "pops-dev") dev-image testservice-image
     # idempotent preparation
     HELM_MAX_HISTORY=2 \
         helm upgrade --install openbao ./testfiles/k8s/charts/openbao-authly-dev-0.0.2.tgz \
