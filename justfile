@@ -64,6 +64,10 @@ generate-testdata:
 cleanlocal:
     -rm -r .local
 
+# clean docs build
+cleandocs:
+    -rm -r docs/book
+
 # run end2end tests, these are dependent on `rundev` running in the background
 end2end:
     cargo test -- --include-ignored

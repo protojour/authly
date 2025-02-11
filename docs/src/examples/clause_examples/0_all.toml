@@ -1,0 +1,66 @@
+[authly-document]
+id = "3ef3430a-6499-497c-b8eb-00516a22f326"
+
+[[entity]]
+eid = "p.0fbcd73e1a884424a1615c3c3fdeebea"
+label = "me"
+username = "me"
+password-hash = [
+    "$argon2id$v=19$m=19456,t=2,p=1$/lj8Yj6ZTJLiqgpYb4Nn0g$z79FFMXstrkY8KmpC0vQWIDcne0lylBbctUAluIVqLk"
+]
+
+[[service-entity]]
+eid = "s.3c2f40b3f47a4d9b9129b1e7c15fbc0c"
+label = "service"
+metadata = { meta = "meta" }
+kubernetes-account = { name = "service", namespace = "myspace" }
+
+[[email]]
+entity = "me"
+value = "me@mail.com"
+
+[[entity]]
+eid = "p.0fbcd73e1a884424a1615c3c3fdeebef"
+label = "you"
+
+[[password-hash]]
+entity = "you"
+hash = "$argon2id$v=19$m=19456,t=2,p=1$/lj8Yj6ZTJLiqgpYb4Nn0g$z79FFMXstrkY8KmpC0vQWIDcne0lylBbctUAluIVqLk"
+
+[[entity]]
+eid = "g.0fbcd73e1a884424a1615c3c3fdeebed"
+label = "us"
+
+[[members]]
+entity = "us"
+members = ["me", "you"]
+
+[[domain]]
+label = "cms"
+metadata = { meta = "meta" }
+
+[[service-domain]]
+service = "service"
+domain = "cms"
+
+[[entity-property]]
+namespace = "service"
+label = "role"
+attributes = ["user", "admin"]
+
+[[entity-attribute-assignment]]
+entity = "me"
+attributes = ["service:role:user"]
+
+[[resource-property]]
+namespace = "service"
+label = "action"
+attributes = ["read", "create", "delete"]
+
+[[policy]]
+label = "allow for service"
+allow = "Subject.authly:entity == service"
+
+[[policy-binding]]
+attributes = ["service:action:read"]
+policies = ["allow for service"]

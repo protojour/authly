@@ -1,0 +1,59 @@
+[authly-document]
+id = "18d70399-0e89-46b8-81ce-a6a16e5db7cc"
+
+[[service-entity]]
+eid = "s.3c2f40b3f47a4d9b9129b1e7c15fbc04"
+label = "arx"
+attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
+kubernetes-account = { name = "arx", namespace = "ultradb" }
+
+[[service-entity]]
+eid = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
+label = "ultradb"
+kubernetes-account = { name = "ultradb", namespace = "ultradb" }
+
+[[service-entity]]
+eid = "s.a1c6134658dd4120823fdc42bb2f42ad"
+label = "ultradb_gui"
+
+[[entity-property]]
+namespace = "ultradb_gui"
+label = "role"
+attributes = ["user", "admin"]
+
+[[resource-property]]
+namespace = "ultradb"
+label = "action"
+attributes = ["read", "write"]
+
+[[policy]]
+label = "allow for GUI user"
+allow = "Subject.ultradb_gui:role contains ultradb_gui:role:user"
+
+[[policy]]
+label = "allow for GUI admin"
+allow = "Subject.ultradb_gui:role contains ultradb_gui:role:admin"
+
+[[policy-binding]]
+attributes = ["ultradb:action:read"]
+policies = ["allow for GUI user", "allow for GUI admin"]
+
+[[policy-binding]]
+attributes = ["ultradb:action:write"]
+policies = ["allow for GUI admin"]
+
+[[entity]]
+eid = "p.96bf83f88cbf455fa356553f7fca1b9e"
+label = "Mr. User"
+
+[[entity]]
+eid = "p.81dc1da0fa644142bad35043a9c3b025"
+label = "Ms. Admin"
+
+[[entity-attribute-assignment]]
+entity = "Mr. User"
+attributes = ["ultradb_gui:role:user"]
+
+[[entity-attribute-assignment]]
+entity = "Ms. Admin"
+attributes = ["ultradb_gui:role:admin"]

@@ -72,6 +72,18 @@ Authly is pre-alpha software, currently with a minimal feature set, but several 
 - [ ] OATH TOTP support for authenticator apps
 - [ ] OATH HOTP support for recovery codes
 
+## Documentation
+
+Documentation can be built using `mdbook`:
+
+```bash
+# serve documentation with hot reloading
+mdbook serve docs
+
+# build HTML documentation
+mdbook build docs
+```
+
 ## License
 
 Authly is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPLv3) license. Contact us for commercial licensing options.
