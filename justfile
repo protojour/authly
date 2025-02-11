@@ -134,5 +134,5 @@ helm-package:
     helm package pkg/helm
 
 # deploy docker-compose demo
-docker-test-deploy: generate-testdata dev-image testservice-image
+docker-demo-deploy: generate-testdata dev-image testservice-image
     RUST_PROFILE=debug docker compose -f testfiles/docker/docker-compose.yml up

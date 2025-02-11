@@ -31,7 +31,7 @@ Examples should be run using our `justfile` tasks. Refer to the [just](https://j
 An example Kubernetes deployment is available in [`testfiles/k8s`](testfiles/k8s), which includes the Authly-compatible [Arx gateway](https://github.com/protojour/arx), [OpenBao](https://openbao.org/) for its main encryption key, the correct routing and setup for Authly to provision [an example service](crates/authly-testservice) with mTLS, and uses Kubernetes Secrets for its core identity.
 
 ```bash
-just k8s-test-deploy
+just k8s-demo-deploy
 ```
 
 ### Docker example
