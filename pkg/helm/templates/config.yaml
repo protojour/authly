@@ -14,6 +14,7 @@ data:
   AUTHLY_K8S: "true"
   AUTHLY_K8S_STATEFULSET: {{ .Release.Name }}
   AUTHLY_K8S_HEADLESS_SVC: {{ include "authly.fullname" . }}-cluster
+  AUTHLY_K8S_REPLICAS: {{ quote .Values.cluster.replicas }}
   AUTHLY_K8S_AUTH_HOSTNAME: {{ include "authly.fullname" . }}-k8s
   AUTHLY_K8S_AUTH_SERVER_PORT: "2443"
   {{ if .Values.secrets.baoUrl }}
