@@ -259,7 +259,7 @@ An association of a service and a domain the service can use.
 
 **Properties:**
 
-- `service`: *Required*. A label identifying the impliied service-entity.
+- `service`: *Required*. A label identifying the implied service-entity.
 - `domain`: *Required*. A label identifying the domain that will be exposed to the service.
 
 **Example:**
@@ -325,7 +325,7 @@ A policy must contain either an `allow` or `deny` expression.
 
 **Properties:**
 
-- `service`: *Required*. A label identifying the impliied service-entity.
+- `service`: *Required*. A label identifying the implied service-entity.
 - `domain`: *Required*. A label identifying the domain that will be exposed to the service.
 
 **Example:**
@@ -340,7 +340,7 @@ A policy binding.
 
 **Properties:**
 
-- `service`: *Required*. A label identifying the impliied service-entity.
+- `service`: *Required*. A label identifying the implied service-entity.
 - `domain`: *Required*. A label identifying the domain that will be exposed to the service.
 
 **Example:**
