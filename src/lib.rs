@@ -52,6 +52,7 @@ mod id;
 mod k8s;
 mod openapi;
 mod policy;
+mod service;
 mod settings;
 mod util;
 mod webauth;
@@ -108,6 +109,7 @@ struct AuthlyState {
     cert_distribution_platform: CertificateDistributionPlatform,
     etc_dir: PathBuf,
     export_tls_to_etc: bool,
+    hostname: String,
 }
 
 pub struct Init {
@@ -270,6 +272,7 @@ async fn initialize() -> anyhow::Result<Init> {
             shutdown,
             etc_dir: env_config.etc_dir.clone(),
             export_tls_to_etc: env_config.export_tls_to_etc,
+            hostname: env_config.hostname.clone(),
         }),
     };
 

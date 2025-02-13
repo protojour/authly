@@ -13,6 +13,7 @@ use crate::{
     },
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
+    platform::CertificateDistributionPlatform,
     AuthlyCtx,
 };
 
@@ -70,6 +71,11 @@ pub trait ServiceBus {
 
 pub trait RedistributeCertificates {
     fn redistribute_certificates_if_leader(&self) -> impl Future<Output = ()>;
+}
+
+pub trait HostsConfig {
+    fn authly_hostname(&self) -> &str;
+    fn is_k8s(&self) -> bool;
 }
 
 impl GetDb for AuthlyCtx {
@@ -144,6 +150,19 @@ impl ServiceBus for AuthlyCtx {
 impl RedistributeCertificates for AuthlyCtx {
     async fn redistribute_certificates_if_leader(&self) {
         crate::platform::redistribute_certificates(self).await;
+    }
+}
+
+impl HostsConfig for AuthlyCtx {
+    fn authly_hostname(&self) -> &str {
+        &self.state.hostname
+    }
+
+    fn is_k8s(&self) -> bool {
+        matches!(
+            self.state.cert_distribution_platform,
+            CertificateDistributionPlatform::KubernetesConfigMap
+        )
     }
 }
 

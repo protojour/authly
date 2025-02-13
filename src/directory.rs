@@ -35,7 +35,7 @@ pub async fn apply_document(
 ) -> Result<(), DirectoryError> {
     let dir_id = compiled_doc.dir_id;
 
-    let service_ids = compiled_doc.data.service_ids.clone();
+    let service_ids: Vec<_> = compiled_doc.data.services.keys().copied().collect();
 
     let deks = deps.load_decrypted_deks();
 

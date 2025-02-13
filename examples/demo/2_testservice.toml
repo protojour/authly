@@ -5,6 +5,7 @@ id = "bc9ce588-50c3-47d1-94c1-f88b21eaf299"
 eid = "s.f3e799137c034e1eb4cd3e4f65705932"
 label = "testservice"
 attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
+hosts = ["testservice"]
 kubernetes-account = { name = "testservice", namespace = "authly-test" }
 
 [[entity-property]]
