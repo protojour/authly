@@ -30,6 +30,7 @@ Service entity ids are prefixed by `s.`.
 The built-in _attribute triplets_ `"authly:role:authenticate"` and `"authly:role:get_access_token"` allows anyone to authenticate and get access tokens through the gateway. An attribute triplet is a colon-separated `namespace:label:attribute` string.
 
 The `kubernetes-account` is used by Authly to provision the service with an mTLS client certificate, used for (service) authentication.
+It only specifies an account name, and not a `namespace`. Not specifying the namespace means the same namespace that Authly itself runs within.
 
 ```toml
 {{#include examples/full_example/0_all.toml:10:14}}
@@ -341,8 +342,8 @@ A policy binding.
 
 **Properties:**
 
-- `service`: *Required*. A label identifying the implied service-entity.
-- `domain`: *Required*. A label identifying the domain that will be exposed to the service.
+- `attributes`: *Required*. A set of attribute triples that must be matched for the selected policies to apply.
+- `policies`: *Required*. A set of applied policies, by label.
 
 **Example:**
 
