@@ -187,7 +187,7 @@ id = "18d70399-0e89-46b8-81ce-a6a16e5db7cc"
 eid = "s.3c2f40b3f47a4d9b9129b1e7c15fbc04"
 label = "arx"
 attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
-kubernetes-account = { name = "arx", namespace = "ultradb" }
+kubernetes-account = { name = "arx" }
 </code></pre>
 <p>This defines the <a href="https://github.com/protojour/arx"><code>"arx"</code> gateway</a> as a kubernetes <a href="documents.html#service-entity">service-entity</a>. The gateway is responsible for opening up the public aspects of Authly to the world outside the cluster.</p>
 <p>Service entity ids are prefixed by <code>s.</code>.</p>
@@ -197,7 +197,7 @@ kubernetes-account = { name = "arx", namespace = "ultradb" }
 eid = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
 label = "ultradb"
 hosts = ["ultradb"]
-kubernetes-account = { name = "ultradb", namespace = "ultradb" }
+kubernetes-account = { name = "ultradb" }
 </code></pre>
 <p>This defines the <code>"ultradb"</code> <a href="documents.html#service-entity">service-entity</a>, hosted as a kubernetes service behind the <code>"arx"</code>. Service-enitity labels are exposed as <em>namespaces</em> in the Authly model.</p>
 <pre><code class="language-toml">[[service-entity]]
