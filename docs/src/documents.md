@@ -324,6 +324,8 @@ A definition of a resource property.
 A policy definition.
 
 A policy must contain either an `allow` or `deny` expression.
+Access _may_ be granted if any allow-policy evaluates to `true`, unless there are _applicable deny-policies_.
+deny-policies are stronger than allow-policies: Access will be denied if _any_ applicable deny-policy evaluates to `true`.
 
 **Properties:**
 
@@ -339,6 +341,8 @@ A policy must contain either an `allow` or `deny` expression.
 ### `[[policy-binding]]`
 
 A policy binding.
+
+A policy binding makes policies _applicable_ in the context of the binding's attribute matcher.
 
 **Properties:**
 
