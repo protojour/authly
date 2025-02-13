@@ -410,7 +410,9 @@ attributes = ["read", "create", "delete"]
 </code></pre>
 <h3 id="policy"><a class="header" href="#policy"><code>[[policy]]</code></a></h3>
 <p>A policy definition.</p>
-<p>A policy must contain either an <code>allow</code> or <code>deny</code> expression.</p>
+<p>A policy must contain either an <code>allow</code> or <code>deny</code> expression.
+Access <em>may</em> be granted if any allow-policy evaluates to <code>true</code>, unless there are <em>applicable deny-policies</em>.
+deny-policies are stronger than allow-policies: Access will be denied if <em>any</em> applicable deny-policy evaluates to <code>true</code>.</p>
 <p><strong>Properties:</strong></p>
 <ul>
 <li><code>service</code>: <em>Required</em>. A label identifying the implied service-entity.</li>
@@ -423,6 +425,7 @@ allow = "Subject.authly:entity == service"
 </code></pre>
 <h3 id="policy-binding"><a class="header" href="#policy-binding"><code>[[policy-binding]]</code></a></h3>
 <p>A policy binding.</p>
+<p>A policy binding makes policies <em>applicable</em> in the context of the binding's attribute matcher.</p>
 <p><strong>Properties:</strong></p>
 <ul>
 <li><code>attributes</code>: <em>Required</em>. A set of attribute triples that must be matched for the selected policies to apply.</li>
