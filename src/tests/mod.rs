@@ -21,7 +21,6 @@ use tracing::{error, info_span, Instrument};
 
 use crate::{
     cert::Cert,
-    ctx::GetDb,
     db::service_db::{self, ServicePropertyKind},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     test_support::TestCtx,
@@ -75,7 +74,7 @@ async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> 
 /// "only once" version, don't use this directly unless testing event propagation
 async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> {
     let doc = Document::from_toml(toml)?;
-    let compiled_doc = compile_doc(doc, DocumentMeta::default(), ctx.get_db())
+    let compiled_doc = compile_doc(ctx, doc, DocumentMeta::default())
         .await
         .map_err(|errors| {
             for error in errors {

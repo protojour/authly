@@ -57,7 +57,7 @@ pub(crate) async fn load_cfg_documents(
             if should_process(dir_id, &meta, &doc_authorities) {
                 info!(?path, "load");
 
-                let compiled_doc = match compile_doc(document, meta, ctx.get_db()).await {
+                let compiled_doc = match compile_doc(ctx, document, meta).await {
                     Ok(doc) => doc,
                     Err(errors) => {
                         for error in errors {

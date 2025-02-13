@@ -48,6 +48,7 @@ pub struct EnvConfig {
     pub cluster_api_secret: String,
 
     pub k8s: bool,
+    pub k8s_namespace: String,
     pub k8s_statefulset: Option<String>,
     pub k8s_headless_svc: String,
     pub k8s_replicas: u64,
@@ -106,6 +107,7 @@ impl Default for EnvConfig {
             cluster_api_secret: "superultramegasecret2".to_string(),
 
             k8s: false,
+            k8s_namespace: "default".to_string(),
             k8s_statefulset: Some("authly".to_string()),
             k8s_headless_svc: "authly-cluster".to_string(),
             k8s_replicas: 1,

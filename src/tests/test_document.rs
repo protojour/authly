@@ -21,7 +21,7 @@ async fn test_store_doc_trivial() {
         eid = "s.e5462a0d22b54d9f9ca37bd96e9b9d8b"
         label = "service1"
         attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
-        kubernetes-account = { name = "testservice", namespace = "authly-test" }
+        kubernetes-account = { name = "testservice" }
 
         [[service-entity]]
         eid = "s.015362d6655447c6b7f44865bd111c70"
@@ -53,9 +53,9 @@ async fn test_store_doc_trivial() {
         0,
     );
 
-    let eid = service_db::find_service_eid_by_k8s_service_account_name(
+    let eid = service_db::find_service_eid_by_k8s_local_service_account_name(
         ctx.get_db(),
-        "authly-test",
+        "default",
         "testservice",
     )
     .await

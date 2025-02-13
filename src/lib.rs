@@ -110,6 +110,8 @@ struct AuthlyState {
     etc_dir: PathBuf,
     export_tls_to_etc: bool,
     hostname: String,
+    /// The kubernetes namespace the local Authly runs in (if any, default is "default")
+    k8s_local_namespace: String,
 }
 
 pub struct Init {
@@ -273,6 +275,7 @@ async fn initialize() -> anyhow::Result<Init> {
             etc_dir: env_config.etc_dir.clone(),
             export_tls_to_etc: env_config.export_tls_to_etc,
             hostname: env_config.hostname.clone(),
+            k8s_local_namespace: env_config.k8s_namespace.clone(),
         }),
     };
 

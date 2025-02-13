@@ -16,7 +16,6 @@ use crate::{
     access_token::VerifiedAccessToken,
     audit::Actor,
     authority_mandate::submission,
-    ctx::GetDb,
     directory,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     util::base_uri::ProxiedBaseUri,
@@ -83,7 +82,7 @@ pub async fn post_document(
         },
     };
 
-    let compiled_doc = compile_doc(doc, meta, ctx.get_db())
+    let compiled_doc = compile_doc(&ctx, doc, meta)
         .await
         .map_err(|_| (StatusCode::UNPROCESSABLE_ENTITY, "invalid document").into_response())?;
 

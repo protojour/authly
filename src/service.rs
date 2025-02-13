@@ -19,7 +19,7 @@ pub async fn get_service_hosts(
 
     if !base_hosts.is_empty() && deps.is_k8s() {
         if let Some((namespace, _)) =
-            service_db::get_svc_k8s_account_name(deps.get_db(), svc_eid).await?
+            service_db::get_svc_local_k8s_account_name(deps.get_db(), svc_eid).await?
         {
             for base_host in base_hosts {
                 hosts.push(format!("{base_host}.{namespace}.svc.cluster.local"));

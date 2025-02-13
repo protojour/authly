@@ -43,7 +43,7 @@ pub async fn find_service_label_by_eid(deps: &impl Db, eid: ServiceId) -> DbResu
         .map(|label| label.0))
 }
 
-pub async fn find_service_eid_by_k8s_service_account_name(
+pub async fn find_service_eid_by_k8s_local_service_account_name(
     deps: &impl Db,
     namespace: &str,
     account_name: &str,
@@ -60,7 +60,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
         .query_map_opt::<SvcEid>(
             "SELECT obj_id FROM obj_text_attr WHERE prop_id = $1 AND value = $2".into(),
             params!(
-                PropId::from(BuiltinProp::K8sServiceAccount).as_param(),
+                PropId::from(BuiltinProp::K8sLocalServiceAccount).as_param(),
                 format!("{namespace}/{account_name}")
             ),
         )
@@ -72,7 +72,7 @@ pub async fn find_service_eid_by_k8s_service_account_name(
         .map(|eid| eid.0))
 }
 
-pub async fn get_svc_k8s_account_name(
+pub async fn get_svc_local_k8s_account_name(
     deps: &impl Db,
     svc_eid: ServiceId,
 ) -> DbResult<Option<(String, String)>> {
@@ -89,7 +89,7 @@ pub async fn get_svc_k8s_account_name(
             "SELECT value FROM obj_text_attr WHERE obj_id = $1 AND prop_id = $2".into(),
             params!(
                 svc_eid.as_param(),
-                PropId::from(BuiltinProp::K8sServiceAccount).as_param()
+                PropId::from(BuiltinProp::K8sLocalServiceAccount).as_param()
             ),
         )
         .await
@@ -98,10 +98,7 @@ pub async fn get_svc_k8s_account_name(
             err
         })?
         .and_then(|accout| {
-            let mut split = accout.0.splitn(2, '/');
-            let namespace = split.next()?;
-            let account = split.next()?;
-
+            let (namespace, account) = accout.0.split_once('/')?;
             Some((namespace.to_string(), account.to_string()))
         }))
 }

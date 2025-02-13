@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde_spanned::Spanned;
 use tracing::debug;
 
+use crate::ctx::{GetDb, KubernetesConfig};
 use crate::db::directory_db::{DbDirectoryObjectLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
@@ -107,10 +108,11 @@ struct Errors {
 }
 
 pub async fn compile_doc(
+    deps: &(impl GetDb + KubernetesConfig),
     mut doc: document::Document,
     meta: DocumentMeta,
-    db: &impl Db,
 ) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
+    let db = deps.get_db();
     let mut comp = CompileCtx {
         dir_id: DirectoryId::from_uint(doc.authly_document.id.get_ref().as_u128()),
         namespaces: Default::default(),
@@ -218,8 +220,24 @@ pub async fn compile_doc(
         if let Some(k8s) = mem::take(&mut entity.kubernetes_account) {
             data.obj_text_attrs.push(ObjectTextAttr {
                 obj_id: svc_eid.upcast(),
-                prop_id: BuiltinProp::K8sServiceAccount.into(),
-                value: format!("{}/{}", k8s.namespace, k8s.name),
+                prop_id: BuiltinProp::K8sConfiguredServiceAccount.into(),
+                value: format!(
+                    "{namespace}/{account}",
+                    namespace = k8s.namespace.as_deref().unwrap_or("*"),
+                    account = k8s.name
+                ),
+            });
+            data.obj_text_attrs.push(ObjectTextAttr {
+                obj_id: svc_eid.upcast(),
+                prop_id: BuiltinProp::K8sLocalServiceAccount.into(),
+                value: format!(
+                    "{namespace}/{account}",
+                    namespace = k8s
+                        .namespace
+                        .as_deref()
+                        .unwrap_or(deps.authly_local_k8s_namespace()),
+                    account = k8s.name
+                ),
             });
         }
 

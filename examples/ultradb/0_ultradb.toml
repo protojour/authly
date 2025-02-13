@@ -8,14 +8,14 @@ id = "18d70399-0e89-46b8-81ce-a6a16e5db7cc"
 eid = "s.3c2f40b3f47a4d9b9129b1e7c15fbc04"
 label = "arx"
 attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
-kubernetes-account = { name = "arx", namespace = "memoriam-test" }
+kubernetes-account = { name = "arx" }
 
 [[service-entity]]
 eid = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
 label = "ultradb"
 attributes = []
 hosts = ["ultradb"]
-kubernetes-account = { name = "domaindb", namespace = "dbtest" }
+kubernetes-account = { name = "ultradb" }
 
 [[service-entity]]
 eid = "s.a1c6134658dd4120823fdc42bb2f42ad"

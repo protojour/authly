@@ -232,10 +232,9 @@ where
                 params.subject_attrs.insert(attr);
             }
 
-            params.subject_eids.insert(
-                BuiltinProp::Entity.into(),
-                user_claims.authly.entity_id.try_into().unwrap(),
-            );
+            params
+                .subject_eids
+                .insert(BuiltinProp::Entity.into(), user_claims.authly.entity_id);
         }
 
         // additional subject attributes

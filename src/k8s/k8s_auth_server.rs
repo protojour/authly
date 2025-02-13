@@ -116,7 +116,7 @@ async fn v0_authenticate_handler(
 
     let kubernetes_io = token_data.claims.kubernetes_io;
     let common_name = kubernetes_io.serviceaccount.name.clone();
-    let eid = service_db::find_service_eid_by_k8s_service_account_name(
+    let eid = service_db::find_service_eid_by_k8s_local_service_account_name(
         state.ctx.get_db(),
         &kubernetes_io.namespace,
         &kubernetes_io.serviceaccount.name,

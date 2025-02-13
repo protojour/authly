@@ -19,8 +19,8 @@ use crate::{
     },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        ClusterBus, GetDb, GetDecryptedDeks, GetInstance, HostsConfig, LoadInstance,
-        RedistributeCertificates, ServiceBus, SetInstance,
+        ClusterBus, GetDb, GetDecryptedDeks, GetInstance, HostsConfig, KubernetesConfig,
+        LoadInstance, RedistributeCertificates, ServiceBus, SetInstance,
     },
     db::cryptography_db,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
@@ -267,6 +267,12 @@ impl HostsConfig for TestCtx {
 
     fn is_k8s(&self) -> bool {
         false
+    }
+}
+
+impl KubernetesConfig for TestCtx {
+    fn authly_local_k8s_namespace(&self) -> &str {
+        "default"
     }
 }
 

@@ -23,13 +23,17 @@ pub enum BuiltinProp {
     Email = 4,
     /// The password_hash text property
     PasswordHash = 5,
-    /// The kubernetes service account name property.
+    /// The kubernetes service account name of a service, as seen documents,
     /// The value format is `{namespace}/{account_name}`.
-    K8sServiceAccount = 6,
+    /// If namespace is not defined, it will be rendered as `*`
+    K8sConfiguredServiceAccount = 6,
     /// A relation property representing "membership" relation
     RelEntityMembership = 7,
     /// The `metadata` property from documents. Stored as a JSON-encoded text property.
     Metadata = 8,
+    /// The kubernetes service account actually used by this authly instance.
+    /// The namespace will be resolved to authly's namespace if it's a wildcard in configuration.
+    K8sLocalServiceAccount = 9,
 }
 
 #[expect(clippy::enum_variant_names)]
@@ -67,7 +71,7 @@ impl BuiltinProp {
             Self::Username => None,
             Self::Email => None,
             Self::PasswordHash => None,
-            Self::K8sServiceAccount => None,
+            Self::K8sConfiguredServiceAccount | Self::K8sLocalServiceAccount => None,
             Self::AuthlyInstance => None,
             Self::RelEntityMembership => None,
             Self::Metadata => None,
@@ -80,7 +84,7 @@ impl BuiltinProp {
             Self::Username => true,
             Self::Email => true,
             Self::PasswordHash => false,
-            Self::K8sServiceAccount => true,
+            Self::K8sConfiguredServiceAccount | Self::K8sLocalServiceAccount => true,
             Self::AuthlyInstance => true,
         }
     }

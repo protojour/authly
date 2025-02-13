@@ -78,6 +78,10 @@ pub trait HostsConfig {
     fn is_k8s(&self) -> bool;
 }
 
+pub trait KubernetesConfig {
+    fn authly_local_k8s_namespace(&self) -> &str;
+}
+
 impl GetDb for AuthlyCtx {
     type Db = hiqlite::Client;
 
@@ -163,6 +167,12 @@ impl HostsConfig for AuthlyCtx {
             self.state.cert_distribution_platform,
             CertificateDistributionPlatform::KubernetesConfigMap
         )
+    }
+}
+
+impl KubernetesConfig for AuthlyCtx {
+    fn authly_local_k8s_namespace(&self) -> &str {
+        &self.state.k8s_local_namespace
     }
 }
 
