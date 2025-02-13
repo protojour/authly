@@ -19,8 +19,8 @@ use crate::{
     },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        ClusterBus, GetDb, GetDecryptedDeks, GetInstance, LoadInstance, RedistributeCertificates,
-        ServiceBus, SetInstance,
+        ClusterBus, GetDb, GetDecryptedDeks, GetInstance, HostsConfig, LoadInstance,
+        RedistributeCertificates, ServiceBus, SetInstance,
     },
     db::cryptography_db,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
@@ -257,6 +257,16 @@ impl ServiceBus for TestCtx {
 impl RedistributeCertificates for TestCtx {
     async fn redistribute_certificates_if_leader(&self) {
         info!("TestCtx redistribute certificates: ignored");
+    }
+}
+
+impl HostsConfig for TestCtx {
+    fn authly_hostname(&self) -> &str {
+        "localhost"
+    }
+
+    fn is_k8s(&self) -> bool {
+        false
     }
 }
 

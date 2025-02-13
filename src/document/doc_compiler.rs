@@ -19,7 +19,7 @@ use crate::db::directory_db::{DbDirectoryObjectLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
 use crate::document::compiled_document::{
-    CompiledEntityAttributeAssignment, EntityIdent, ObjectLabel, ObjectTextAttr,
+    CompiledEntityAttributeAssignment, CompiledService, EntityIdent, ObjectLabel, ObjectTextAttr,
 };
 use crate::id::BuiltinProp;
 use crate::policy::compiler::PolicyCompiler;
@@ -223,7 +223,11 @@ pub async fn compile_doc(
             });
         }
 
-        data.service_ids.insert(svc_eid);
+        let service = CompiledService {
+            hosts: mem::take(&mut entity.hosts),
+        };
+
+        data.services.insert(svc_eid, service);
 
         if let Some(metadata) = entity.metadata.take() {
             data.obj_text_attrs.push(ObjectTextAttr {

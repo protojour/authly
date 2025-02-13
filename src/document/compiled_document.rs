@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Range,
-};
+use std::{collections::BTreeMap, ops::Range};
 
 use authly_common::id::{
     AnyId, AttrId, DirectoryId, DomainId, EntityId, PersonaId, PolicyBindingId, PolicyId, PropId,
@@ -70,7 +67,7 @@ pub struct CompiledDocumentData {
     pub obj_labels: Vec<ObjectLabel>,
     pub entity_password: Vec<EntityPassword>,
 
-    pub service_ids: BTreeSet<ServiceId>,
+    pub services: BTreeMap<ServiceId, CompiledService>,
 
     pub service_domains: Vec<(ServiceId, DomainId)>,
 
@@ -81,6 +78,11 @@ pub struct CompiledDocumentData {
 
     pub policies: Vec<Identified<PolicyId, policy_db::DbPolicy>>,
     pub policy_bindings: Vec<Identified<PolicyBindingId, policy_db::DbPolicyBinding>>,
+}
+
+#[derive(Debug)]
+pub struct CompiledService {
+    pub hosts: Vec<String>,
 }
 
 #[derive(Debug)]

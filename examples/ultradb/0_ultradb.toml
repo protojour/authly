@@ -14,11 +14,13 @@ kubernetes-account = { name = "arx", namespace = "memoriam-test" }
 eid = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
 label = "ultradb"
 attributes = []
+hosts = ["ultradb"]
 kubernetes-account = { name = "domaindb", namespace = "dbtest" }
 
 [[service-entity]]
 eid = "s.a1c6134658dd4120823fdc42bb2f42ad"
 label = "ultradb_gui"
+hosts = ["ultradb-gui"]
 
 [[entity-property]]
 namespace = "ultradb_gui"

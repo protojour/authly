@@ -141,7 +141,8 @@ CREATE TABLE ns_res_attrlabel (
 -- Service entities
 CREATE TABLE svc (
     dir_id BLOB NOT NULL,
-    svc_eid BLOB NOT NULL PRIMARY KEY
+    svc_eid BLOB NOT NULL PRIMARY KEY,
+    hosts_json TEXT
 );
 
 -- Service: namespace participation

@@ -54,7 +54,7 @@ async fn main() {
             .with_scheme(Scheme::Https)
             .with_tls_config(
                 client
-                    .rustls_server_configurer("testservice", vec!["testservice".to_string()])
+                    .rustls_server_configurer("testservice")
                     .await
                     .unwrap(),
             )

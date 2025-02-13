@@ -15,7 +15,7 @@ use authly_common::{
 };
 use futures_util::{stream::BoxStream, StreamExt};
 use http::header::{AUTHORIZATION, COOKIE};
-use rcgen::{CertificateSigningRequestParams, DnType};
+use rcgen::{CertificateSigningRequestParams, DnType, SanType};
 use rustls::pki_types::CertificateSigningRequestDer;
 use tonic::{
     metadata::{Ascii, MetadataMap},
@@ -27,7 +27,7 @@ use crate::{
     access_control::{self, AuthorizedPeerService},
     access_token,
     bus::{message::ServiceMessage, service_events::ServiceMessageConnection},
-    ctx::{GetDb, GetInstance, ServiceBus},
+    ctx::{GetDb, GetInstance, HostsConfig, ServiceBus},
     db::{
         entity_db, policy_db,
         service_db::{
@@ -36,6 +36,7 @@ use crate::{
     },
     id::{BuiltinAttr, BuiltinProp},
     proto::grpc_db_err,
+    service,
     session::{authenticate_session_cookie, find_session_cookie, Session},
     util::remote_addr::RemoteAddr,
 };
@@ -53,9 +54,55 @@ impl<Ctx> AuthlyServiceServerImpl<Ctx> {
 #[tonic::async_trait]
 impl<Ctx> AuthlyService for AuthlyServiceServerImpl<Ctx>
 where
-    Ctx: GetDb + GetInstance + ServiceBus + Send + Sync + 'static,
+    Ctx: GetDb + GetInstance + ServiceBus + HostsConfig + Send + Sync + 'static,
 {
     type MessagesStream = BoxStream<'static, tonic::Result<proto::ServiceMessage>>;
+
+    async fn get_configuration(
+        &self,
+        request: Request<proto::Empty>,
+    ) -> tonic::Result<Response<proto::ServiceConfiguration>> {
+        let peer_svc = svc_mtls_auth(&self.ctx, request.extensions(), &[]).await?;
+
+        let hosts = service::get_service_hosts(&self.ctx, peer_svc.eid)
+            .await
+            .map_err(grpc_db_err)?;
+
+        let property_mapping_namespaces = {
+            let resource_property_mapping = service_db::get_service_property_mapping(
+                self.ctx.get_db(),
+                peer_svc.eid,
+                ServicePropertyKind::Resource,
+            )
+            .await
+            .map_err(grpc_db_err)?;
+
+            resource_property_mapping
+                .into_iter()
+                .map(|(label, properties)| proto::PropertyMappingNamespace {
+                    label,
+                    properties: properties
+                        .into_iter()
+                        .map(|(label, attributes)| proto::PropertyMapping {
+                            label,
+                            attributes: attributes
+                                .into_iter()
+                                .map(|(label, attr_id)| proto::AttributeMapping {
+                                    label,
+                                    obj_id: attr_id.to_array_dynamic().to_vec(),
+                                })
+                                .collect(),
+                        })
+                        .collect(),
+                })
+                .collect()
+        };
+
+        Ok(Response::new(proto::ServiceConfiguration {
+            hosts,
+            property_mapping_namespaces,
+        }))
+    }
 
     async fn get_metadata(
         &self,
@@ -273,8 +320,26 @@ where
             ));
         }
 
-        // TODO: If a server certificate: Somehow verify that the peer service does not lie about its hostname/common name?
-        // Authly would have to know its hostname in that case, if it's not the same as the service label.
+        // verify alt names
+        {
+            let valid_hosts = service::get_service_hosts(&self.ctx, peer_svc_eid)
+                .await
+                .map_err(grpc_db_err)?;
+
+            for alt_name_san in &csr_params.params.subject_alt_names {
+                match alt_name_san {
+                    SanType::DnsName(ia5_string) => {
+                        if !valid_hosts.iter().any(|valid| valid == ia5_string.as_str()) {
+                            return Err(tonic::Status::invalid_argument(format!(
+                                "invalid alt name: {}",
+                                ia5_string.as_str()
+                            )));
+                        }
+                    }
+                    _ => return Err(tonic::Status::invalid_argument("invalid alt name")),
+                }
+            }
+        }
 
         let instance = self.ctx.get_instance();
 

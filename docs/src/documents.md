@@ -32,19 +32,19 @@ The built-in _attribute triplets_ `"authly:role:authenticate"` and `"authly:role
 The `kubernetes-account` is used by Authly to provision the service with an mTLS client certificate, used for (service) authentication.
 
 ```toml
-{{#include examples/full_example/0_all.toml:10:13}}
+{{#include examples/full_example/0_all.toml:10:14}}
 ```
 
 This defines the `"ultradb"` [service-entity](#service-entity), hosted as a kubernetes service behind the `"arx"`. Service-enitity labels are exposed as _namespaces_ in the Authly model.
 
 ```toml
-{{#include examples/full_example/0_all.toml:15:17}}
+{{#include examples/full_example/0_all.toml:16:19}}
 ```
 
 This defines the `"ultradb_gui"` (_client_) [service-entity](#service-entity), hosted by `"ultradb"`.
 
 ```toml
-{{#include examples/full_example/0_all.toml:19:22}}
+{{#include examples/full_example/0_all.toml:21:24}}
 ```
 
 This defines the [entity-property](#entity-property) `"role"` for the `"ultradb_gui"` client.
@@ -54,7 +54,7 @@ Its attributes are `"user"` and `"admin"`.
 In other words, we make the client responsible for the concept of a (persona) entity role, since users access the service through the client.
 
 ```toml
-{{#include examples/full_example/0_all.toml:24:27}}
+{{#include examples/full_example/0_all.toml:26:29}}
 ```
 
 This defines the [resource-property](#resource-property) `"action"` for the `"ultradb"` service.
@@ -64,7 +64,7 @@ Its attributes are `"read"` and `"write"`.
 In other words, we make the service is responsible for its own resources, since users access resources (data) via the service's API.
 
 ```toml
-{{#include examples/full_example/0_all.toml:29:31}}
+{{#include examples/full_example/0_all.toml:31:33}}
 ```
 
 This defines a [policy](#policy) called `"allow for GUI user"`.
@@ -76,7 +76,7 @@ The policy must either define an `allow` or a `deny` expression. This policy wil
 Referencing the entity-properties above, this should read as *"allow if the Subject has the ultradb_gui role user".*
 
 ```toml
-{{#include examples/full_example/0_all.toml:33:35}}
+{{#include examples/full_example/0_all.toml:35:37}}
 ```
 
 This defines a [policy](#policy) called `"allow for GUI admin"`, similar to the one above.
@@ -84,7 +84,7 @@ This defines a [policy](#policy) called `"allow for GUI admin"`, similar to the 
 Referencing the entity-properties above, this should read as *"allow if the Subject has the ultradb_gui role admin".*
 
 ```toml
-{{#include examples/full_example/0_all.toml:37:39}}
+{{#include examples/full_example/0_all.toml:39:41}}
 ```
 
 This defines a [policy-binding](#policy-binding), from a list of policies to a list of colon-separated attribute triplets (`namespace:label:attribute`).
@@ -92,7 +92,7 @@ This defines a [policy-binding](#policy-binding), from a list of policies to a l
 Referencing the resource-properties and policies, this should read as *"GUI users and GUI admins are allowed the ultradb action read"*.
 
 ```toml
-{{#include examples/full_example/0_all.toml:41:43}}
+{{#include examples/full_example/0_all.toml:43:45}}
 ```
 
 This defines a [policy-binding](#policy-binding), from a list of policies to a list of colon-separated attribute triplets (`namespace:label:attribute`).
@@ -100,7 +100,7 @@ This defines a [policy-binding](#policy-binding), from a list of policies to a l
 Referencing the resource-properties and policies, this should read as *"GUI admins are allowed the ultradb action write"*.
 
 ```toml
-{{#include examples/full_example/0_all.toml:45:47}}
+{{#include examples/full_example/0_all.toml:47:49}}
 ```
 
 This defines a (persona) [entity](#entity), `"Mr. User"`. For now, they don't have any access credentials.
@@ -108,13 +108,13 @@ This defines a (persona) [entity](#entity), `"Mr. User"`. For now, they don't ha
 Persona entity ids are prefixed by `p.`.
 
 ```toml
-{{#include examples/full_example/0_all.toml:49:51}}
+{{#include examples/full_example/0_all.toml:51:53}}
 ```
 
 This defines a (persona) [entity](#entity), `"Ms. Admin"`. For now, they don't have any access credentials.
 
 ```toml
-{{#include examples/full_example/0_all.toml:53:55}}
+{{#include examples/full_example/0_all.toml:55:57}}
 ```
 
 This defines an [entity-attribute-assignment](#entity-attribute-assignment).
@@ -122,7 +122,7 @@ This defines an [entity-attribute-assignment](#entity-attribute-assignment).
 Referencing the entities and entity-properties above, this should read as *"Mr. User has the ultradb_gui role user"*.
 
 ```toml
-{{#include examples/full_example/0_all.toml:57:59}}
+{{#include examples/full_example/0_all.toml:59:61}}
 ```
 
 This defines an [entity-attribute-assignment](#entity-attribute-assignment).
@@ -179,6 +179,7 @@ Services are authenticated through client certificates rather than traditional c
 - `label`: A label for the entity visible in the document namespace.
 - `attributes`: Attributes bound to the entity. See [entity-attribute-assignment](#entity-attribute-assignment).
 - `metadata`: Metadata about this entity. The metadata is not used by authly itself, but can be used by services which have read access to the entity.
+- `hosts`: List of service hostnames.
 - `kubernetes-account`: An optional Kubernetes account definition.
 
 **Example:**

@@ -72,6 +72,40 @@ pub async fn find_service_eid_by_k8s_service_account_name(
         .map(|eid| eid.0))
 }
 
+pub async fn get_svc_k8s_account_name(
+    deps: &impl Db,
+    svc_eid: ServiceId,
+) -> DbResult<Option<(String, String)>> {
+    struct SvcK8sAccount(String);
+
+    impl FromRow for SvcK8sAccount {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(row.get_text("value"))
+        }
+    }
+
+    Ok(deps
+        .query_map_opt::<SvcK8sAccount>(
+            "SELECT value FROM obj_text_attr WHERE obj_id = $1 AND prop_id = $2".into(),
+            params!(
+                svc_eid.as_param(),
+                PropId::from(BuiltinProp::K8sServiceAccount).as_param()
+            ),
+        )
+        .await
+        .map_err(|err| {
+            warn!(?err, "failed to lookup entity");
+            err
+        })?
+        .and_then(|accout| {
+            let mut split = accout.0.splitn(2, '/');
+            let namespace = split.next()?;
+            let account = split.next()?;
+
+            Some((namespace.to_string(), account.to_string()))
+        }))
+}
+
 pub async fn get_service_property_mapping(
     deps: &impl Db,
     svc_eid: ServiceId,
@@ -185,4 +219,30 @@ pub async fn list_service_namespace_with_metadata(
         params!(svc_eid.as_param()),
     )
     .await
+}
+
+pub async fn list_service_hosts(deps: &impl Db, svc_eid: ServiceId) -> DbResult<Vec<String>> {
+    struct TypedRow {
+        hosts_json: String,
+    }
+
+    impl FromRow for TypedRow {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self {
+                hosts_json: row.get_text("hosts_json"),
+            }
+        }
+    }
+
+    let Some(row) = deps
+        .query_map_opt::<TypedRow>(
+            "SELECT hosts_json FROM svc WHERE svc_eid = $1".into(),
+            params!(svc_eid.as_param()),
+        )
+        .await?
+    else {
+        return Ok(vec![]);
+    };
+
+    Ok(serde_json::from_str(&row.hosts_json).unwrap_or_default())
 }

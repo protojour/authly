@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::anyhow;
 use authly_common::id::ServiceId;
-use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post};
+use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post, Extension};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
@@ -24,6 +24,7 @@ use crate::{
     ctx::{GetDb, GetInstance},
     db::service_db,
     instance::AuthlyInstance,
+    util::remote_addr::{remote_addr_middleware, RemoteAddr},
     AuthlyCtx, EnvConfig,
 };
 
@@ -58,6 +59,7 @@ pub async fn spawn_k8s_auth_server(env_config: &EnvConfig, ctx: &AuthlyCtx) -> a
             .with_scheme(tower_server::Scheme::Https)
             .with_tls_config(rustls_config_factory)
             .with_graceful_shutdown(ctx.shutdown.clone())
+            .with_connection_middleware(remote_addr_middleware)
             .bind()
             .await?;
 
@@ -106,6 +108,7 @@ impl IntoResponse for CsrError {
 #[tracing::instrument(skip_all)]
 async fn v0_authenticate_handler(
     State(state): State<K8SAuthServerState>,
+    Extension(remote_addr): Extension<RemoteAddr>,
     bearer_authorization: TypedHeader<Authorization<Bearer>>,
     public_key: Bytes,
 ) -> Result<axum::response::Response, CsrError> {
@@ -143,7 +146,7 @@ async fn v0_authenticate_handler(
         CsrError::Internal
     })??;
 
-    info!(?eid, "authenticated");
+    info!(?eid, ?remote_addr, "authenticated");
 
     Ok(Bytes::copy_from_slice(&signed_client_cert.der).into_response())
 }

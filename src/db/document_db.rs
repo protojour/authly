@@ -152,14 +152,14 @@ pub fn document_txn_statements(
     {
         stmts.push(gc(
             "svc",
-            NotIn("svc_eid", data.service_ids.iter().copied()),
+            NotIn("svc_eid", data.services.keys().copied()),
             dir_id,
         ));
 
-        for svc_id in data.service_ids.iter() {
+        for (svc_id, svc) in data.services.iter() {
             stmts.push((
-                "INSERT INTO svc (dir_id, svc_eid) VALUES ($1, $2) ON CONFLICT DO NOTHING".into(),
-                params!(dir_id.as_param(), svc_id.as_param()),
+                "INSERT INTO svc (dir_id, svc_eid, hosts_json) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hosts_json = $3".into(),
+                params!(dir_id.as_param(), svc_id.as_param(), serde_json::to_string(&svc.hosts).unwrap()),
             ));
         }
 
@@ -169,7 +169,7 @@ pub fn document_txn_statements(
             params!(dir_id.as_param()),
         ));
 
-        for svc_id in data.service_ids {
+        for svc_id in data.services.keys() {
             // the service is in its own namespace
             stmts.push((
                 "INSERT INTO svc_namespace (dir_id, svc_eid, ns_id) VALUES ($1, $2, $3)".into(),
