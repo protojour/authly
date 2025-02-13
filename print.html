@@ -192,7 +192,8 @@ kubernetes-account = { name = "arx" }
 <p>This defines the <a href="https://github.com/protojour/arx"><code>"arx"</code> gateway</a> as a kubernetes <a href="documents.html#service-entity">service-entity</a>. The gateway is responsible for opening up the public aspects of Authly to the world outside the cluster.</p>
 <p>Service entity ids are prefixed by <code>s.</code>.</p>
 <p>The built-in <em>attribute triplets</em> <code>"authly:role:authenticate"</code> and <code>"authly:role:get_access_token"</code> allows anyone to authenticate and get access tokens through the gateway. An attribute triplet is a colon-separated <code>namespace:label:attribute</code> string.</p>
-<p>The <code>kubernetes-account</code> is used by Authly to provision the service with an mTLS client certificate, used for (service) authentication.</p>
+<p>The <code>kubernetes-account</code> is used by Authly to provision the service with an mTLS client certificate, used for (service) authentication.
+It only specifies an account name, and not a <code>namespace</code>. Not specifying the namespace means the same namespace that Authly itself runs within.</p>
 <pre><code class="language-toml">[[service-entity]]
 eid = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
 label = "ultradb"
@@ -443,8 +444,8 @@ allow = "Subject.authly:entity == service"
 <p>A policy binding.</p>
 <p><strong>Properties:</strong></p>
 <ul>
-<li><code>service</code>: <em>Required</em>. A label identifying the implied service-entity.</li>
-<li><code>domain</code>: <em>Required</em>. A label identifying the domain that will be exposed to the service.</li>
+<li><code>attributes</code>: <em>Required</em>. A set of attribute triples that must be matched for the selected policies to apply.</li>
+<li><code>policies</code>: <em>Required</em>. A set of applied policies, by label.</li>
 </ul>
 <p><strong>Example:</strong></p>
 <pre><code class="language-toml">[[policy-binding]]
