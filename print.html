@@ -196,12 +196,14 @@ kubernetes-account = { name = "arx", namespace = "ultradb" }
 <pre><code class="language-toml">[[service-entity]]
 eid = "s.ec29ba1d23cb43f89b7c73db6f177a1d"
 label = "ultradb"
+hosts = ["ultradb"]
 kubernetes-account = { name = "ultradb", namespace = "ultradb" }
 </code></pre>
 <p>This defines the <code>"ultradb"</code> <a href="documents.html#service-entity">service-entity</a>, hosted as a kubernetes service behind the <code>"arx"</code>. Service-enitity labels are exposed as <em>namespaces</em> in the Authly model.</p>
 <pre><code class="language-toml">[[service-entity]]
 eid = "s.a1c6134658dd4120823fdc42bb2f42ad"
 label = "ultradb_gui"
+hosts = ["ultradb-gui"]
 </code></pre>
 <p>This defines the <code>"ultradb_gui"</code> (<em>client</em>) <a href="documents.html#service-entity">service-entity</a>, hosted by <code>"ultradb"</code>.</p>
 <pre><code class="language-toml">[[entity-property]]
@@ -310,6 +312,7 @@ password-hash = [
 <li><code>label</code>: A label for the entity visible in the document namespace.</li>
 <li><code>attributes</code>: Attributes bound to the entity. See <a href="documents.html#entity-attribute-assignment">entity-attribute-assignment</a>.</li>
 <li><code>metadata</code>: Metadata about this entity. The metadata is not used by authly itself, but can be used by services which have read access to the entity.</li>
+<li><code>hosts</code>: List of service hostnames.</li>
 <li><code>kubernetes-account</code>: An optional Kubernetes account definition.</li>
 </ul>
 <p><strong>Example:</strong></p>
