@@ -227,6 +227,7 @@ async fn initialize() -> anyhow::Result<Init> {
     let env_config = EnvConfig::load();
     let secrets = authly_secrets::AuthlySecretsBuilder {
         authly_uid: env_config.uid.0,
+        danger_disable_encryption: env_config.danger_disable_encryption,
         bao_url: env_config.bao_url.clone(),
         bao_token: env_config.bao_token.clone(),
     }
