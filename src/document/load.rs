@@ -1,10 +1,14 @@
 use std::{fs, os::unix::ffi::OsStrExt};
 
 use anyhow::anyhow;
-use authly_common::{document::Document, id::DirectoryId};
+use authly_common::{
+    document::Document,
+    id::{DirectoryId, ServiceId},
+};
 use tracing::info;
 
 use crate::{
+    audit::Actor,
     ctx::GetDb,
     db::document_db::{self, DocumentDirectory},
     directory,
@@ -67,7 +71,12 @@ pub(crate) async fn load_cfg_documents(
                     }
                 };
 
-                directory::apply_document(ctx, compiled_doc).await?;
+                directory::apply_document(
+                    ctx,
+                    compiled_doc,
+                    Actor(ServiceId::from_uint(0).upcast()),
+                )
+                .await?;
             } else {
                 info!(?path, "unchanged");
             }

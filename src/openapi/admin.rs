@@ -86,7 +86,7 @@ pub async fn post_document(
         .await
         .map_err(|_| (StatusCode::UNPROCESSABLE_ENTITY, "invalid document").into_response())?;
 
-    directory::apply_document(&ctx, compiled_doc)
+    directory::apply_document(&ctx, compiled_doc, Actor(auth.user_claims.authly.entity_id))
         .await
         .map_err(|_| {
             (

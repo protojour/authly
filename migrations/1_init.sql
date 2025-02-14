@@ -41,21 +41,26 @@ CREATE TABLE directory (
     kind TEXT NOT NULL,
     url TEXT,
     hash BLOB
-    -- created_at DATETIME NOT NULL,
-    -- created_by_eid BLOB NOT NULL,
-    -- updated_at DATETIME NOT NULL
+);
+
+CREATE TABLE directory_audit (
+    dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
+    upd DATETIME NOT NULL,
+    updated_by_eid BLOB NOT NULL
 );
 
 CREATE TABLE local_setting (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     setting INTEGER NOT NULL,
-    value TEXT NOT NULL
+    value TEXT NOT NULL,
+    upd DATETIME NOT NULL
 );
 
 CREATE TABLE ent_attr (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     eid BLOB NOT NULL,
     attrid BLOB NOT NULL,
+    upd DATETIME NOT NULL,
 
     PRIMARY KEY (eid, attrid)
 );
@@ -67,6 +72,7 @@ CREATE TABLE ent_ident (
     fingerprint BLOB NOT NULL,
     nonce BLOB NOT NULL,
     ciph BLOB NOT NULL,
+    upd DATETIME NOT NULL,
 
     PRIMARY KEY (eid, prop_id),
     UNIQUE (prop_id, fingerprint)
@@ -77,6 +83,7 @@ CREATE TABLE ent_rel (
     rel_id BLOB NOT NULL,
     subject_eid BLOB NOT NULL,
     object_eid BLOB NOT NULL,
+    upd DATETIME NOT NULL,
 
     PRIMARY KEY (rel_id, subject_eid, object_eid)
 );
@@ -86,6 +93,7 @@ CREATE TABLE obj_text_attr (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     obj_id BLOB NOT NULL,
     prop_id BLOB NOT NULL,
+    upd DATETIME NOT NULL,
     value TEXT NOT NULL,
 
     PRIMARY KEY (obj_id, prop_id)
@@ -95,6 +103,7 @@ CREATE TABLE obj_text_attr (
 CREATE TABLE obj_label (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     obj_id BLOB NOT NULL PRIMARY KEY,
+    upd DATETIME NOT NULL,
     label TEXT NOT NULL
 );
 
@@ -102,6 +111,7 @@ CREATE TABLE obj_label (
 CREATE TABLE ns_ent_prop (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
+    upd DATETIME NOT NULL,
     ns_id BLOB NOT NULL,
     label TEXT NOT NULL,
 
@@ -113,6 +123,7 @@ CREATE TABLE ns_ent_attrlabel (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL,
     prop_id BLOB NOT NULL REFERENCES ns_ent_prop(id) DEFERRABLE INITIALLY DEFERRED,
+    upd DATETIME NOT NULL,
     label TEXT NOT NULL,
 
     UNIQUE (prop_id, label)
@@ -122,6 +133,7 @@ CREATE TABLE ns_ent_attrlabel (
 CREATE TABLE ns_res_prop (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
+    upd DATETIME NOT NULL,
     ns_id BLOB NOT NULL,
     label TEXT NOT NULL,
 
@@ -132,6 +144,7 @@ CREATE TABLE ns_res_prop (
 CREATE TABLE ns_res_attrlabel (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
+    upd DATETIME NOT NULL,
     prop_id BLOB NOT NULL REFERENCES ns_res_prop(id) DEFERRABLE INITIALLY DEFERRED,
     label TEXT NOT NULL,
 
@@ -142,6 +155,7 @@ CREATE TABLE ns_res_attrlabel (
 CREATE TABLE svc (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     svc_eid BLOB NOT NULL PRIMARY KEY,
+    upd DATETIME NOT NULL,
     hosts_json TEXT
 );
 
@@ -150,6 +164,7 @@ CREATE TABLE svc_namespace (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     svc_eid BLOB NOT NULL REFERENCES svc(svc_eid) DEFERRABLE INITIALLY DEFERRED,
     ns_id BLOB NOT NULL,
+    upd DATETIME NOT NULL,
 
     PRIMARY KEY (svc_eid, ns_id)
 );
@@ -158,6 +173,7 @@ CREATE TABLE svc_namespace (
 CREATE TABLE policy (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
+    upd DATETIME NOT NULL,
     label TEXT NOT NULL,
     policy_pc BLOB NOT NULL,
 
@@ -169,6 +185,7 @@ CREATE TABLE polbind_attr_match (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     polbind_id BLOB NOT NULL,
     attr_id BLOB NOT NULL,
+    upd DATETIME NOT NULL,
 
     PRIMARY KEY (polbind_id, attr_id)
 );
@@ -178,6 +195,7 @@ CREATE TABLE polbind_policy (
     dir_id BLOB NOT NULL REFERENCES directory(dir_id) DEFERRABLE INITIALLY DEFERRED,
     polbind_id BLOB NOT NULL,
     policy_id BLOB NOT NULL REFERENCES policy(id) DEFERRABLE INITIALLY DEFERRED,
+    upd DATETIME NOT NULL,
 
     PRIMARY KEY (polbind_id, policy_id)
 );

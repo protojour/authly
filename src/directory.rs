@@ -4,6 +4,7 @@ use authly_common::id::ServiceId;
 use tracing::error;
 
 use crate::{
+    audit::Actor,
     bus::{message::ClusterMessage, BusError},
     cert::{client_cert, CertificateParamsExt},
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance},
@@ -27,6 +28,7 @@ pub enum DirectoryError {
 pub async fn apply_document(
     deps: &(impl GetDb + GetDecryptedDeks + ClusterBus + Any),
     compiled_doc: CompiledDocument,
+    actor: Actor,
 ) -> Result<(), DirectoryError> {
     let dir_id = compiled_doc.dir_id;
 
@@ -34,7 +36,7 @@ pub async fn apply_document(
 
     let deks = deps.load_decrypted_deks();
 
-    DocumentTransaction::new(compiled_doc)
+    DocumentTransaction::new(compiled_doc, actor)
         .execute(deps.get_db(), &deks)
         .await?;
 

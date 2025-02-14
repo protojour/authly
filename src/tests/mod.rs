@@ -1,8 +1,11 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use authly_common::{
-    document::Document, id::ServiceId, mtls_server::PeerServiceEntity,
-    proto::connect::authly_connect_server::AuthlyConnectServer, service::NamespacePropertyMapping,
+    document::Document,
+    id::{PersonaId, ServiceId},
+    mtls_server::PeerServiceEntity,
+    proto::connect::authly_connect_server::AuthlyConnectServer,
+    service::NamespacePropertyMapping,
 };
 use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
@@ -20,6 +23,7 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{info_span, Instrument};
 
 use crate::{
+    audit::Actor,
     cert::Cert,
     db::{
         document_db::DocumentDbTxnError,
@@ -89,7 +93,7 @@ async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> Result<()
         .await
         .map_err(TestDocError::Doc)?;
 
-    crate::directory::apply_document(ctx, compiled_doc)
+    crate::directory::apply_document(ctx, compiled_doc, Actor(PersonaId::random().upcast()))
         .await
         .map_err(|err| {
             if let DirectoryError::DocumentDbTxn(DocumentDbTxnError::Transaction(doc_errors)) = err
