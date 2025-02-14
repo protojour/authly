@@ -510,6 +510,7 @@ dependencies = [
  "authly-common",
  "axum 0.7.9",
  "axum-extra",
+ "futures-util",
  "indoc",
  "maud",
  "rustls",

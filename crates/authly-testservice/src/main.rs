@@ -1,6 +1,7 @@
 use std::env;
 use std::sync::Arc;
 
+use authly_client::{AccessControl, AccessToken};
 use authly_common::id::ServiceId;
 use authly_common::mtls_server::PeerServiceEntity;
 use axum::http::StatusCode;
@@ -10,6 +11,7 @@ use axum::{http::request::Parts, routing::get};
 use axum_extra::headers::authorization::Bearer;
 use axum_extra::headers::Authorization;
 use axum_extra::TypedHeader;
+use futures_util::StreamExt;
 use indoc::indoc;
 use maud::{html, DOCTYPE};
 use maud::{Markup, PreEscaped};
@@ -258,9 +260,60 @@ async fn tab_service(ctx: HtmlCtx) -> Result<Markup, Error> {
     })
 }
 
+#[derive(Clone, Copy)]
+struct ResourceAction(&'static [(&'static str, &'static str, &'static str)]);
+
+fn actions() -> &'static [ResourceAction] {
+    &[
+        ResourceAction(&[
+            ("testservice", "name", "ontology"),
+            ("testservice", "ontology/action", "read"),
+        ]),
+        ResourceAction(&[
+            ("testservice", "name", "ontology"),
+            ("testservice", "ontology/action", "deploy"),
+        ]),
+        ResourceAction(&[
+            ("testservice", "name", "storage"),
+            ("testservice", "bucket/action", "create"),
+        ]),
+        ResourceAction(&[("this", "doesn't", "exist")]),
+    ]
+}
+
 async fn tab_user(ctx: HtmlCtx) -> Result<Markup, Error> {
     let Some(access_token) = ctx.access_token.clone() else {
         return Err(Error::UserNotAuthenticated);
+    };
+
+    async fn eval_access_control(
+        action: ResourceAction,
+        client: &authly_client::Client,
+        token: Option<Arc<AccessToken>>,
+    ) -> Option<bool> {
+        let mut req = client.access_control_request();
+        if let Some(token) = token {
+            req = req.access_token(token);
+        }
+        for triplet in action.0 {
+            req = req.resource_attribute(*triplet).ok()?;
+        }
+
+        let value = req.evaluate().await.ok()?;
+
+        Some(value)
+    }
+
+    let resource_access_control: Vec<_> = if let Some(client) = ctx.client.as_ref() {
+        futures_util::stream::iter(actions())
+            .then(|action| async {
+                let value = eval_access_control(*action, client, ctx.access_token.clone()).await;
+                (*action, value)
+            })
+            .collect()
+            .await
+    } else {
+        actions().iter().map(|action| (*action, None)).collect()
     };
 
     Ok(html! {
@@ -272,6 +325,39 @@ async fn tab_user(ctx: HtmlCtx) -> Result<Markup, Error> {
                     tr {
                         th { "User Entity ID " }
                         td { code { (access_token.claims.authly.entity_id) } }
+                    }
+                }
+            }
+        }
+
+        h4 { "Access control" }
+        table {
+            thead {
+                tr {
+                    th { "Resource" }
+                    th { "Value" }
+                }
+            }
+            tbody {
+                @for (resource, value) in resource_access_control {
+                    tr {
+                        td {
+                            @for (ns, prop, attr) in resource.0 {
+                                code { (ns) ":" (prop) ":" (attr) }
+                                " "
+                            }
+                        }
+                        td {
+                            @match value {
+                                Some(true) => {
+                                    code { "allow" }
+                                }
+                                Some(false) => {
+                                    code { "deny" }
+                                }
+                                None => { "error" }
+                            }
+                        }
                     }
                 }
             }

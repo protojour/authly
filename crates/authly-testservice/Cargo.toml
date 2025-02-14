@@ -9,6 +9,7 @@ authly-client = { workspace = true, features = ["rustls_023"] }
 authly-common = { workspace = true, features = ["mtls_server"] }
 axum = "0.7"
 axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+futures-util = "0.3"
 indoc = "2"
 maud = { version = "0.26", features = ["axum"] }
 rustls = { version = "0.23", default-features = false }
