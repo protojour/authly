@@ -34,6 +34,8 @@ An example Kubernetes deployment is available in [`testfiles/k8s`](testfiles/k8s
 just k8s-demo-deploy
 ```
 
+(depends on [cross](https://github.com/cross-rs/cross?tab=readme-ov-file#installation), [k3d](https://k3d.io/stable/#installation), [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) and [helm](https://helm.sh/docs/intro/install/))
+
 ### Docker example
 
 A minimal `docker compose` development example is available in [`testfiles/docker/docker-compose.yml`](testfiles/docker/docker-compose.yml).
