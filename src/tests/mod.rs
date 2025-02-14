@@ -1,6 +1,5 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use anyhow::anyhow;
 use authly_common::{
     document::Document, id::ServiceId, mtls_server::PeerServiceEntity,
     proto::connect::authly_connect_server::AuthlyConnectServer, service::NamespacePropertyMapping,
@@ -16,13 +15,18 @@ use rustls::{
     server::WebPkiClientVerifier,
     RootCertStore, ServerConfig,
 };
+use serde_spanned::Spanned;
 use tokio_util::sync::{CancellationToken, DropGuard};
-use tracing::{error, info_span, Instrument};
+use tracing::{info_span, Instrument};
 
 use crate::{
     cert::Cert,
-    db::service_db::{self, ServicePropertyKind},
-    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
+    db::{
+        document_db::DocumentDbTxnError,
+        service_db::{self, ServicePropertyKind},
+    },
+    directory::DirectoryError,
+    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc, error::DocError},
     test_support::TestCtx,
     util::remote_addr::RemoteAddr,
 };
@@ -39,7 +43,14 @@ mod test_metadata;
 mod test_tls;
 mod test_ultradb;
 
-async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Result<()> {
+#[derive(Debug)]
+pub enum TestDocError {
+    Doc(Vec<Spanned<DocError>>),
+    #[expect(unused)]
+    Other(anyhow::Error),
+}
+
+async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> Result<(), TestDocError> {
     let mut doc_files: Vec<_> = std::fs::read_dir(dir)
         .unwrap()
         .map(|result| {
@@ -57,7 +68,7 @@ async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> anyhow::Resul
     Ok(())
 }
 
-async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> {
+async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> Result<(), TestDocError> {
     // For testing purposes, do this twice for each document, the second time will be a "no-op" re-application:
 
     compile_and_apply_doc_only_once(toml, ctx)
@@ -72,19 +83,22 @@ async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> 
 }
 
 /// "only once" version, don't use this directly unless testing event propagation
-async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> anyhow::Result<()> {
-    let doc = Document::from_toml(toml)?;
+async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> Result<(), TestDocError> {
+    let doc = Document::from_toml(toml).map_err(TestDocError::Other)?;
     let compiled_doc = compile_doc(ctx, doc, DocumentMeta::default())
         .await
-        .map_err(|errors| {
-            for error in errors {
-                error!("{error:?}: `{}`", &toml[error.span()])
+        .map_err(TestDocError::Doc)?;
+
+    crate::directory::apply_document(ctx, compiled_doc)
+        .await
+        .map_err(|err| {
+            if let DirectoryError::DocumentDbTxn(DocumentDbTxnError::Transaction(doc_errors)) = err
+            {
+                TestDocError::Doc(doc_errors)
+            } else {
+                TestDocError::Other(err.into())
             }
-
-            anyhow!("doc compile error)")
         })?;
-
-    crate::directory::apply_document(ctx, compiled_doc).await?;
 
     Ok(())
 }

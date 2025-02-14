@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Range};
 
 use aes_gcm_siv::aead::Aead;
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyBindingId, PolicyId, PropId, ServiceId};
@@ -6,11 +6,15 @@ use authly_db::{literal::Literal, param::AsParam, Db, DbError, DbResult, FromRow
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use itertools::Itertools;
+use serde_spanned::Spanned;
 
 use crate::{
-    document::compiled_document::{
-        CompiledDocument, CompiledEntityAttributeAssignment, CompiledEntityRelation,
-        CompiledService, DocumentMeta, EntityIdent, ObjectLabel, ObjectTextAttr,
+    document::{
+        compiled_document::{
+            CompiledDocument, CompiledEntityAttributeAssignment, CompiledEntityRelation,
+            CompiledService, DocumentMeta, EntityIdent, ObjectLabel, ObjectTextAttr,
+        },
+        error::DocError,
     },
     encryption::{random_nonce, DecryptedDeks},
     settings::Setting,
@@ -24,7 +28,7 @@ pub enum DocumentDbTxnError {
     Db(#[from] DbError),
 
     #[error("transaction error: {0:?}")]
-    Transaction(Vec<(Stmt, DbError)>),
+    Transaction(Vec<Spanned<DocError>>),
 
     #[error("encryption error: {0}")]
     Encryption(anyhow::Error),
@@ -61,6 +65,7 @@ pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentDirectory>> {
 pub struct DocumentTransaction {
     dir_id: DirectoryId,
     stmts: Vec<Stmt>,
+    spans: Vec<Range<usize>>,
 }
 
 impl DocumentTransaction {
@@ -93,8 +98,11 @@ impl DocumentTransaction {
                 Ok(_) => {}
                 Err(err) => {
                     let stmt = self.stmts.swap_remove(index);
+                    let span = self.spans.swap_remove(index);
 
-                    errors.push((stmt, err));
+                    let doc_error = txn_error_to_doc_error(stmt, err);
+
+                    errors.push(Spanned::new(span, doc_error));
                 }
             }
         }
@@ -104,6 +112,11 @@ impl DocumentTransaction {
         } else {
             Err(DocumentDbTxnError::Transaction(errors))
         }
+    }
+
+    fn push(&mut self, stmt: Stmt, span: Range<usize>) {
+        self.stmts.push(stmt);
+        self.spans.push(span);
     }
 }
 
@@ -168,50 +181,62 @@ pub enum Stmt {
     PolBindPolicyWrite(PolicyBindingId, PolicyId),
 }
 
+const NO_SPAN: Range<usize> = 0..0;
+
 fn mk_document_transaction(document: CompiledDocument) -> DocumentTransaction {
     let CompiledDocument { dir_id, meta, data } = document;
-    let mut stmts: Vec<Stmt> = vec![];
+    let mut txn = DocumentTransaction {
+        dir_id,
+        stmts: vec![],
+        spans: vec![],
+    };
 
-    stmts.push(Stmt::DirectoryWrite(meta));
+    txn.push(Stmt::DirectoryWrite(meta), NO_SPAN);
 
     // local settings
     {
-        stmts.push(Stmt::LocalSettingGc);
+        txn.push(Stmt::LocalSettingGc, NO_SPAN);
 
         for (setting, value) in data.settings {
-            stmts.push(Stmt::LocalSettingWrite { setting, value });
+            txn.push(Stmt::LocalSettingWrite { setting, value }, NO_SPAN);
         }
     }
 
     // entity identifiers and text attributes
     {
-        stmts.push(Stmt::EntIdentGc);
+        txn.push(Stmt::EntIdentGc, NO_SPAN);
 
-        for ident in data.entity_ident {
-            stmts.push(Stmt::EntIdentWrite(ident));
+        for (ident, span) in data.entity_ident {
+            txn.push(Stmt::EntIdentWrite(ident), span);
         }
 
-        stmts.push(Stmt::ObjTextAttrGc);
+        txn.push(Stmt::ObjTextAttrGc, NO_SPAN);
 
-        for text_attr in data.obj_text_attrs {
-            stmts.push(Stmt::ObjTextAttrWrite(text_attr));
+        for (text_attr, span) in data.obj_text_attrs {
+            txn.push(Stmt::ObjTextAttrWrite(text_attr), span);
         }
 
-        stmts.push(Stmt::ObjLabelGc(
-            data.obj_labels.iter().map(|label| label.obj_id).collect(),
-        ));
+        txn.push(
+            Stmt::ObjLabelGc(
+                data.obj_labels
+                    .iter()
+                    .map(|(label, _)| label.obj_id)
+                    .collect(),
+            ),
+            NO_SPAN,
+        );
 
-        for label in data.obj_labels {
-            stmts.push(Stmt::ObjLabelWrite(label));
+        for (label, span) in data.obj_labels {
+            txn.push(Stmt::ObjLabelWrite(label), span);
         }
     }
 
     // entity relations
     {
-        stmts.push(Stmt::EntRelGc);
+        txn.push(Stmt::EntRelGc, NO_SPAN);
 
         for rel in data.entity_relations {
-            stmts.push(Stmt::EntRelWrite(rel));
+            txn.push(Stmt::EntRelWrite(rel), NO_SPAN);
         }
     }
 
@@ -219,125 +244,155 @@ fn mk_document_transaction(document: CompiledDocument) -> DocumentTransaction {
     {
         let service_ids: Vec<_> = data.services.keys().copied().collect();
 
-        stmts.push(Stmt::ServiceGc(service_ids.clone()));
+        txn.push(Stmt::ServiceGc(service_ids.clone()), NO_SPAN);
 
         for (id, service) in data.services {
-            stmts.push(Stmt::ServiceWrite(id, service));
+            txn.push(Stmt::ServiceWrite(id, service), NO_SPAN);
         }
 
-        stmts.push(Stmt::ServiceNamespaceGc);
+        txn.push(Stmt::ServiceNamespaceGc, NO_SPAN);
 
         for svc_id in service_ids {
             // the service is in its own namespace
-            stmts.push(Stmt::ServiceNamespaceWrite(svc_id, svc_id.upcast()));
+            txn.push(
+                Stmt::ServiceNamespaceWrite(svc_id, svc_id.upcast()),
+                NO_SPAN,
+            );
         }
 
         for (svc_id, domain_id) in data.service_domains {
-            stmts.push(Stmt::ServiceNamespaceWrite(svc_id, domain_id.upcast()));
+            txn.push(
+                Stmt::ServiceNamespaceWrite(svc_id, domain_id.upcast()),
+                NO_SPAN,
+            );
         }
     }
 
     // entity attribute assignment
     {
         // not sure how to "GC" this?
-        stmts.push(Stmt::EntAttrGc);
+        txn.push(Stmt::EntAttrGc, NO_SPAN);
 
         for assignment in data.entity_attribute_assignments {
-            stmts.push(Stmt::EntAttrWrite(assignment));
+            txn.push(Stmt::EntAttrWrite(assignment), NO_SPAN);
         }
     }
 
     // namespaced entity props
     {
-        stmts.push(Stmt::NsEntPropGc(
-            data.domain_ent_props.iter().map(|s| s.id).collect(),
-        ));
-        stmts.push(Stmt::NsEntAttrLabelGc(
-            data.domain_ent_props
-                .iter()
-                .flat_map(|p| p.attributes.iter())
-                .map(|a| a.id)
-                .collect(),
-        ));
+        txn.push(
+            Stmt::NsEntPropGc(data.domain_ent_props.iter().map(|s| s.id).collect()),
+            NO_SPAN,
+        );
+        txn.push(
+            Stmt::NsEntAttrLabelGc(
+                data.domain_ent_props
+                    .iter()
+                    .flat_map(|p| p.attributes.iter())
+                    .map(|a| a.id)
+                    .collect(),
+            ),
+            NO_SPAN,
+        );
 
         for eprop in data.domain_ent_props {
-            stmts.push(Stmt::NsEntPropWrite {
-                id: eprop.id,
-                ns_id: eprop.ns_id,
-                label: eprop.label,
-            });
+            txn.push(
+                Stmt::NsEntPropWrite {
+                    id: eprop.id,
+                    ns_id: eprop.ns_id,
+                    label: eprop.label,
+                },
+                NO_SPAN,
+            );
 
             for attr in eprop.attributes {
-                stmts.push(Stmt::NsEntAttrLabelWrite {
-                    id: attr.id,
-                    prop_id: eprop.id,
-                    label: attr.label,
-                });
+                txn.push(
+                    Stmt::NsEntAttrLabelWrite {
+                        id: attr.id,
+                        prop_id: eprop.id,
+                        label: attr.label,
+                    },
+                    NO_SPAN,
+                );
             }
         }
     }
 
     // namespace resource props
     {
-        stmts.push(Stmt::NsResPropGc(
-            data.domain_res_props.iter().map(|p| p.id).collect(),
-        ));
-        stmts.push(Stmt::NsResAttrLabelGc(
-            data.domain_res_props
-                .iter()
-                .flat_map(|p| p.attributes.iter())
-                .map(|a| a.id)
-                .collect(),
-        ));
+        txn.push(
+            Stmt::NsResPropGc(data.domain_res_props.iter().map(|p| p.id).collect()),
+            NO_SPAN,
+        );
+        txn.push(
+            Stmt::NsResAttrLabelGc(
+                data.domain_res_props
+                    .iter()
+                    .flat_map(|p| p.attributes.iter())
+                    .map(|a| a.id)
+                    .collect(),
+            ),
+            NO_SPAN,
+        );
 
         for rprop in data.domain_res_props {
-            stmts.push(Stmt::NsResPropWrite {
-                id: rprop.id,
-                ns_id: rprop.ns_id,
-                label: rprop.label,
-            });
+            txn.push(
+                Stmt::NsResPropWrite {
+                    id: rprop.id,
+                    ns_id: rprop.ns_id,
+                    label: rprop.label,
+                },
+                NO_SPAN,
+            );
 
             for attr in rprop.attributes {
-                stmts.push(Stmt::NsResAttrLabelWrite {
-                    id: attr.id,
-                    prop_id: rprop.id,
-                    label: attr.label,
-                });
+                txn.push(
+                    Stmt::NsResAttrLabelWrite {
+                        id: attr.id,
+                        prop_id: rprop.id,
+                        label: attr.label,
+                    },
+                    NO_SPAN,
+                );
             }
         }
     }
 
     // service policies
     {
-        stmts.push(Stmt::PolicyGc(
-            data.policies.iter().map(|p| *p.id()).collect(),
-        ));
+        txn.push(
+            Stmt::PolicyGc(data.policies.iter().map(|p| *p.id()).collect()),
+            NO_SPAN,
+        );
 
         for Identified(id, policy) in data.policies {
-            stmts.push(Stmt::PolicyWrite {
-                id,
-                label: policy.label,
-                policy_pc: postcard::to_allocvec(&policy.policy).unwrap(),
-            });
+            txn.push(
+                Stmt::PolicyWrite {
+                    id,
+                    label: policy.label,
+                    policy_pc: postcard::to_allocvec(&policy.policy).unwrap(),
+                },
+                NO_SPAN,
+            );
         }
     }
 
     // service policy bindings
     {
-        stmts.push(Stmt::PolBindAttrMatchGc);
-        stmts.push(Stmt::PolBindPolicyGc);
+        txn.push(Stmt::PolBindAttrMatchGc, NO_SPAN);
+        txn.push(Stmt::PolBindPolicyGc, NO_SPAN);
 
         for Identified(id, data) in data.policy_bindings {
             for attr_id in data.attr_matcher {
-                stmts.push(Stmt::PolBindAttrMatchWrite(id, attr_id));
+                txn.push(Stmt::PolBindAttrMatchWrite(id, attr_id), NO_SPAN);
             }
             for policy_id in data.policies {
-                stmts.push(Stmt::PolBindPolicyWrite(id, policy_id));
+                txn.push(Stmt::PolBindPolicyWrite(id, policy_id), NO_SPAN);
             }
         }
     }
 
-    DocumentTransaction { dir_id, stmts }
+    txn
 }
 
 fn stmt_to_db_stmt(
@@ -538,4 +593,12 @@ fn gc(
         .into(),
         params!(dir_id.as_param()),
     )
+}
+
+fn txn_error_to_doc_error(_stmt: Stmt, db_error: DbError) -> DocError {
+    match db_error {
+        DbError::Hiqlite(hiqlite::Error::Sqlite(_)) => DocError::ConstraintViolation,
+        DbError::Rusqlite(_) => DocError::ConstraintViolation,
+        err => DocError::Db(format!("{err:?}")),
+    }
 }

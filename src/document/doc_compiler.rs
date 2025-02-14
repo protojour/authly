@@ -28,9 +28,10 @@ use crate::settings::{Setting, Settings};
 use crate::util::error::{HandleError, ResultExt};
 
 use super::compiled_document::{
-    CompileError, CompiledAttribute, CompiledDocument, CompiledDocumentData,
-    CompiledEntityRelation, CompiledProperty, DocumentMeta,
+    CompiledAttribute, CompiledDocument, CompiledDocumentData, CompiledEntityRelation,
+    CompiledProperty, DocumentMeta,
 };
+use super::error::DocError;
 
 #[derive(Default)]
 pub struct Namespaces {
@@ -104,14 +105,14 @@ pub enum NamespaceEntry {
 
 #[derive(Default)]
 struct Errors {
-    errors: Vec<Spanned<CompileError>>,
+    errors: Vec<Spanned<DocError>>,
 }
 
 pub async fn compile_doc(
     deps: &(impl GetDb + KubernetesConfig),
     mut doc: document::Document,
     meta: DocumentMeta,
-) -> Result<CompiledDocument, Vec<Spanned<CompileError>>> {
+) -> Result<CompiledDocument, Vec<Spanned<DocError>>> {
     let db = deps.get_db();
     let mut comp = CompileCtx {
         dir_id: DirectoryId::from_uint(doc.authly_document.id.get_ref().as_u128()),
@@ -137,8 +138,7 @@ pub async fn compile_doc(
                 {
                     Ok(setting) => setting,
                     Err(_) => {
-                        comp.errors
-                            .push(key.span(), CompileError::LocalSettingNotFound);
+                        comp.errors.push(key.span(), DocError::LocalSettingNotFound);
                         continue;
                     }
                 };
@@ -146,7 +146,7 @@ pub async fn compile_doc(
             if let Err(err) = test_settings.try_set(setting, Cow::Borrowed(value.as_ref())) {
                 comp.errors.push(
                     value.span(),
-                    CompileError::InvalidSettingValue(format!("{err}")),
+                    DocError::InvalidSettingValue(format!("{err}")),
                 );
                 continue;
             }
@@ -171,17 +171,24 @@ pub async fn compile_doc(
 
             comp.ns_add(&domain.label, NamespaceKind::Domain(id));
 
-            data.obj_labels.push(ObjectLabel {
-                obj_id: id.upcast(),
-                label: domain.label.as_ref().to_string(),
-            });
+            data.obj_labels.push((
+                ObjectLabel {
+                    obj_id: id.upcast(),
+                    label: domain.label.as_ref().to_string(),
+                },
+                domain.label.span(),
+            ));
 
             if let Some(metadata) = domain.metadata {
-                data.obj_text_attrs.push(ObjectTextAttr {
-                    obj_id: id.upcast(),
-                    prop_id: PropId::from(BuiltinProp::Metadata),
-                    value: serde_json::to_string(&metadata).expect("already valid json"),
-                });
+                let span = metadata.span();
+                data.obj_text_attrs.push((
+                    ObjectTextAttr {
+                        obj_id: id.upcast(),
+                        prop_id: PropId::from(BuiltinProp::Metadata),
+                        value: serde_json::to_string(&metadata).expect("already valid json"),
+                    },
+                    span,
+                ));
             }
         }
     }
@@ -190,55 +197,68 @@ pub async fn compile_doc(
 
     for entity in &mut doc.entity {
         if let Some(username) = entity.username.take() {
-            data.entity_ident.push(EntityIdent {
-                eid: *entity.eid.as_ref(),
-                prop_id: BuiltinProp::Username.into(),
-                ident: username.into_inner(),
-            });
+            let span = username.span();
+            data.entity_ident.push((
+                EntityIdent {
+                    eid: *entity.eid.as_ref(),
+                    prop_id: BuiltinProp::Username.into(),
+                    ident: username.into_inner(),
+                },
+                span,
+            ));
         }
 
         if let Some(metadata) = entity.metadata.take() {
             comp.errors
-                .push(metadata.span(), CompileError::MetadataNotSupported);
+                .push(metadata.span(), DocError::MetadataNotSupported);
         }
     }
 
     for entity in &mut doc.service_entity {
         let Ok(svc_eid) = ServiceId::try_from(*entity.eid.as_ref()) else {
             comp.errors
-                .push(entity.eid.span(), CompileError::MustBeAServiceId);
+                .push(entity.eid.span(), DocError::MustBeAServiceId);
             continue;
         };
 
         if let Some(label) = &entity.label {
-            data.obj_labels.push(ObjectLabel {
-                obj_id: svc_eid.upcast(),
-                label: label.as_ref().to_string(),
-            });
+            data.obj_labels.push((
+                ObjectLabel {
+                    obj_id: svc_eid.upcast(),
+                    label: label.as_ref().to_string(),
+                },
+                label.span(),
+            ));
         }
 
         if let Some(k8s) = mem::take(&mut entity.kubernetes_account) {
-            data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: svc_eid.upcast(),
-                prop_id: BuiltinProp::K8sConfiguredServiceAccount.into(),
-                value: format!(
-                    "{namespace}/{account}",
-                    namespace = k8s.namespace.as_deref().unwrap_or("*"),
-                    account = k8s.name
-                ),
-            });
-            data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: svc_eid.upcast(),
-                prop_id: BuiltinProp::K8sLocalServiceAccount.into(),
-                value: format!(
-                    "{namespace}/{account}",
-                    namespace = k8s
-                        .namespace
-                        .as_deref()
-                        .unwrap_or(deps.authly_local_k8s_namespace()),
-                    account = k8s.name
-                ),
-            });
+            data.obj_text_attrs.push((
+                ObjectTextAttr {
+                    obj_id: svc_eid.upcast(),
+                    prop_id: BuiltinProp::K8sConfiguredServiceAccount.into(),
+                    value: format!(
+                        "{namespace}/{account}",
+                        namespace = k8s.namespace.as_deref().unwrap_or("*"),
+                        account = k8s.name
+                    ),
+                },
+                0..0,
+            ));
+            data.obj_text_attrs.push((
+                ObjectTextAttr {
+                    obj_id: svc_eid.upcast(),
+                    prop_id: BuiltinProp::K8sLocalServiceAccount.into(),
+                    value: format!(
+                        "{namespace}/{account}",
+                        namespace = k8s
+                            .namespace
+                            .as_deref()
+                            .unwrap_or(deps.authly_local_k8s_namespace()),
+                        account = k8s.name
+                    ),
+                },
+                0..0,
+            ));
         }
 
         let service = CompiledService {
@@ -248,11 +268,15 @@ pub async fn compile_doc(
         data.services.insert(svc_eid, service);
 
         if let Some(metadata) = entity.metadata.take() {
-            data.obj_text_attrs.push(ObjectTextAttr {
-                obj_id: svc_eid.upcast(),
-                prop_id: PropId::from(BuiltinProp::Metadata),
-                value: serde_json::to_string(&metadata).expect("already valid json"),
-            });
+            let span = metadata.span();
+            data.obj_text_attrs.push((
+                ObjectTextAttr {
+                    obj_id: svc_eid.upcast(),
+                    prop_id: PropId::from(BuiltinProp::Metadata),
+                    value: serde_json::to_string(&metadata).expect("already valid json"),
+                },
+                span,
+            ));
         }
     }
 
@@ -261,11 +285,15 @@ pub async fn compile_doc(
             continue;
         };
 
-        data.entity_ident.push(EntityIdent {
-            eid,
-            prop_id: BuiltinProp::Email.into(),
-            ident: email.value.into_inner(),
-        });
+        let span = email.value.span();
+        data.entity_ident.push((
+            EntityIdent {
+                eid,
+                prop_id: BuiltinProp::Email.into(),
+                ident: email.value.into_inner(),
+            },
+            span,
+        ));
     }
 
     for hash in mem::take(&mut doc.password_hash) {
@@ -273,11 +301,14 @@ pub async fn compile_doc(
             continue;
         };
 
-        data.obj_text_attrs.push(ObjectTextAttr {
-            obj_id: eid.upcast(),
-            prop_id: BuiltinProp::PasswordHash.into(),
-            value: hash.hash,
-        });
+        data.obj_text_attrs.push((
+            ObjectTextAttr {
+                obj_id: eid.upcast(),
+                prop_id: BuiltinProp::PasswordHash.into(),
+                value: hash.hash,
+            },
+            0..0,
+        ));
     }
 
     process_members(mem::take(&mut doc.members), &mut data, &mut comp);
@@ -313,7 +344,7 @@ pub async fn compile_doc(
                 }
                 Err(_) => {
                     comp.errors
-                        .push(doc_svc_domain.domain.span(), CompileError::UnresolvedDomain);
+                        .push(doc_svc_domain.domain.span(), DocError::UnresolvedDomain);
                 }
             }
         }
@@ -408,7 +439,7 @@ async fn process_entity_attribute_assignments(
                     Ok(attr_id) => attr_id,
                     Err(_) => {
                         comp.errors
-                            .push(spanned_qattr.span(), CompileError::UnresolvedAttribute);
+                            .push(spanned_qattr.span(), DocError::UnresolvedAttribute);
                         continue;
                     }
                 };
@@ -555,7 +586,7 @@ fn process_attribute_assignments(
             }
             Err(_) => {
                 comp.errors
-                    .push(spanned_qattr.span(), CompileError::UnresolvedAttribute);
+                    .push(spanned_qattr.span(), DocError::UnresolvedAttribute);
             }
         }
     }
@@ -575,12 +606,12 @@ async fn process_policies(
                 let span = cmp::min(allow.span().start, deny.span().start)
                     ..cmp::max(allow.span().end, deny.span().end);
 
-                comp.errors.push(span, CompileError::AmbiguousPolicyOutcome);
+                comp.errors.push(span, DocError::AmbiguousPolicyOutcome);
                 continue;
             }
             (None, None) => {
                 comp.errors
-                    .push(policy.label.span(), CompileError::PolicyBodyMissing);
+                    .push(policy.label.span(), DocError::PolicyBodyMissing);
                 continue;
             }
         };
@@ -596,8 +627,7 @@ async fn process_policies(
                     error_span.start += src.span().start;
                     error_span.end += src.span().end;
 
-                    comp.errors
-                        .push(error_span, CompileError::Policy(error.kind));
+                    comp.errors.push(error_span, DocError::Policy(error.kind));
                 }
 
                 continue;
@@ -676,7 +706,7 @@ fn process_policy_bindings(
                     Ok(attr_id) => attr_id,
                     Err(_) => {
                         comp.errors
-                            .push(spanned_qattr.span(), CompileError::UnresolvedAttribute);
+                            .push(spanned_qattr.span(), DocError::UnresolvedAttribute);
                         continue;
                     }
                 };
@@ -710,10 +740,7 @@ impl CompileCtx {
         ) {
             self.errors.errors.push(Spanned::new(
                 namespace.span(),
-                CompileError::NameDefinedMultipleTimes(
-                    entry.span(),
-                    namespace.get_ref().to_string(),
-                ),
+                DocError::NameDefinedMultipleTimes(entry.span(), namespace.get_ref().to_string()),
             ));
 
             false
@@ -731,7 +758,7 @@ impl CompileCtx {
         let Some(namespace) = self.namespaces.table.get_mut(namespace.as_ref()) else {
             self.errors.errors.push(Spanned::new(
                 namespace.span(),
-                CompileError::UnresolvedNamespace,
+                DocError::UnresolvedNamespace,
             ));
 
             return false;
@@ -744,7 +771,7 @@ impl CompileCtx {
         {
             self.errors.errors.push(Spanned::new(
                 namespace.span(),
-                CompileError::NameDefinedMultipleTimes(entry.span(), key.get_ref().to_string()),
+                DocError::NameDefinedMultipleTimes(entry.span(), key.get_ref().to_string()),
             ));
 
             false
@@ -758,7 +785,7 @@ impl CompileCtx {
             return Some(entity_id);
         }
 
-        match self.ns_lookup_kind(key, CompileError::UnresolvedEntity)? {
+        match self.ns_lookup_kind(key, DocError::UnresolvedEntity)? {
             NamespaceKind::Entity(eid) => Some(*eid),
             NamespaceKind::Service(eid) => Some(eid.upcast()),
             _ => None,
@@ -770,7 +797,7 @@ impl CompileCtx {
             return Some(svc_id);
         }
 
-        match self.ns_lookup_kind(key, CompileError::UnresolvedEntity)? {
+        match self.ns_lookup_kind(key, DocError::UnresolvedEntity)? {
             NamespaceKind::Service(eid) => Some(*eid),
             _ => None,
         }
@@ -781,12 +808,11 @@ impl CompileCtx {
             return Some(entity_id.upcast());
         }
 
-        match self.ns_lookup_kind(key, CompileError::UnresolvedService)? {
+        match self.ns_lookup_kind(key, DocError::UnresolvedService)? {
             NamespaceKind::Service(eid) => Some(eid.upcast()),
             NamespaceKind::Domain(dom_id) => Some(dom_id.upcast()),
             _ => {
-                self.errors
-                    .push(key.span(), CompileError::UnresolvedService);
+                self.errors.push(key.span(), DocError::UnresolvedService);
                 None
             }
         }
@@ -797,16 +823,16 @@ impl CompileCtx {
         namespace: &Spanned<impl AsRef<str>>,
         key: &Spanned<impl AsRef<str>>,
     ) -> Option<PropId> {
-        match self.ns_lookup_entry(namespace, key, CompileError::UnresolvedProperty)? {
+        match self.ns_lookup_entry(namespace, key, DocError::UnresolvedProperty)? {
             NamespaceEntry::PropertyLabel(prop_id) => Some(*prop_id),
         }
     }
 
     fn ns_policy_lookup(&mut self, key: &Spanned<impl AsRef<str>>) -> Option<PolicyId> {
-        match self.ns_lookup_kind(key, CompileError::UnresolvedProperty)? {
+        match self.ns_lookup_kind(key, DocError::UnresolvedProperty)? {
             NamespaceKind::Policy(policy_id) => Some(*policy_id),
             _ => {
-                self.errors.push(key.span(), CompileError::UnresolvedPolicy);
+                self.errors.push(key.span(), DocError::UnresolvedPolicy);
                 None
             }
         }
@@ -815,7 +841,7 @@ impl CompileCtx {
     fn ns_lookup_kind(
         &mut self,
         key: &Spanned<impl AsRef<str>>,
-        error: CompileError,
+        error: DocError,
     ) -> Option<&NamespaceKind> {
         match self.namespaces.table.get(key.get_ref().as_ref()) {
             Some(namespace) => Some(&namespace.get_ref().kind),
@@ -830,7 +856,7 @@ impl CompileCtx {
         &mut self,
         namespace: &Spanned<impl AsRef<str>>,
         key: &Spanned<impl AsRef<str>>,
-        error: CompileError,
+        error: DocError,
     ) -> Option<&NamespaceEntry> {
         match self
             .namespaces
@@ -839,7 +865,7 @@ impl CompileCtx {
             Ok(entry) => Some(entry),
             Err(NsLookupErr::Namespace) => {
                 self.errors
-                    .push(namespace.span(), CompileError::UnresolvedNamespace);
+                    .push(namespace.span(), DocError::UnresolvedNamespace);
                 None
             }
             Err(NsLookupErr::Entry) => {
@@ -914,14 +940,14 @@ impl CompileCtx {
 }
 
 impl Errors {
-    fn push(&mut self, span: Range<usize>, error: CompileError) {
+    fn push(&mut self, span: Range<usize>, error: DocError) {
         self.errors.push(Spanned::new(span, error));
     }
 }
 
 impl HandleError<DbError> for Errors {
     fn handle(&mut self, error: DbError) {
-        self.push(0..0, CompileError::from(error));
+        self.push(0..0, DocError::from(error));
     }
 }
 

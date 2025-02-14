@@ -4,42 +4,12 @@ use authly_common::id::{
     AnyId, AttrId, DirectoryId, DomainId, EntityId, PersonaId, PolicyBindingId, PolicyId, PropId,
     ServiceId,
 };
-use authly_db::DbError;
 
 use crate::{
     db::{policy_db, Identified},
     id::BuiltinProp,
-    policy::error::PolicyCompileErrorKind,
     settings::Setting,
 };
-
-#[derive(Debug)]
-pub enum CompileError {
-    LocalSettingNotFound,
-    InvalidSettingValue(String),
-    NameDefinedMultipleTimes(Range<usize>, String),
-    UnresolvedDomain,
-    UnresolvedNamespace,
-    UnresolvedEntity,
-    UnresolvedProfile,
-    UnresolvedGroup,
-    UnresolvedService,
-    UnresolvedProperty,
-    UnresolvedAttribute,
-    UnresolvedPolicy,
-    MustBeAServiceId,
-    PolicyBodyMissing,
-    AmbiguousPolicyOutcome,
-    MetadataNotSupported,
-    Policy(PolicyCompileErrorKind),
-    Db(String),
-}
-
-impl From<DbError> for CompileError {
-    fn from(value: DbError) -> Self {
-        Self::Db(value.to_string())
-    }
-}
 
 #[derive(Debug)]
 pub struct CompiledDocument {
@@ -62,9 +32,9 @@ pub struct CompiledDocumentData {
     /// Attributes to set on entities
     pub entity_attribute_assignments: Vec<CompiledEntityAttributeAssignment>,
 
-    pub entity_ident: Vec<EntityIdent>,
-    pub obj_text_attrs: Vec<ObjectTextAttr>,
-    pub obj_labels: Vec<ObjectLabel>,
+    pub entity_ident: Vec<(EntityIdent, Range<usize>)>,
+    pub obj_text_attrs: Vec<(ObjectTextAttr, Range<usize>)>,
+    pub obj_labels: Vec<(ObjectLabel, Range<usize>)>,
     pub entity_password: Vec<EntityPassword>,
 
     pub services: BTreeMap<ServiceId, CompiledService>,
