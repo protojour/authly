@@ -1,31 +1,26 @@
 use std::{any::Any, fs};
 
 use authly_common::id::ServiceId;
-use authly_db::{Db, DbError};
 use tracing::error;
 
 use crate::{
     bus::{message::ClusterMessage, BusError},
     cert::{client_cert, CertificateParamsExt},
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance},
-    db::document_db,
+    db::document_db::{DocumentDbTxnError, DocumentTransaction},
     document::compiled_document::CompiledDocument,
     AuthlyCtx,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum DirectoryError {
-    #[error("db error: {0}")]
-    Db(#[from] DbError),
-
-    #[error("context error: {0}")]
-    Context(anyhow::Error),
-
+    // #[error("db error: {0}")]
+    // Db(#[from] DbError),
     #[error("bus error: {0}")]
     Bus(#[from] BusError),
 
-    #[error("transaction statement {0} failed: {1}")]
-    DbTransaction(usize, DbError),
+    #[error("document txn error: {0}")]
+    DocumentDbTxn(#[from] DocumentDbTxnError),
 }
 
 /// Apply (write or overwrite) a document directory, publish change message
@@ -39,18 +34,9 @@ pub async fn apply_document(
 
     let deks = deps.load_decrypted_deks();
 
-    for (idx, result) in deps
-        .get_db()
-        .transact(
-            document_db::document_txn_statements(compiled_doc, &deks)
-                .map_err(DirectoryError::Context)?,
-        )
-        .await?
-        .into_iter()
-        .enumerate()
-    {
-        result.map_err(|err| DirectoryError::DbTransaction(idx, err))?;
-    }
+    DocumentTransaction::new(compiled_doc)
+        .execute(deps.get_db(), &deks)
+        .await?;
 
     if let Some(authly_ctx) = (deps as &dyn Any).downcast_ref::<AuthlyCtx>() {
         if authly_ctx.export_tls_to_etc {
