@@ -17,7 +17,7 @@ impl AuthlySecrets for LocalUnencryptedBackend {
     }
 
     async fn gen_versioned(&self, _name: &str) -> anyhow::Result<(Version, Secret)> {
-        Ok((Version(VERSION.to_vec()), Secret(SECRET)))
+        Ok((Version(VERSION.to_vec()), Secret::init_with(|| SECRET)))
     }
 
     async fn get_versioned(&self, _name: &str, version: &[u8]) -> anyhow::Result<Secret> {
@@ -27,6 +27,6 @@ impl AuthlySecrets for LocalUnencryptedBackend {
             ));
         }
 
-        Ok(Secret(SECRET))
+        Ok(Secret::init_with(|| SECRET))
     }
 }

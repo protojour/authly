@@ -9,8 +9,10 @@ use authly_common::id::PropId;
 use authly_db::Db;
 use authly_secrets::AuthlySecrets;
 use rand::{rngs::OsRng, RngCore};
+use secrecy::ExposeSecret;
 use time::OffsetDateTime;
 use tracing::info;
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::{db::cryptography_db, id::BuiltinProp, IsLeaderDb};
 
@@ -54,9 +56,7 @@ impl DecryptedMaster {
                 let mut key = [0u8; 32];
                 OsRng.fill_bytes(key.as_mut_slice());
 
-                AesKey {
-                    key: load_key(key).unwrap(),
-                }
+                AesKey { key: key.into() }
             },
         }
     }
@@ -80,6 +80,13 @@ impl Debug for AesKey {
 }
 
 impl AesKey {
+    fn load(bytes: Zeroizing<Vec<u8>>) -> anyhow::Result<Self> {
+        let key = Key::<Aes256GcmSiv>::from_exact_iter(bytes.iter().copied())
+            .ok_or_else(|| anyhow!("invalid key length"))?;
+
+        Ok(Self { key })
+    }
+
     /// Make an AES cipher for this key
     pub fn aes(&self) -> Aes256GcmSiv {
         Aes256GcmSiv::new(&self.key)
@@ -91,6 +98,12 @@ impl AesKey {
         hasher.update(self.key.as_slice());
         hasher.update(data);
         *hasher.finalize().as_bytes()
+    }
+}
+
+impl Drop for AesKey {
+    fn drop(&mut self) {
+        self.key.zeroize();
     }
 }
 
@@ -153,7 +166,7 @@ async fn gen_new_master(secrets: &dyn AuthlySecrets) -> anyhow::Result<Decrypted
             created_at: time::OffsetDateTime::now_utc(),
         },
         key: AesKey {
-            key: load_key(secret.0)?,
+            key: (*secret.expose_secret()).into(),
         },
     })
 }
@@ -169,7 +182,7 @@ async fn decrypt_master(
     Ok(DecryptedMaster {
         encrypted,
         key: AesKey {
-            key: load_key(secret.0)?,
+            key: (*secret.expose_secret()).into(),
         },
     })
 }
@@ -191,12 +204,10 @@ pub async fn gen_prop_deks(
                 .aes()
                 .decrypt(&nonce, encrypted.ciph.as_ref())?;
 
-            AesKey {
-                key: load_key(decrypted_dek)?,
-            }
+            AesKey::load(Zeroizing::new(decrypted_dek))?
         } else {
             let nonce = random_nonce();
-            let dek = Aes256GcmSiv::generate_key(OsRng);
+            let mut dek = Aes256GcmSiv::generate_key(OsRng);
             let ciph = decrypted_master.key.aes().encrypt(&nonce, dek.as_slice())?;
 
             new_encrypted_deks.insert(
@@ -208,7 +219,9 @@ pub async fn gen_prop_deks(
                 },
             );
 
-            AesKey { key: dek }
+            let key = AesKey { key: dek };
+            dek.zeroize();
+            key
         };
 
         decrypted_deks.insert(id.into(), decrypted_dek);
@@ -223,10 +236,6 @@ pub async fn gen_prop_deks(
 
 fn all_encrypted_props() -> impl Iterator<Item = BuiltinProp> {
     BuiltinProp::iter().filter(|id| id.is_encrypted())
-}
-
-fn load_key(bytes: impl IntoIterator<Item = u8>) -> anyhow::Result<Key<Aes256GcmSiv>> {
-    Key::<Aes256GcmSiv>::from_exact_iter(bytes).ok_or_else(|| anyhow!("invalid key length"))
 }
 
 pub fn random_nonce() -> Nonce<Aes256GcmSiv> {

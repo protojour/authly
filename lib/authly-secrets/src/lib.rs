@@ -1,13 +1,14 @@
 use async_trait::async_trait;
 use bao::BaoBackend;
 use local_unencrypted::LocalUnencryptedBackend;
+use secrecy::SecretBox;
 use tracing::warn;
 
 mod bao;
 mod local_unencrypted;
 
 /// A secret. Currently all secrets are 256 bit.
-pub struct Secret(pub [u8; 32]);
+pub type Secret = SecretBox<[u8; 32]>;
 
 pub struct Version(pub Vec<u8>);
 

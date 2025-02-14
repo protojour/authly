@@ -5,10 +5,12 @@ use async_trait::async_trait;
 use hexhex::hex;
 use rand::{rngs::OsRng, Rng};
 use reqwest::StatusCode;
-use serde::Deserialize;
+use secrecy::ExposeSecret;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tokio::sync::Mutex;
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::{AuthlySecrets, Secret, Version};
 
@@ -110,30 +112,34 @@ impl BaoBackend {
         let url = &self.url;
         let authly_uid = hex(self.authly_uid);
 
-        let secret = {
-            let mut secret: [u8; 32] = [0; 32];
-            OsRng.fill(secret.as_mut_slice());
-            secret
+        let secret = Secret::init_with(|| {
+            let mut key: [u8; 32] = [0; 32];
+            OsRng.fill(key.as_mut_slice());
+            key
+        });
+
+        let data = BaoSecretData {
+            data: BaoSecretDataData {
+                secret: hex(secret.expose_secret()).to_string(),
+            },
         };
 
         let bao_output: BaoCreateSecretOutput = self
             .client
             .post(format!("{url}/v1/secret/data/authly-{name}-{authly_uid}"))
             .header("x-vault-token", token.as_ref())
-            .json(&json!({
-                "data": {
-                    "secret": hex(secret).to_string(),
-                }
-            }))
+            .json(&data)
             .send()
             .await?
             .error_for_status()?
             .json()
             .await?;
 
+        drop(data);
+
         let version = bao_output.data.version;
 
-        Ok((Version(version.to_be_bytes().to_vec()), Secret(secret)))
+        Ok((Version(version.to_be_bytes().to_vec()), secret))
     }
 
     async fn try_get_secret(&self, name: &str, version: Option<&[u8]>) -> Result<Secret, GetError> {
@@ -169,11 +175,17 @@ impl BaoBackend {
             .json()
             .await?;
 
-        let secret = hexhex::decode(&bao_output.data.data.secret).context("must be hex encoded")?;
+        let zeroizing = Zeroizing::new(
+            hexhex::decode(&bao_output.data.data.secret).context("must be hex encoded")?,
+        );
+        drop(bao_output);
 
-        Ok(Secret(secret.try_into().map_err(|_err| {
-            anyhow!("bao: unexpected secret length")
-        })?))
+        Ok(Secret::try_init_with(|| {
+            zeroizing
+                .as_slice()
+                .try_into()
+                .map_err(|_err| anyhow!("bao: unexpected secret length"))
+        })?)
     }
 }
 
@@ -214,15 +226,21 @@ struct BaoCreateSecretData {
 
 #[derive(Deserialize)]
 struct BaoReadSecretOutput {
-    pub data: BaoReadSecretData,
+    pub data: BaoSecretData,
 }
 
-#[derive(Deserialize)]
-struct BaoReadSecretData {
-    pub data: BaoReadSecretDataData,
+#[derive(Serialize, Deserialize)]
+struct BaoSecretData {
+    pub data: BaoSecretDataData,
 }
 
-#[derive(Deserialize)]
-struct BaoReadSecretDataData {
+#[derive(Serialize, Deserialize)]
+struct BaoSecretDataData {
     pub secret: String,
+}
+
+impl Drop for BaoSecretDataData {
+    fn drop(&mut self) {
+        self.secret.zeroize();
+    }
 }
