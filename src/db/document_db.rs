@@ -38,7 +38,7 @@ pub enum DocumentDbTxnError {
 
 /// An Authly directory backed by a document
 pub struct DocumentDirectory {
-    pub dir_id: DirectoryId,
+    pub id: DirectoryId,
     pub url: String,
     pub hash: [u8; 32],
 }
@@ -46,7 +46,7 @@ pub struct DocumentDirectory {
 impl FromRow for DocumentDirectory {
     fn from_row(row: &mut impl Row) -> Self {
         Self {
-            dir_id: row.get_id("dir_id"),
+            id: row.get_id("id"),
             url: row.get_text("url"),
             hash: row
                 .get_blob("hash")
@@ -58,7 +58,7 @@ impl FromRow for DocumentDirectory {
 
 pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentDirectory>> {
     deps.query_map(
-        "SELECT dir_id, url, hash FROM directory WHERE kind = 'document'".into(),
+        "SELECT id, url, hash FROM directory WHERE kind = 'document'".into(),
         params!(),
     )
     .await
@@ -410,8 +410,8 @@ fn stmt_to_db_stmt(
 
     let output = match stmt {
         Stmt::DirectoryWrite(meta) => (
-            "INSERT INTO directory (dir_id, kind, url, hash) VALUES ($1, 'document', $2, $3) ON CONFLICT DO UPDATE SET url = $2, hash = $3".into(),
-            params!(dir, &meta.url, meta.hash.to_vec())
+            "INSERT INTO directory (parent_id, id, kind, url, hash) VALUES ($1, $2, 'document', $3, $4) ON CONFLICT DO UPDATE SET url = $3, hash = $4".into(),
+            params!(dir.clone(), dir, &meta.url, meta.hash.to_vec())
         ),
         Stmt::DirectoryAuditWrite(Actor(eid)) => (
             "INSERT INTO directory_audit (dir_id, upd, updated_by_eid) VALUES ($1, $2, $3)".into(),

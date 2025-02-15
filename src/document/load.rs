@@ -92,7 +92,7 @@ fn should_process(
     doc_directories: &[DocumentDirectory],
 ) -> bool {
     for dir in doc_directories {
-        if dir.dir_id != dir_id {
+        if dir.id != dir_id {
             continue;
         }
 
