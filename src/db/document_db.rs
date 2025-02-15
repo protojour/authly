@@ -14,7 +14,7 @@ use crate::{
     document::{
         compiled_document::{
             CompiledDocument, CompiledEntityAttributeAssignment, CompiledEntityRelation,
-            CompiledService, DocumentMeta, EntityIdent, ObjectLabel, ObjectTextAttr,
+            CompiledService, DocumentMeta, ObjectIdent, ObjectLabel, ObjectTextAttr,
         },
         error::DocError,
     },
@@ -135,8 +135,8 @@ pub enum Stmt {
         setting: Setting,
         value: String,
     },
-    EntIdentGc,
-    EntIdentWrite(EntityIdent),
+    ObjIdentGc,
+    ObjIdentWrite(ObjectIdent),
     ObjTextAttrGc,
     ObjTextAttrWrite(ObjectTextAttr),
     ObjLabelGc(Vec<AnyId>),
@@ -209,10 +209,10 @@ fn mk_document_transaction(document: CompiledDocument, actor: Actor) -> Document
 
     // entity identifiers and text attributes
     {
-        txn.push(Stmt::EntIdentGc, NO_SPAN);
+        txn.push(Stmt::ObjIdentGc, NO_SPAN);
 
         for (ident, span) in data.entity_ident {
-            txn.push(Stmt::EntIdentWrite(ident), span);
+            txn.push(Stmt::ObjIdentWrite(ident), span);
         }
 
         txn.push(Stmt::ObjTextAttrGc, NO_SPAN);
@@ -425,11 +425,11 @@ fn stmt_to_db_stmt(
             "INSERT INTO local_setting (dir_id, upd, setting, value) VALUES ($1, $2, $3, $4)".into(),
             params!(dir, now, *setting as i64, value),
         ),
-        Stmt::EntIdentGc => (
-            "DELETE FROM ent_ident WHERE dir_id = $1".into(),
+        Stmt::ObjIdentGc => (
+            "DELETE FROM obj_ident WHERE dir_id = $1".into(),
             params!(dir),
         ),
-        Stmt::EntIdentWrite(ident) => {
+        Stmt::ObjIdentWrite(ident) => {
             let dek = deks.get(ident.prop_id)
                 .map_err(DocumentDbTxnError::Encryption)?;
 
@@ -439,11 +439,11 @@ fn stmt_to_db_stmt(
                 .map_err(|err| DocumentDbTxnError::Encryption(err.into()))?;
 
             (
-                "INSERT INTO ent_ident (dir_id, upd, eid, prop_id, fingerprint, nonce, ciph) VALUES ($1, $2, $3, $4, $5, $6, $7)".into(),
+                "INSERT INTO obj_ident (dir_id, upd, obj_id, prop_id, fingerprint, nonce, ciph) VALUES ($1, $2, $3, $4, $5, $6, $7)".into(),
                 params!(
                     dir,
                     now,
-                    ident.eid.as_param(),
+                    ident.obj_id.as_param(),
                     ident.prop_id.as_param(),
                     fingerprint.to_vec(),
                     nonce.to_vec(),

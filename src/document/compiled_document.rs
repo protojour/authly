@@ -32,7 +32,7 @@ pub struct CompiledDocumentData {
     /// Attributes to set on entities
     pub entity_attribute_assignments: Vec<CompiledEntityAttributeAssignment>,
 
-    pub entity_ident: Vec<(EntityIdent, Range<usize>)>,
+    pub entity_ident: Vec<(ObjectIdent, Range<usize>)>,
     pub obj_text_attrs: Vec<(ObjectTextAttr, Range<usize>)>,
     pub obj_labels: Vec<(ObjectLabel, Range<usize>)>,
     pub entity_password: Vec<EntityPassword>,
@@ -56,8 +56,8 @@ pub struct CompiledService {
 }
 
 #[derive(Debug)]
-pub struct EntityIdent {
-    pub eid: EntityId,
+pub struct ObjectIdent {
+    pub obj_id: AnyId,
     pub prop_id: PropId,
     pub ident: String,
 }

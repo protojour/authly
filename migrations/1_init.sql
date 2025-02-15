@@ -67,19 +67,6 @@ CREATE TABLE ent_attr (
     PRIMARY KEY (eid, attrid)
 );
 
-CREATE TABLE ent_ident (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
-    eid BLOB NOT NULL,
-    prop_id BLOB NOT NULL,
-    fingerprint BLOB NOT NULL,
-    nonce BLOB NOT NULL,
-    ciph BLOB NOT NULL,
-    upd DATETIME NOT NULL,
-
-    PRIMARY KEY (eid, prop_id),
-    UNIQUE (prop_id, fingerprint)
-);
-
 CREATE TABLE ent_rel (
     dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
     rel_id BLOB NOT NULL,
@@ -88,6 +75,19 @@ CREATE TABLE ent_rel (
     upd DATETIME NOT NULL,
 
     PRIMARY KEY (rel_id, subject_eid, object_eid)
+);
+
+CREATE TABLE obj_ident (
+    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    obj_id BLOB NOT NULL,
+    prop_id BLOB NOT NULL,
+    fingerprint BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    ciph BLOB NOT NULL,
+    upd DATETIME NOT NULL,
+
+    PRIMARY KEY (obj_id, prop_id),
+    UNIQUE (prop_id, fingerprint)
 );
 
 -- Text attributes for any database object

@@ -20,7 +20,7 @@ use crate::db::directory_db::{DbDirectoryObjectLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
 use crate::document::compiled_document::{
-    CompiledEntityAttributeAssignment, CompiledService, EntityIdent, ObjectLabel, ObjectTextAttr,
+    CompiledEntityAttributeAssignment, CompiledService, ObjectIdent, ObjectLabel, ObjectTextAttr,
 };
 use crate::id::BuiltinProp;
 use crate::policy::compiler::PolicyCompiler;
@@ -199,8 +199,8 @@ pub async fn compile_doc(
         if let Some(username) = entity.username.take() {
             let span = username.span();
             data.entity_ident.push((
-                EntityIdent {
-                    eid: *entity.eid.as_ref(),
+                ObjectIdent {
+                    obj_id: entity.eid.as_ref().upcast(),
                     prop_id: BuiltinProp::Username.into(),
                     ident: username.into_inner(),
                 },
@@ -287,8 +287,8 @@ pub async fn compile_doc(
 
         let span = email.value.span();
         data.entity_ident.push((
-            EntityIdent {
-                eid,
+            ObjectIdent {
+                obj_id: eid.upcast(),
                 prop_id: BuiltinProp::Email.into(),
                 ident: email.value.into_inner(),
             },

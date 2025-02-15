@@ -52,7 +52,7 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
         indoc! {
             "
             SELECT ta.obj_id, ta.value FROM obj_text_attr ta
-            JOIN ent_ident i ON i.eid = ta.obj_id
+            JOIN obj_ident i ON i.obj_id = ta.obj_id
             WHERE i.prop_id = $1 AND i.fingerprint = $2 AND ta.prop_id = $3
             ",
         }
