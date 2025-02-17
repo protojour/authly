@@ -1,6 +1,6 @@
 use argon2::{password_hash::SaltString, Argon2};
 use authly_common::id::{AttrId, DirectoryId, EntityId, PersonaId, PropId};
-use authly_db::{param::AsParam, Db, DbResult, FromRow, Row};
+use authly_db::{param::AsParam, Db, DbResult, DidInsert, FromRow, Row};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 use indoc::indoc;
@@ -92,4 +92,67 @@ pub async fn try_insert_entity_credentials(
         .await?;
 
     Ok(eid)
+}
+
+pub struct OverwritePersonaId(pub bool);
+
+pub async fn upsert_link_foreign_persona(
+    deps: &impl Db,
+    dir_id: DirectoryId,
+    persona_id: PersonaId,
+    overwrite_persona_id: OverwritePersonaId,
+    foreign_id: Vec<u8>,
+    now: time::OffsetDateTime,
+) -> DbResult<(PersonaId, DidInsert)> {
+    struct TypedRow {
+        id: PersonaId,
+        overwritten: bool,
+    }
+
+    impl FromRow for TypedRow {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self {
+                id: row.get_id("obj_id"),
+                overwritten: row.get_int("overwritten") != 0,
+            }
+        }
+    }
+
+    let row = deps
+        .execute_map::<TypedRow>(
+            if overwrite_persona_id.0 {
+                indoc! {
+                    "
+                    INSERT INTO obj_foreign_dir_link (dir_id, upd, overwritten, foreign_id, obj_id)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT DO UPDATE SET upd = $2, obj_id = $5, overwritten = 1
+                    RETURNING obj_id, overwritten
+                    "
+                }
+            } else {
+                indoc! {
+                    "
+                    INSERT INTO obj_foreign_dir_link (dir_id, upd, overwritten, foreign_id, obj_id)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT DO UPDATE SET upd = $2, overwritten = 1
+                    RETURNING obj_id, overwritten
+                    "
+                }
+            }
+            .into(),
+            params!(
+                dir_id.as_param(),
+                now.unix_timestamp(),
+                0,
+                foreign_id,
+                persona_id.as_param()
+            ),
+        )
+        .await?
+        .into_iter()
+        .next()
+        .unwrap()
+        .unwrap();
+
+    Ok((row.id, DidInsert(!row.overwritten)))
 }

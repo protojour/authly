@@ -34,6 +34,7 @@ pub enum BuiltinProp {
     /// The kubernetes service account actually used by this authly instance.
     /// The namespace will be resolved to authly's namespace if it's a wildcard in configuration.
     K8sLocalServiceAccount = 9,
+    OAuthClientSecret = 10,
 }
 
 #[expect(clippy::enum_variant_names)]
@@ -75,17 +76,19 @@ impl BuiltinProp {
             Self::AuthlyInstance => None,
             Self::RelEntityMembership => None,
             Self::Metadata => None,
+            Self::OAuthClientSecret => None,
         }
     }
 
     pub const fn is_encrypted(self) -> bool {
         match self {
             Self::Entity | Self::AuthlyRole | Self::RelEntityMembership | Self::Metadata => false,
+            Self::PasswordHash => false,
+            Self::K8sConfiguredServiceAccount | Self::K8sLocalServiceAccount => false,
             Self::Username => true,
             Self::Email => true,
-            Self::PasswordHash => false,
-            Self::K8sConfiguredServiceAccount | Self::K8sLocalServiceAccount => true,
             Self::AuthlyInstance => true,
+            Self::OAuthClientSecret => true,
         }
     }
 

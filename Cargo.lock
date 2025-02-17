@@ -245,6 +245,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert-json-diff"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47e4f2b81832e72834d7518d8487a0396a28cc408186a2e8854c0f98011faf12"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "async-compression"
 version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -339,6 +349,7 @@ dependencies = [
  "humantime",
  "hyper",
  "hyper-util",
+ "indexmap 2.7.1",
  "indoc",
  "int-enum",
  "itertools 0.14.0",
@@ -381,6 +392,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "webpki-roots",
+ "wiremock",
  "x509-parser",
  "zeroize",
 ]
@@ -469,7 +481,7 @@ version = "0.0.0"
 dependencies = [
  "authly-common",
  "bytemuck",
- "deadpool",
+ "deadpool 0.12.2",
  "hexhex",
  "hiqlite",
  "itertools 0.14.0",
@@ -1299,6 +1311,18 @@ checksum = "575f75dfd25738df5b91b8e43e14d44bda14637a58fae779fd2b064f8bf3e010"
 
 [[package]]
 name = "deadpool"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb84100978c1c7b37f09ed3ce3e5f843af02c2a2c431bae5b19230dad2c1b490"
+dependencies = [
+ "async-trait",
+ "deadpool-runtime",
+ "num_cpus",
+ "tokio",
+]
+
+[[package]]
+name = "deadpool"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ed5957ff93768adf7a65ab167a17835c3d2c3c50d084fe305174c112f468e2f"
@@ -1854,7 +1878,7 @@ dependencies = [
  "bytes",
  "chrono",
  "cryptr",
- "deadpool",
+ "deadpool 0.12.2",
  "dotenvy",
  "fastwebsockets",
  "flume",
@@ -5017,6 +5041,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59690dea168f2198d1a3b0cac23b8063efcd11012f10ae4698f284808c8ef603"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "wiremock"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fff469918e7ca034884c7fd8f93fe27bacb7fcb599fd879df6c7b429a29b646"
+dependencies = [
+ "assert-json-diff",
+ "async-trait",
+ "base64 0.22.1",
+ "deadpool 0.10.0",
+ "futures",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "log",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
 ]
 
 [[package]]

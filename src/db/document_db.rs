@@ -1,8 +1,7 @@
 use std::{borrow::Cow, ops::Range};
 
-use aes_gcm_siv::aead::Aead;
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyBindingId, PolicyId, PropId, ServiceId};
-use authly_db::{literal::Literal, param::AsParam, Db, DbError, DbResult, FromRow, Row};
+use authly_db::{literal::Literal, param::AsParam, Db, DbError};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use itertools::Itertools;
@@ -18,11 +17,11 @@ use crate::{
         },
         error::DocError,
     },
-    encryption::{random_nonce, DecryptedDeks},
+    encryption::DecryptedDeks,
     settings::Setting,
 };
 
-use super::Identified;
+use super::{cryptography_db::EncryptedObjIdent, Identified};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DocumentDbTxnError {
@@ -34,34 +33,6 @@ pub enum DocumentDbTxnError {
 
     #[error("encryption error: {0}")]
     Encryption(anyhow::Error),
-}
-
-/// An Authly directory backed by a document
-pub struct DocumentDirectory {
-    pub id: DirectoryId,
-    pub url: String,
-    pub hash: [u8; 32],
-}
-
-impl FromRow for DocumentDirectory {
-    fn from_row(row: &mut impl Row) -> Self {
-        Self {
-            id: row.get_id("id"),
-            url: row.get_text("url"),
-            hash: row
-                .get_blob("hash")
-                .try_into()
-                .expect("invalid hash length"),
-        }
-    }
-}
-
-pub async fn get_documents(deps: &impl Db) -> DbResult<Vec<DocumentDirectory>> {
-    deps.query_map(
-        "SELECT id, url, hash FROM directory WHERE kind = 'document'".into(),
-        params!(),
-    )
-    .await
 }
 
 pub struct DocumentTransaction {
@@ -429,27 +400,10 @@ fn stmt_to_db_stmt(
             "DELETE FROM obj_ident WHERE dir_id = $1".into(),
             params!(dir),
         ),
-        Stmt::ObjIdentWrite(ident) => {
-            let dek = deks.get(ident.prop_id)
-                .map_err(DocumentDbTxnError::Encryption)?;
-
-            let fingerprint = dek.fingerprint(ident.ident.as_bytes());
-            let nonce = random_nonce();
-            let ciph = dek.aes().encrypt(&nonce, ident.ident.as_bytes())
-                .map_err(|err| DocumentDbTxnError::Encryption(err.into()))?;
-
-            (
-                "INSERT INTO obj_ident (dir_id, upd, obj_id, prop_id, fingerprint, nonce, ciph) VALUES ($1, $2, $3, $4, $5, $6, $7)".into(),
-                params!(
-                    dir,
-                    now,
-                    ident.obj_id.as_param(),
-                    ident.prop_id.as_param(),
-                    fingerprint.to_vec(),
-                    nonce.to_vec(),
-                    ciph
-                ),
-            )
+        Stmt::ObjIdentWrite(obj_ident) => {
+            EncryptedObjIdent::encrypt(obj_ident.prop_id, &obj_ident.ident, deks)
+                .map_err(|err| DocumentDbTxnError::Encryption(err.into()))?
+                .insert_stmt(dir_id, obj_ident.obj_id, now)
         },
         Stmt::ObjTextAttrGc => (
             "DELETE FROM obj_text_attr WHERE dir_id = $1".into(),

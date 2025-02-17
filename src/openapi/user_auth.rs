@@ -1,8 +1,5 @@
 use argon2::Argon2;
-use authly_common::{
-    id::{EntityId, PersonaId},
-    mtls_server::PeerServiceEntity,
-};
+use authly_common::{id::PersonaId, mtls_server::PeerServiceEntity};
 use authly_db::DbError;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
@@ -12,12 +9,9 @@ use tracing::warn;
 use crate::{
     access_control::{authorize_peer_service, SvcAccessControlError},
     ctx::GetDb,
-    db::{
-        entity_db::{self, EntityPasswordHash},
-        session_db,
-    },
+    db::entity_db::{self, EntityPasswordHash},
     id::{BuiltinAttr, BuiltinProp},
-    session::{new_session_cookie, Session, SessionToken, SESSION_TTL},
+    session::init_session,
     AuthlyCtx,
 };
 
@@ -111,10 +105,10 @@ pub async fn authenticate(
     };
 
     let persona_id = verify_secret(ehash, secret).await?;
-    let session = init_session(persona_id.upcast(), &ctx).await?;
+    let session = init_session(&ctx, persona_id.upcast()).await?;
 
     Ok((
-        CookieJar::new().add(new_session_cookie(&session)),
+        CookieJar::new().add(session.to_cookie()),
         Json(AuthenticateResponse {
             token: session.token.0,
             entity_id: persona_id,
@@ -128,18 +122,6 @@ pub async fn authenticate(
         }),
     )
         .into_response())
-}
-
-async fn init_session(eid: EntityId, ctx: &AuthlyCtx) -> Result<Session, AuthError> {
-    let session = Session {
-        token: SessionToken::new_random(),
-        eid,
-        expires_at: time::OffsetDateTime::now_utc() + SESSION_TTL,
-    };
-
-    session_db::store_session(ctx.get_db(), &session).await?;
-
-    Ok(session)
 }
 
 async fn verify_secret(ehash: EntityPasswordHash, secret: String) -> Result<PersonaId, AuthError> {

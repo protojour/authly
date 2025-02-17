@@ -44,6 +44,7 @@ mod test_docs_clause_examples;
 mod test_docs_full_example;
 mod test_document;
 mod test_metadata;
+mod test_oauth;
 mod test_tls;
 mod test_ultradb;
 

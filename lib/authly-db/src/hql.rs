@@ -75,6 +75,23 @@ impl Db for hiqlite::Client {
         Ok(hiqlite::Client::execute(self, sql, params).await?)
     }
 
+    async fn execute_map<T>(
+        &self,
+        sql: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Vec<Result<T, DbError>>, DbError>
+    where
+        T: FromRow + Send + 'static,
+    {
+        let values =
+            hiqlite::Client::execute_returning_map::<_, HiqliteWrapper<T>>(self, sql, params)
+                .await?;
+        Ok(values
+            .into_iter()
+            .map(|result| result.map(|wrapper| wrapper.0).map_err(|err| err.into()))
+            .collect())
+    }
+
     async fn transact(
         &self,
         sql: Vec<(Cow<'static, str>, Params)>,

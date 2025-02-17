@@ -14,9 +14,11 @@ use axum::{response::IntoResponse, Json};
 use bus::{message::ServiceMessage, service_events::ServiceEventDispatcher};
 use ctx::{GetDb, ServiceBus};
 use db::{cryptography_db, settings_db};
+use directory::PersonaDirectory;
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
+use indexmap::IndexMap;
 use instance::AuthlyInstance;
 use openraft::RaftMetrics;
 use platform::CertificateDistributionPlatform;
@@ -51,11 +53,12 @@ mod directory;
 mod id;
 mod k8s;
 mod openapi;
+mod persona_directory;
 mod policy;
 mod service;
 mod settings;
 mod util;
-mod webauth;
+mod web;
 
 /// The tests are currently part of `authly` src/ as this is a binary crate.
 /// Rust "integration" tests outside the src tree are more fitted for libraries.
@@ -104,6 +107,8 @@ struct AuthlyState {
     svc_event_dispatcher: ServiceEventDispatcher,
     /// Data Encryption Keys
     deks: ArcSwap<DecryptedDeks>,
+    persona_directories: ArcSwap<IndexMap<String, PersonaDirectory>>,
+    internet_http_client: reqwest::Client,
     /// Signal triggered when the app is shutting down:
     shutdown: CancellationToken,
     cert_distribution_platform: CertificateDistributionPlatform,
@@ -180,7 +185,7 @@ pub async fn serve() -> anyhow::Result<()> {
                 .with_scheme(Scheme::Http)
                 .bind()
                 .await?
-                .serve(webauth::router().with_state(ctx.clone())),
+                .serve(web::router().with_state(ctx.clone())),
         );
     }
 
@@ -206,7 +211,7 @@ pub async fn serve() -> anyhow::Result<()> {
 fn main_service_http_router(ctx: AuthlyCtx) -> axum::Router {
     axum::Router::new()
         .merge(openapi::router::router())
-        .merge(webauth::router())
+        .merge(web::router())
         .with_state(ctx.clone())
 }
 
@@ -262,6 +267,8 @@ async fn initialize() -> anyhow::Result<Init> {
         CertificateDistributionPlatform::EtcDir
     };
 
+    let persona_directories = directory::load_persona_directories(&hql, &deks).await?;
+
     let shutdown = tower_server::signal::termination_signal();
 
     let ctx = AuthlyCtx {
@@ -270,6 +277,8 @@ async fn initialize() -> anyhow::Result<Init> {
             instance: ArcSwap::new(Arc::new(instance)),
             settings: ArcSwap::new(Arc::new(Settings::default())),
             deks: ArcSwap::new(Arc::new(deks)),
+            persona_directories: ArcSwap::new(Arc::new(persona_directories)),
+            internet_http_client: reqwest::Client::new(),
             cert_distribution_platform,
             svc_event_dispatcher: ServiceEventDispatcher::new(shutdown.clone()),
             shutdown,

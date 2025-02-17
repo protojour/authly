@@ -44,6 +44,9 @@ impl From<hiqlite::Error> for DbError {
 
 pub type DbResult<T> = Result<T, DbError>;
 
+/// Can be used to represent whether an UPSERT did insert or update
+pub struct DidInsert(pub bool);
+
 /// Db abstraction around SQLite that works with both rusqlite and hiqlite.
 pub trait Db: Send + Sync + 'static {
     /// Query for a Vec of values implementing [FromRow].
@@ -88,6 +91,14 @@ pub trait Db: Send + Sync + 'static {
         sql: Cow<'static, str>,
         params: Params,
     ) -> impl Future<Output = Result<usize, DbError>> + Send;
+
+    fn execute_map<T>(
+        &self,
+        sql: Cow<'static, str>,
+        params: Params,
+    ) -> impl Future<Output = Result<Vec<Result<T, DbError>>, DbError>> + Send
+    where
+        T: FromRow + Send + 'static;
 
     /// Execute multiple statements in a transaction
     fn transact(
