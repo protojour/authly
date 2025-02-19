@@ -1,11 +1,11 @@
 use argon2::{password_hash::SaltString, Argon2};
-use authly_common::id::{AttrId, DirectoryId, EntityId, PersonaId, PropId};
+use authly_common::id::{AttrId, EntityId, PersonaId, PropId};
 use authly_db::{param::AsParam, Db, DbResult, DidInsert, FromRow, Row};
 use fnv::FnvHashSet;
 use hiqlite::{params, Param};
 use indoc::indoc;
 
-use crate::id::BuiltinProp;
+use crate::{directory::DirKey, id::BuiltinProp};
 
 pub struct EntityPasswordHash {
     pub eid: PersonaId,
@@ -69,7 +69,7 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
 #[expect(unused)]
 pub async fn try_insert_entity_credentials(
     deps: &impl Db,
-    dir_id: DirectoryId,
+    dir_key: DirKey,
     eid: PersonaId,
     ident: String,
     secret: String,
@@ -86,8 +86,8 @@ pub async fn try_insert_entity_credentials(
 
     deps
         .execute(
-            "INSERT INTO entity_password (dir_id, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3".into(),
-            params!(dir_id.as_param(), eid.as_param(), secret_hash),
+            "INSERT INTO entity_password (dir_key, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3".into(),
+            params!(dir_key.0, eid.as_param(), secret_hash),
         )
         .await?;
 
@@ -98,7 +98,7 @@ pub struct OverwritePersonaId(pub bool);
 
 pub async fn upsert_link_foreign_persona(
     deps: &impl Db,
-    dir_id: DirectoryId,
+    dir_key: DirKey,
     persona_id: PersonaId,
     overwrite_persona_id: OverwritePersonaId,
     foreign_id: Vec<u8>,
@@ -123,7 +123,7 @@ pub async fn upsert_link_foreign_persona(
             if overwrite_persona_id.0 {
                 indoc! {
                     "
-                    INSERT INTO obj_foreign_dir_link (dir_id, upd, overwritten, foreign_id, obj_id)
+                    INSERT INTO obj_foreign_dir_link (dir_key, upd, overwritten, foreign_id, obj_id)
                     VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT DO UPDATE SET upd = $2, obj_id = $5, overwritten = 1
                     RETURNING obj_id, overwritten
@@ -132,7 +132,7 @@ pub async fn upsert_link_foreign_persona(
             } else {
                 indoc! {
                     "
-                    INSERT INTO obj_foreign_dir_link (dir_id, upd, overwritten, foreign_id, obj_id)
+                    INSERT INTO obj_foreign_dir_link (dir_key, upd, overwritten, foreign_id, obj_id)
                     VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT DO UPDATE SET upd = $2, overwritten = 1
                     RETURNING obj_id, overwritten
@@ -141,7 +141,7 @@ pub async fn upsert_link_foreign_persona(
             }
             .into(),
             params!(
-                dir_id.as_param(),
+                dir_key.0,
                 now.unix_timestamp(),
                 0,
                 foreign_id,

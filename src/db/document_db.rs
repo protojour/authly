@@ -2,7 +2,7 @@ use std::{borrow::Cow, ops::Range};
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyBindingId, PolicyId, PropId, ServiceId};
 use authly_db::{literal::Literal, param::AsParam, Db, DbError};
-use hiqlite::{params, Param, Params};
+use hiqlite::{params, Param, Params, StmtColumn, StmtIndex};
 use indoc::indoc;
 use itertools::Itertools;
 use serde_spanned::Spanned;
@@ -377,89 +377,89 @@ fn stmt_to_db_stmt(
     deks: &DecryptedDeks,
     now: i64,
 ) -> Result<(Cow<'static, str>, Params), DocumentDbTxnError> {
-    let dir = dir_id.as_param();
+    let dir_key = StmtIndex(0).column(0);
 
     let output = match stmt {
         Stmt::DirectoryWrite(meta) => (
-            "INSERT INTO directory (parent_id, id, kind, url, hash) VALUES ($1, $2, 'document', $3, $4) ON CONFLICT DO UPDATE SET url = $3, hash = $4".into(),
-            params!(dir.clone(), dir, &meta.url, meta.hash.to_vec())
+            "INSERT INTO directory (id, kind, url, hash) VALUES ($1, 'document', $2, $3) ON CONFLICT DO UPDATE SET url = $2, hash = $3 RETURNING key".into(),
+            params!(dir_id.as_param(), &meta.url, meta.hash.to_vec())
         ),
         Stmt::DirectoryAuditWrite(Actor(eid)) => (
-            "INSERT INTO directory_audit (dir_id, upd, updated_by_eid) VALUES ($1, $2, $3)".into(),
-            params!(dir, now, eid.as_param())
+            "INSERT INTO directory_audit (dir_key, upd, updated_by_eid) VALUES ($1, $2, $3)".into(),
+            params!(dir_key, now, eid.as_param())
         ),
         Stmt::LocalSettingGc => (
-            "DELETE FROM local_setting WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM local_setting WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::LocalSettingWrite { setting, value } => (
-            "INSERT INTO local_setting (dir_id, upd, setting, value) VALUES ($1, $2, $3, $4)".into(),
-            params!(dir, now, *setting as i64, value),
+            "INSERT INTO local_setting (dir_key, upd, setting, value) VALUES ($1, $2, $3, $4)".into(),
+            params!(dir_key, now, *setting as i64, value),
         ),
         Stmt::ObjIdentGc => (
-            "DELETE FROM obj_ident WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM obj_ident WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::ObjIdentWrite(obj_ident) => {
             EncryptedObjIdent::encrypt(obj_ident.prop_id, &obj_ident.ident, deks)
-                .map_err(|err| DocumentDbTxnError::Encryption(err.into()))?
-                .insert_stmt(dir_id, obj_ident.obj_id, now)
+                .map_err(DocumentDbTxnError::Encryption)?
+                .insert_stmt(dir_key.into(), obj_ident.obj_id, now)
         },
         Stmt::ObjTextAttrGc => (
-            "DELETE FROM obj_text_attr WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM obj_text_attr WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::ObjTextAttrWrite(attr) => (
-            "INSERT INTO obj_text_attr (dir_id, upd, obj_id, prop_id, value) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
-            params!(dir, now, attr.obj_id.as_param(), attr.prop_id.as_param(), &attr.value),
+            "INSERT INTO obj_text_attr (dir_key, upd, obj_id, prop_id, value) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
+            params!(dir_key, now, attr.obj_id.as_param(), attr.prop_id.as_param(), &attr.value),
         ),
         Stmt::ObjLabelGc(ids) => {
-            gc("obj_label", NotIn("obj_id", ids.iter().copied()), dir_id)
+            gc("obj_label", NotIn("obj_id", ids.iter().copied()), dir_key)
         },
         Stmt::ObjLabelWrite(ObjectLabel { obj_id, label }) => (
-            "INSERT INTO obj_label (dir_id, upd, obj_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET upd = $2, label = $4".into(),
-            params!(dir, now, obj_id.as_param(), label),
+            "INSERT INTO obj_label (dir_key, upd, obj_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET upd = $2, label = $4".into(),
+            params!(dir_key, now, obj_id.as_param(), label),
         ),
         Stmt::EntRelGc => (
-            "DELETE FROM ent_rel WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM ent_rel WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::EntRelWrite(rel) => (
-            "INSERT INTO ent_rel (dir_id, upd, subject_eid, rel_id, object_eid) VALUES ($1, $2, $3, $4, $5)"
+            "INSERT INTO ent_rel (dir_key, upd, subject_eid, rel_id, object_eid) VALUES ($1, $2, $3, $4, $5)"
                 .into(),
             params!(
-                dir,
+                dir_key,
                 now,
                 rel.subject.as_param(),
                 rel.relation.as_param(),
                 rel.object.as_param()
             ),
         ),
-        Stmt::ServiceGc(ids) => gc("svc", NotIn("svc_eid", ids.iter().copied()), dir_id),
+        Stmt::ServiceGc(ids) => gc("svc", NotIn("svc_eid", ids.iter().copied()), dir_key),
         Stmt::ServiceWrite(svc_id, svc) => (
-            "INSERT INTO svc (dir_id, upd, svc_eid, hosts_json) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET upd = $2, hosts_json = $4".into(),
-            params!(dir, now, svc_id.as_param(), serde_json::to_string(&svc.hosts).unwrap()),
+            "INSERT INTO svc (dir_key, upd, svc_eid, hosts_json) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET upd = $2, hosts_json = $4".into(),
+            params!(dir_key, now, svc_id.as_param(), serde_json::to_string(&svc.hosts).unwrap()),
         ),
         Stmt::ServiceNamespaceGc => (
-            "DELETE FROM svc_namespace WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM svc_namespace WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::ServiceNamespaceWrite(svc_id, ns_id) => (
-            "INSERT INTO svc_namespace (dir_id, upd, svc_eid, ns_id) VALUES ($1, $2, $3, $4)".into(),
-            params!(dir, now, svc_id.as_param(), ns_id.as_param()),
+            "INSERT INTO svc_namespace (dir_key, upd, svc_eid, ns_id) VALUES ($1, $2, $3, $4)".into(),
+            params!(dir_key, now, svc_id.as_param(), ns_id.as_param()),
         ),
         Stmt::EntAttrGc => (
-            "DELETE FROM ent_attr WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM ent_attr WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::EntAttrWrite(assignment) => (
-            "INSERT INTO ent_attr (dir_id, upd, eid, attrid) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
-            params!(dir, now, assignment.eid.as_param(), assignment.attrid.as_param()),
+            "INSERT INTO ent_attr (dir_key, upd, eid, attrid) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
+            params!(dir_key, now, assignment.eid.as_param(), assignment.attrid.as_param()),
         ),
         Stmt::NsEntPropGc(ids) => gc(
             "ns_ent_prop",
             NotIn("id", ids.iter().copied()),
-            dir_id,
+            dir_key,
         ),
         Stmt::NsEntAttrLabelGc(ids) => gc(
             "ns_ent_attrlabel",
@@ -467,20 +467,20 @@ fn stmt_to_db_stmt(
                 "id",
                 ids.iter().copied()
             ),
-            dir_id,
+            dir_key,
         ),
         Stmt::NsEntPropWrite { id, ns_id, label } => (
-            "INSERT INTO ns_ent_prop (dir_id, upd, id, ns_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO UPDATE SET upd = $2, label = $5".into(),
-            params!(dir, now, id.as_param(), ns_id.as_param(), label),
+            "INSERT INTO ns_ent_prop (dir_key, upd, id, ns_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO UPDATE SET upd = $2, label = $5".into(),
+            params!(dir_key, now, id.as_param(), ns_id.as_param(), label),
         ),
         Stmt::NsEntAttrLabelWrite { id, prop_id, label } => (
-            "INSERT INTO ns_ent_attrlabel (dir_id, upd, id, prop_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
-            params!(dir, now, id.as_param(), prop_id.as_param(), label)
+            "INSERT INTO ns_ent_attrlabel (dir_key, upd, id, prop_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
+            params!(dir_key, now, id.as_param(), prop_id.as_param(), label)
         ),
         Stmt::NsResPropGc(ids) => gc(
             "ns_res_prop",
             NotIn("id", ids.iter().copied()),
-            dir_id,
+            dir_key,
         ),
         Stmt::NsResAttrLabelGc(ids) => gc(
             "ns_res_attrlabel",
@@ -488,56 +488,56 @@ fn stmt_to_db_stmt(
                 "id",
                 ids.iter().copied()
             ),
-            dir_id,
+            dir_key,
         ),
         Stmt::NsResPropWrite { id, ns_id, label } => (
             indoc! {
                 "
-                INSERT INTO ns_res_prop (dir_id, upd, id, ns_id, label)
+                INSERT INTO ns_res_prop (dir_key, upd, id, ns_id, label)
                 VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT DO UPDATE SET upd = $2, label = $5
                 "
             }
             .into(),
-            params!(dir, now, id.as_param(), ns_id.as_param(), label),
+            params!(dir_key, now, id.as_param(), ns_id.as_param(), label),
         ),
         Stmt::NsResAttrLabelWrite { id, prop_id, label } => (
-            "INSERT INTO ns_res_attrlabel (dir_id, upd, id, prop_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
-            params!(dir, now, id.as_param(), prop_id.as_param(), label)
+            "INSERT INTO ns_res_attrlabel (dir_key, upd, id, prop_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
+            params!(dir_key, now, id.as_param(), prop_id.as_param(), label)
         ),
         Stmt::PolicyGc(ids) => gc(
             "policy",
             NotIn("id", ids.iter().copied()),
-            dir_id,
+            dir_key,
         ),
         Stmt::PolicyWrite { id, label, policy_pc } => (
             indoc! {
                 "
-                INSERT INTO policy (dir_id, upd, id, label, policy_pc)
+                INSERT INTO policy (dir_key, upd, id, label, policy_pc)
                 VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT DO UPDATE SET upd = $2, label = $4, policy_pc = $5
                 "
             }
             .into(),
-            params!(dir, now, id.as_param(), label, policy_pc.as_slice()),
+            params!(dir_key, now, id.as_param(), label, policy_pc.as_slice()),
         ),
         Stmt::PolBindAttrMatchGc => (
-            "DELETE FROM polbind_attr_match WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM polbind_attr_match WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::PolBindPolicyGc => (
-            "DELETE FROM polbind_policy WHERE dir_id = $1".into(),
-            params!(dir),
+            "DELETE FROM polbind_policy WHERE dir_key = $1".into(),
+            params!(dir_key),
         ),
         Stmt::PolBindAttrMatchWrite(pb_id, attr_id) => (
-            "INSERT INTO polbind_attr_match (dir_id, upd, polbind_id, attr_id) VALUES ($1, $2, $3, $4)"
+            "INSERT INTO polbind_attr_match (dir_key, upd, polbind_id, attr_id) VALUES ($1, $2, $3, $4)"
             .into(),
-            params!(dir, now, pb_id.as_param(), attr_id.as_param()),
+            params!(dir_key, now, pb_id.as_param(), attr_id.as_param()),
         ),
         Stmt::PolBindPolicyWrite(pb_id, pol_id) => (
-            "INSERT INTO polbind_policy (dir_id, upd, polbind_id, policy_id) VALUES ($1, $2, $3, $4)"
+            "INSERT INTO polbind_policy (dir_key, upd, polbind_id, policy_id) VALUES ($1, $2, $3, $4)"
                 .into(),
-            params!(dir, now, pb_id.as_param(), pol_id.as_param()),
+            params!(dir_key, now, pb_id.as_param(), pol_id.as_param()),
         ),
     };
 
@@ -549,15 +549,15 @@ struct NotIn<'a, I>(&'a str, I);
 fn gc(
     table: &str,
     NotIn(id, keep): NotIn<impl Iterator<Item = impl Literal>>,
-    dir_id: DirectoryId,
+    dir_key: StmtColumn<usize>,
 ) -> (Cow<'static, str>, Vec<Param>) {
     (
         format!(
-            "DELETE FROM {table} WHERE dir_id = $1 AND {id} NOT IN ({})",
+            "DELETE FROM {table} WHERE dir_key = $1 AND {id} NOT IN ({})",
             keep.map(|value| value.literal()).format(", ")
         )
         .into(),
-        params!(dir_id.as_param()),
+        params!(dir_key),
     )
 }
 

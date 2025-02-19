@@ -7,8 +7,8 @@ use std::{
 };
 
 use deadpool::managed::{Metrics, Object, Pool, PoolConfig, RecycleError, RecycleResult};
-use hiqlite::Params;
-use rusqlite::Connection;
+use hiqlite::{Param, Params};
+use rusqlite::{types::Value, Connection};
 
 use crate::{
     sqlite::{rusqlite_params, RusqliteRowBorrowed},
@@ -204,14 +204,76 @@ impl Db for SqlitePool {
 
             let mut output = vec![];
 
-            for (query, params) in sql {
-                output.push(
-                    txn.execute(&query, rusqlite_params(params))
-                        .map_err(DbError::Rusqlite),
-                );
+            let mut executed_sql: Vec<Cow<'static, str>> = Vec::with_capacity(sql.len());
+            let mut executed_rows: Vec<Vec<Value>> = Vec::with_capacity(sql.len());
+
+            for (sql, params) in sql {
+                let mut stmt = txn.prepare_cached(&sql).map_err(DbError::Rusqlite)?;
+                for (idx, param) in params.into_iter().enumerate() {
+                    let rparam = match param {
+                        Param::Null => Value::Null,
+                        Param::Integer(i) => Value::Integer(i),
+                        Param::Real(r) => Value::Real(r),
+                        Param::Text(t) => Value::Text(t),
+                        Param::Blob(b) => Value::Blob(b),
+                        Param::StmtOutputIndexed(stmt_idx, col_idx) => {
+                            executed_rows[stmt_idx][col_idx].clone()
+                        }
+                        Param::StmtOutputNamed(stmt_idx, col) => {
+                            let sql = &executed_sql[idx];
+                            let stmt = txn.prepare_cached(sql)?;
+                            let col_idx = stmt.column_index(&col).unwrap();
+
+                            executed_rows[stmt_idx][col_idx].clone()
+                        }
+                    };
+
+                    stmt.raw_bind_parameter(idx + 1, rparam)
+                        .map_err(DbError::Rusqlite)?;
+                }
+
+                let column_count = stmt.column_count();
+
+                let (result, first_row) = if column_count > 0 {
+                    let mut rows = stmt.raw_query();
+                    let mut row_count = 0;
+                    let mut first_row = vec![];
+
+                    let result = loop {
+                        match rows.next() {
+                            Ok(Some(row)) => {
+                                if row_count == 0 {
+                                    for i in 0..column_count {
+                                        first_row.push(row.get(i).unwrap());
+                                    }
+                                }
+
+                                row_count += 1;
+                            }
+                            Ok(None) => {
+                                break Ok(row_count);
+                            }
+                            Err(err) => {
+                                break Err(DbError::Rusqlite(err));
+                            }
+                        };
+                    };
+
+                    (result, first_row)
+                } else {
+                    (stmt.raw_execute().map_err(DbError::Rusqlite), vec![])
+                };
+
+                executed_sql.push(sql);
+                executed_rows.push(first_row);
+                output.push(result);
             }
 
-            txn.commit()?;
+            if output.iter().any(|result| result.is_err()) {
+                txn.rollback()?;
+            } else {
+                txn.commit()?;
+            }
 
             Ok(output)
         })

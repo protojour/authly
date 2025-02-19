@@ -5,24 +5,31 @@ use authly_db::{param::AsParam, Db, DbResult, FromRow};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 
-use crate::{directory::OAuthDirectory, encryption::DecryptedDeks, id::BuiltinProp};
+use crate::{
+    directory::{DirKey, OAuthDirectory},
+    encryption::DecryptedDeks,
+    id::BuiltinProp,
+};
 
 use super::cryptography_db::{CrDbError, EncryptedObjIdent};
 
 pub fn upsert_oauth_directory_stmt(
-    parent_id: DirectoryId,
+    parent_key: Option<DirKey>,
     dir_id: DirectoryId,
     label: &str,
 ) -> (Cow<'static, str>, Params) {
     (
         indoc! {
-            "INSERT INTO directory (parent_id, id, kind, url, hash, label)
+            "
+            INSERT INTO directory (parent_key, id, kind, url, hash, label)
             VALUES ($1, $2, 'persona', $3, $4, $5)
-            ON CONFLICT DO UPDATE SET url = $3, hash = $4, label = $5"
+            ON CONFLICT DO UPDATE SET url = $3, hash = $4, label = $5
+            RETURNING key
+            "
         }
         .into(),
         params!(
-            parent_id.as_param(),
+            parent_key.as_param(),
             dir_id.as_param(),
             "",
             vec![0u8; 32],
@@ -34,6 +41,7 @@ pub fn upsert_oauth_directory_stmt(
 impl FromRow for OAuthDirectory {
     fn from_row(row: &mut impl authly_db::Row) -> Self {
         Self {
+            dir_key: DirKey(row.get_int("dir_key")),
             dir_id: row.get_id("dir_id"),
             client_id: row.get_text("client_id"),
             // Client secret is loaded from separate table
@@ -58,15 +66,18 @@ impl FromRow for OAuthDirectory {
 
 impl OAuthDirectory {
     pub async fn query(deps: &impl Db) -> DbResult<Vec<Self>> {
-        deps.query_map("SELECT * FROM dir_oauth".into(), params!())
-            .await
+        deps.query_map(
+            "SELECT dir_oauth.*, directory.id AS dir_id FROM dir_oauth JOIN directory".into(),
+            params!(),
+        )
+        .await
     }
 
     pub fn upsert_stmt() -> Cow<'static, str> {
         indoc! {
             "
             INSERT INTO dir_oauth (
-                dir_id, upd, client_id,
+                dir_key, upd, client_id,
                 auth_url, auth_req_scope, auth_req_client_id_field, auth_req_nonce_field, auth_res_code_path,
                 token_url, token_req_client_id_field, token_req_client_secret_field, token_req_code_field, token_req_callback_url_field, token_res_access_token_field,
                 user_url, user_res_id_path, user_res_email_path
@@ -95,7 +106,7 @@ impl OAuthDirectory {
 
     pub fn upsert_params(self, now: i64) -> Params {
         params!(
-            self.dir_id.as_param(),
+            self.dir_key.as_param(),
             now,
             self.client_id,
             self.auth_url,
@@ -117,7 +128,7 @@ impl OAuthDirectory {
 
     pub fn upsert_secret_stmt(
         &self,
-        parent_dir_id: DirectoryId,
+        parent_dir_key: DirKey,
         now: i64,
         deks: &DecryptedDeks,
     ) -> Result<(Cow<'static, str>, Params), CrDbError> {
@@ -127,6 +138,6 @@ impl OAuthDirectory {
             deks,
         )
         .map_err(CrDbError::Crypto)?
-        .upsert_stmt(parent_dir_id, self.dir_id.upcast(), now))
+        .upsert_stmt(parent_dir_key.0.into(), self.dir_id.upcast(), now))
     }
 }

@@ -1,5 +1,5 @@
-use authly_common::id::{DirectoryId, PersonaId};
-use authly_db::{DbError, DidInsert};
+use authly_common::id::PersonaId;
+use authly_db::{param::AsParam, DbError, DidInsert};
 use tracing::info;
 
 use crate::{
@@ -9,6 +9,7 @@ use crate::{
         entity_db::{self, OverwritePersonaId},
         object_db,
     },
+    directory::DirKey,
     id::BuiltinProp,
 };
 
@@ -33,7 +34,7 @@ pub enum ForeignLinkError {
 /// Link or re-link a foreign persona to get an Authly PersonaId
 pub async fn link_foreign_persona(
     deps: &(impl GetDb + GetDecryptedDeks),
-    persona_dir_id: DirectoryId,
+    persona_dir_key: DirKey,
     foreign: ForeignPersona,
 ) -> Result<(PersonaId, DidInsert), ForeignLinkError> {
     let email = EncryptedObjIdent::encrypt(
@@ -54,7 +55,7 @@ pub async fn link_foreign_persona(
     // allocate random mapped PersonaId or retrieve the previously mapped one
     let (persona_id, did_insert) = entity_db::upsert_link_foreign_persona(
         deps.get_db(),
-        persona_dir_id,
+        persona_dir_key,
         PersonaId::random(),
         OverwritePersonaId(false),
         foreign.foreign_id.clone(),
@@ -66,7 +67,7 @@ pub async fn link_foreign_persona(
         .clone()
         .insert(
             deps.get_db(),
-            persona_dir_id,
+            persona_dir_key.as_param(),
             persona_id.upcast(),
             now.unix_timestamp(),
         )
@@ -94,7 +95,7 @@ pub async fn link_foreign_persona(
                 // update the old link to the persona owning the email address
                 let (persona_id, _) = entity_db::upsert_link_foreign_persona(
                     deps.get_db(),
-                    persona_dir_id,
+                    persona_dir_key,
                     owner_id,
                     OverwritePersonaId(true),
                     foreign.foreign_id,
@@ -112,7 +113,7 @@ pub async fn link_foreign_persona(
                     .clone()
                     .upsert(
                         deps.get_db(),
-                        persona_dir_id,
+                        persona_dir_key.as_param(),
                         persona_id.upcast(),
                         now.unix_timestamp(),
                     )

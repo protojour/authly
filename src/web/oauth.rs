@@ -128,7 +128,7 @@ pub async fn oauth_callback(
 
     let (persona_id, _) = persona_directory::link_foreign_persona(
         &ctx,
-        oauth.dir_id,
+        oauth.dir_key,
         ForeignPersona {
             foreign_id: user_id.as_ref().as_bytes().to_vec(),
             email: email.to_string(),

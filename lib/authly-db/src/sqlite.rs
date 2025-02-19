@@ -53,6 +53,9 @@ pub(super) fn rusqlite_params(
             Param::Real(r) => Value::Real(r),
             Param::Text(t) => Value::Text(t),
             Param::Blob(vec) => Value::Blob(vec),
+            Param::StmtOutputIndexed(..) | Param::StmtOutputNamed(..) => {
+                panic!("StmtOutput can only be used in transaction")
+            }
         })
     }))
 }

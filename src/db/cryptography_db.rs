@@ -12,7 +12,7 @@ use aes_gcm_siv::{
     Aes256GcmSiv,
 };
 use anyhow::{anyhow, Context};
-use authly_common::id::{AnyId, DirectoryId, PropId, ServiceId};
+use authly_common::id::{AnyId, PropId, ServiceId};
 use authly_db::{param::AsParam, Db, DbError, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
@@ -405,31 +405,31 @@ impl EncryptedObjIdent {
     pub async fn insert(
         self,
         deps: &impl Db,
-        dir_id: DirectoryId,
+        dir_key: Param,
         obj_id: AnyId,
         now: i64,
     ) -> DbResult<()> {
-        let (stmt, params) = self.insert_stmt(dir_id, obj_id, now);
+        let (stmt, params) = self.insert_stmt(dir_key, obj_id, now);
         deps.execute(stmt, params).await?;
         Ok(())
     }
 
     pub fn insert_stmt(
         self,
-        dir_id: DirectoryId,
+        dir_key: Param,
         obj_id: AnyId,
         now: i64,
     ) -> (Cow<'static, str>, Params) {
         (
             indoc! {
                 "
-                INSERT INTO obj_ident (dir_id, obj_id, prop_id, upd, fingerprint, nonce, ciph)
+                INSERT INTO obj_ident (dir_key, obj_id, prop_id, upd, fingerprint, nonce, ciph)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 "
             }
             .into(),
             params!(
-                dir_id.as_param(),
+                dir_key,
                 obj_id.as_param(),
                 self.prop_id.as_param(),
                 now,
@@ -443,25 +443,25 @@ impl EncryptedObjIdent {
     pub async fn upsert(
         self,
         deps: &impl Db,
-        dir_id: DirectoryId,
+        dir_key: Param,
         obj_id: AnyId,
         now: i64,
     ) -> DbResult<()> {
-        let (stmt, params) = self.upsert_stmt(dir_id, obj_id, now);
+        let (stmt, params) = self.upsert_stmt(dir_key, obj_id, now);
         deps.execute(stmt, params).await?;
         Ok(())
     }
 
     pub fn upsert_stmt(
         self,
-        dir_id: DirectoryId,
+        dir_key: Param,
         obj_id: AnyId,
         now: i64,
     ) -> (Cow<'static, str>, Params) {
         (
             indoc! {
                 "
-                INSERT INTO obj_ident (dir_id, obj_id, prop_id, upd, fingerprint, nonce, ciph)
+                INSERT INTO obj_ident (dir_key, obj_id, prop_id, upd, fingerprint, nonce, ciph)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT DO UPDATE SET
                     upd = $4,
@@ -472,7 +472,7 @@ impl EncryptedObjIdent {
             }
             .into(),
             params!(
-                dir_id.as_param(),
+                dir_key,
                 obj_id.as_param(),
                 self.prop_id.as_param(),
                 now,
@@ -555,7 +555,7 @@ pub async fn load_decrypt_obj_ident(
 
     let decrypted = deks
         .get(prop_id)
-        .map_err(|err| CrDbError::Crypto(err.into()))?
+        .map_err(CrDbError::Crypto)?
         .aes()
         .decrypt(&row.nonce, row.ciph.as_ref())
         .map_err(|err| CrDbError::Crypto(err.into()))?;

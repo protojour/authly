@@ -1,7 +1,7 @@
 use std::{any::Any, collections::HashMap, fmt::Display, fs};
 
 use authly_common::id::{DirectoryId, ServiceId};
-use authly_db::{Db, DbError};
+use authly_db::{param::AsParam, Db, DbError};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -21,6 +21,15 @@ use crate::{
     id::BuiltinProp,
     AuthlyCtx,
 };
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct DirKey(pub i64);
+
+impl AsParam for DirKey {
+    fn as_param(&self) -> hiqlite::Param {
+        self.0.into()
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum DirectoryError {
@@ -62,6 +71,7 @@ pub enum PersonaDirectory {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct OAuthDirectory {
+    pub dir_key: DirKey,
     pub dir_id: DirectoryId,
     pub client_id: String,
     pub client_secret: String,
@@ -121,10 +131,10 @@ pub async fn load_persona_directories(
     deks: &DecryptedDeks,
 ) -> Result<IndexMap<String, PersonaDirectory>, DirectoryError> {
     let directories = DbDirectory::query_by_kind(db, DirectoryKind::Persona).await?;
-    let mut oauth_dirs: HashMap<DirectoryId, OAuthDirectory> = OAuthDirectory::query(db)
+    let mut oauth_dirs: HashMap<DirKey, OAuthDirectory> = OAuthDirectory::query(db)
         .await?
         .into_iter()
-        .map(|o| (o.dir_id, o))
+        .map(|o| (o.dir_key, o))
         .collect();
 
     let mut persona_dirs: Vec<(String, PersonaDirectory)> = vec![];
@@ -134,7 +144,7 @@ pub async fn load_persona_directories(
             continue;
         };
 
-        if let Some(mut oauth) = oauth_dirs.remove(&dir.id) {
+        if let Some(mut oauth) = oauth_dirs.remove(&dir.key) {
             let Some(client_secret) = cryptography_db::load_decrypt_obj_ident(
                 db,
                 dir.id.upcast(),

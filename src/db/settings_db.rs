@@ -1,14 +1,16 @@
 use std::borrow::Cow;
 
-use authly_common::id::DirectoryId;
 use authly_db::{Db, DbResult, Row, TryFromRow};
 use hiqlite::params;
 
-use crate::settings::{Setting, Settings};
+use crate::{
+    directory::DirKey,
+    settings::{Setting, Settings},
+};
 
 struct LocalSetting {
     #[expect(unused)]
-    dir_id: DirectoryId,
+    dir_key: DirKey,
     setting: Setting,
     value: String,
 }
@@ -28,7 +30,7 @@ impl TryFromRow for LocalSetting {
         };
 
         Ok(LocalSetting {
-            dir_id: row.get_id("dir_id"),
+            dir_key: DirKey(row.get_int("dir_key")),
             setting,
             value: row.get_text("value"),
         })
@@ -38,7 +40,7 @@ impl TryFromRow for LocalSetting {
 pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
     let local_settings = deps
         .query_filter_map(
-            "SELECT dir_id, setting, value FROM local_setting".into(),
+            "SELECT dir_key, setting, value FROM local_setting".into(),
             params!(),
         )
         .await?;
@@ -47,7 +49,7 @@ pub async fn load_local_settings(deps: &impl Db) -> DbResult<Settings> {
 
     for LocalSetting {
         // TODO: Sort settings based on directory importance:
-        dir_id: _,
+        dir_key: _,
         setting,
         value,
     } in local_settings

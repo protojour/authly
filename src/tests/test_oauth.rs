@@ -1,6 +1,7 @@
 use authly_common::id::DirectoryId;
 use authly_db::Db;
 use axum::extract::{Path, Query, State};
+use itertools::Itertools;
 use rand::{rngs::OsRng, Rng};
 use serde_json::json;
 use wiremock::{
@@ -11,7 +12,7 @@ use wiremock::{
 use crate::{
     ctx::{GetDb, GetDecryptedDeks},
     db::{cryptography_db::EncryptedObjIdent, oauth_db::upsert_oauth_directory_stmt, object_db},
-    directory::{load_persona_directories, OAuthDirectory, PersonaDirectory},
+    directory::{load_persona_directories, DirKey, OAuthDirectory, PersonaDirectory},
     id::BuiltinProp,
     persona_directory::{self, ForeignPersona},
     test_support::TestCtx,
@@ -19,7 +20,7 @@ use crate::{
     web::oauth::OAuthState,
 };
 
-fn random_oauth(dir_id: DirectoryId) -> OAuthDirectory {
+fn random_oauth(dir_id: DirectoryId, dir_key: DirKey) -> OAuthDirectory {
     fn rnd() -> String {
         let mut bytes = [0; 8];
         OsRng.fill(bytes.as_mut_slice());
@@ -27,6 +28,7 @@ fn random_oauth(dir_id: DirectoryId) -> OAuthDirectory {
     }
 
     OAuthDirectory {
+        dir_key,
         dir_id,
         client_id: rnd(),
         client_secret: "".to_string(),
@@ -47,8 +49,14 @@ fn random_oauth(dir_id: DirectoryId) -> OAuthDirectory {
     }
 }
 
-fn github_like(dir_id: DirectoryId, web_base_url: &str, api_base_url: &str) -> OAuthDirectory {
+fn github_like(
+    dir_id: DirectoryId,
+    dir_key: DirKey,
+    web_base_url: &str,
+    api_base_url: &str,
+) -> OAuthDirectory {
     OAuthDirectory {
+        dir_key,
         dir_id,
         client_id: "123".to_string(),
         client_secret: "456".to_string(),
@@ -76,22 +84,26 @@ async fn test_insert_update_list_oauth_directory() {
     let dir_id = DirectoryId::random();
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
 
-    {
-        let (sql, params) = upsert_oauth_directory_stmt(dir_id, dir_id, "buksehub");
+    let dir_key = {
+        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, "buksehub");
 
         // insert and upsert
         ctx.get_db()
-            .execute(sql.clone(), params.clone())
+            .query_map_opt::<DirKey>(sql.clone(), params.clone())
             .await
             .unwrap();
-        ctx.get_db().execute(sql, params).await.unwrap();
-    }
+        ctx.get_db()
+            .query_map_opt::<DirKey>(sql, params)
+            .await
+            .unwrap()
+            .unwrap()
+    };
 
-    let oauth_a = random_oauth(dir_id);
+    let oauth_a = random_oauth(dir_id, dir_key);
 
     {
         let (sql, params) = oauth_a
-            .upsert_secret_stmt(dir_id, now, &ctx.get_decrypted_deks())
+            .upsert_secret_stmt(dir_key, now, &ctx.get_decrypted_deks())
             .unwrap();
 
         ctx.get_db().execute(sql, params).await.unwrap();
@@ -102,7 +114,7 @@ async fn test_insert_update_list_oauth_directory() {
         .await
         .unwrap();
 
-    let oauth_b = random_oauth(dir_id);
+    let oauth_b = random_oauth(dir_id, dir_key);
 
     ctx.get_db()
         .execute(
@@ -131,22 +143,26 @@ async fn test_upsert_persona_link() {
         .await;
     let dir_id = DirectoryId::random();
 
-    {
-        let (sql, params) = upsert_oauth_directory_stmt(dir_id, dir_id, "buksehub");
+    let dir_key = {
+        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, "buksehub");
 
         // insert and upsert
         ctx.get_db()
-            .execute(sql.clone(), params.clone())
+            .query_map_opt::<DirKey>(sql.clone(), params.clone())
             .await
             .unwrap();
-        ctx.get_db().execute(sql, params).await.unwrap();
-    }
+        ctx.get_db()
+            .query_map_opt::<DirKey>(sql, params)
+            .await
+            .unwrap()
+            .unwrap()
+    };
 
     let foreign_id = b"foobar";
 
     let (persona_id1, did_insert1) = persona_directory::link_foreign_persona(
         &ctx,
-        dir_id,
+        dir_key,
         ForeignPersona {
             foreign_id: foreign_id.to_vec(),
             email: "oldmail@mail.com".to_string(),
@@ -163,7 +179,7 @@ async fn test_upsert_persona_link() {
     // Maybe the OAuth that _created_ the entity may change the global email.
     let (persona_id2, did_insert2) = persona_directory::link_foreign_persona(
         &ctx,
-        dir_id,
+        dir_key,
         ForeignPersona {
             foreign_id: foreign_id.to_vec(),
             email: "newmail@mail.com".to_string(),
@@ -204,24 +220,30 @@ async fn test_upsert_persona_link_email_disambiguator() {
     let ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
     let dir_a = DirectoryId::random();
     let dir_b = DirectoryId::random();
+    let mut dir_keys = vec![];
 
     for (dir_id, label) in [dir_a, dir_b]
         .iter()
         .copied()
         .zip(["buksehub", "stillongshub"])
     {
-        let (sql, params) = upsert_oauth_directory_stmt(dir_id, dir_id, label);
-        ctx.get_db()
-            .execute(sql.clone(), params.clone())
-            .await
-            .unwrap();
+        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, label);
+        dir_keys.push(
+            ctx.get_db()
+                .query_map_opt::<DirKey>(sql.clone(), params.clone())
+                .await
+                .unwrap()
+                .unwrap(),
+        );
     }
+
+    let [dir_key_a, dir_key_b] = dir_keys.into_iter().collect_array().unwrap();
 
     let shared_email = "addr@mail.com";
 
     let (persona_id1, _) = persona_directory::link_foreign_persona(
         &ctx,
-        dir_a,
+        dir_key_a,
         ForeignPersona {
             foreign_id: b"foreign_a".to_vec(),
             email: shared_email.to_string(),
@@ -232,7 +254,7 @@ async fn test_upsert_persona_link_email_disambiguator() {
 
     let (persona_id2, _) = persona_directory::link_foreign_persona(
         &ctx,
-        dir_b,
+        dir_key_b,
         ForeignPersona {
             foreign_id: b"foreign_b".to_vec(),
             email: shared_email.to_string(),
@@ -252,22 +274,20 @@ async fn test_callback_github_like() {
     let dir_id = DirectoryId::random();
     let code = "c0d3";
     let hubmock = wiremock::MockServer::start().await;
-    let oauth = github_like(dir_id, &hubmock.uri(), &hubmock.uri());
 
-    let ctx = TestCtx::new()
-        .inmemory_db()
-        .await
-        .supreme_instance()
-        .await
-        .with_persona_directory("buksehub", PersonaDirectory::OAuth(oauth));
+    let ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
 
-    {
-        let (sql, params) = upsert_oauth_directory_stmt(dir_id, dir_id, "buksehub");
+    let dir_key = {
+        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, "buksehub");
         ctx.get_db()
-            .execute(sql.clone(), params.clone())
+            .query_map_opt::<DirKey>(sql.clone(), params.clone())
             .await
-            .unwrap();
-    }
+            .unwrap()
+            .unwrap()
+    };
+
+    let oauth = github_like(dir_id, dir_key, &hubmock.uri(), &hubmock.uri());
+    let ctx = ctx.with_persona_directory("buksehub", PersonaDirectory::OAuth(oauth));
 
     Mock::given(method("POST"))
         .and(path("/login/oauth/access_token"))
@@ -290,7 +310,7 @@ async fn test_callback_github_like() {
         .and(path("/user"))
         .and(header(
             "authorization",
-            format!("Bearer gho_16C7e42F292c6912E7710c838347Ae178B4a"),
+            "Bearer gho_16C7e42F292c6912E7710c838347Ae178B4a",
         ))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "id": 42,

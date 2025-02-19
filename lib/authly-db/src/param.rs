@@ -17,3 +17,12 @@ impl<KS: IdKindSubset> AsParam for DynamicId<KS> {
         hiqlite::Param::Blob(self.to_array_dynamic().to_vec())
     }
 }
+
+impl<T: AsParam> AsParam for Option<T> {
+    fn as_param(&self) -> hiqlite::Param {
+        match self {
+            None => hiqlite::Param::Null,
+            Some(t) => t.as_param(),
+        }
+    }
+}

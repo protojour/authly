@@ -8,14 +8,37 @@ use hiqlite::{params, Param};
 use indoc::indoc;
 use serde::{de::value::StringDeserializer, Deserialize};
 
-use crate::directory::DirectoryKind;
+use crate::directory::{DirKey, DirectoryKind};
 
 use super::{
     policy_db::DbPolicy,
     service_db::{ServiceProperty, ServicePropertyKind},
 };
 
+impl FromRow for DirKey {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self(row.get_int("key"))
+    }
+}
+
+pub struct DirForeignKey(pub DirKey);
+
+impl FromRow for DirForeignKey {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self(DirKey(row.get_int("dir_key")))
+    }
+}
+
+pub async fn query_dir_key(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Option<DirKey>> {
+    deps.query_map_opt::<DirKey>(
+        "SELECT key FROM directory WHERE id = $1".into(),
+        params!(dir_id.as_param()),
+    )
+    .await
+}
+
 pub struct DbDirectory {
+    pub key: DirKey,
     pub id: DirectoryId,
     pub kind: DirectoryKind,
     pub url: String,
@@ -26,6 +49,7 @@ pub struct DbDirectory {
 impl FromRow for DbDirectory {
     fn from_row(row: &mut impl Row) -> Self {
         Self {
+            key: DirKey(row.get_int("key")),
             id: row.get_id("id"),
             kind: DirectoryKind::deserialize(StringDeserializer::<serde_json::Error>::new(
                 row.get_text("kind"),
@@ -41,7 +65,7 @@ impl FromRow for DbDirectory {
 impl DbDirectory {
     pub async fn query_by_kind(deps: &impl Db, kind: DirectoryKind) -> DbResult<Vec<DbDirectory>> {
         deps.query_map(
-            "SELECT id, kind, url, hash, label FROM directory WHERE kind = $1".into(),
+            "SELECT key, id, kind, url, hash, label FROM directory WHERE kind = $1".into(),
             params!(format!("{kind}")),
         )
         .await
@@ -63,11 +87,11 @@ impl FromRow for DbDirectoryObjectLabel {
 }
 
 impl DbDirectoryObjectLabel {
-    pub async fn query(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Vec<Self>> {
+    pub async fn query(deps: &impl Db, dir_key: DirKey) -> DbResult<Vec<Self>> {
         deps.query_map(
             // FIXME: unindexed query
-            "SELECT obj_id, label FROM obj_label WHERE dir_id = $1".into(),
-            params!(dir_id.as_param()),
+            "SELECT obj_id, label FROM obj_label WHERE dir_key = $1".into(),
+            params!(dir_key.as_param()),
         )
         .await
     }
@@ -86,11 +110,11 @@ impl FromRow for DbDirectoryService {
 }
 
 impl DbDirectoryService {
-    pub async fn query(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Vec<Self>> {
+    pub async fn query(deps: &impl Db, dir_key: DirKey) -> DbResult<Vec<Self>> {
         deps.query_map(
             // FIXME: unindexed query
-            "SELECT svc_eid FROM svc WHERE dir_id = $1".into(),
-            params!(dir_id.as_param()),
+            "SELECT svc_eid FROM svc WHERE dir_key = $1".into(),
+            params!(dir_key.as_param()),
         )
         .await
     }
@@ -116,10 +140,10 @@ impl TryFromRow for DbDirectoryPolicy {
 }
 
 impl DbDirectoryPolicy {
-    pub async fn query(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Vec<Self>> {
+    pub async fn query(deps: &impl Db, dir_key: DirKey) -> DbResult<Vec<Self>> {
         deps.query_filter_map(
-            "SELECT id, label, policy_pc FROM policy WHERE dir_id = $1".into(),
-            params!(dir_id.as_param()),
+            "SELECT id, label, policy_pc FROM policy WHERE dir_key = $1".into(),
+            params!(dir_key.as_param()),
         )
         .await
     }
@@ -127,7 +151,7 @@ impl DbDirectoryPolicy {
 
 pub async fn list_namespace_properties(
     deps: &impl Db,
-    dir_id: DirectoryId,
+    dir_key: DirKey,
     ns_id: AnyId,
     property_kind: ServicePropertyKind,
 ) -> DbResult<Vec<ServiceProperty>> {
@@ -150,11 +174,11 @@ pub async fn list_namespace_properties(
                     SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
                     FROM ns_ent_prop p
                     JOIN ns_ent_attrlabel a ON a.prop_id = p.id
-                    WHERE p.dir_id = $1 AND p.ns_id = $2
+                    WHERE p.dir_key = $1 AND p.ns_id = $2
                     ",
                 }
                 .into(),
-                params!(dir_id.as_param(), ns_id.as_param()),
+                params!(dir_key.as_param(), ns_id.as_param()),
             )
             .await?
         }
@@ -165,11 +189,11 @@ pub async fn list_namespace_properties(
                     SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
                     FROM ns_res_prop p
                     JOIN ns_res_attrlabel a ON a.prop_id = p.id
-                    WHERE p.dir_id = $1 AND p.ns_id = $2
+                    WHERE p.dir_key = $1 AND p.ns_id = $2
                     ",
                 }
                 .into(),
-                params!(dir_id.as_param(), ns_id.as_param()),
+                params!(dir_key.as_param(), ns_id.as_param()),
             )
             .await?
         }

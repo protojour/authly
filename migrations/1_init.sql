@@ -37,9 +37,10 @@ CREATE TABLE session (
 
 -- Any kind of directory, including other Authly Authorities
 CREATE TABLE directory (
-    id BLOB NOT NULL PRIMARY KEY,
+    key integer NOT NULL PRIMARY KEY,
+    parent_key BLOB REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
+    id BLOB NOT NULL UNIQUE,
     -- if the directory is owned/managed by another, the parent_id != id:
-    parent_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
     kind TEXT NOT NULL,
     url TEXT,
     hash BLOB,
@@ -47,20 +48,20 @@ CREATE TABLE directory (
 );
 
 CREATE TABLE directory_audit (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     upd DATETIME NOT NULL,
     updated_by_eid BLOB NOT NULL
 );
 
 CREATE TABLE local_setting (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     setting INTEGER NOT NULL,
     value TEXT NOT NULL,
     upd DATETIME NOT NULL
 );
 
 CREATE TABLE ent_attr (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     eid BLOB NOT NULL,
     attrid BLOB NOT NULL,
     upd DATETIME NOT NULL,
@@ -69,7 +70,7 @@ CREATE TABLE ent_attr (
 );
 
 CREATE TABLE ent_rel (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     rel_id BLOB NOT NULL,
     subject_eid BLOB NOT NULL,
     object_eid BLOB NOT NULL,
@@ -79,7 +80,7 @@ CREATE TABLE ent_rel (
 );
 
 CREATE TABLE obj_ident (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     obj_id BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     fingerprint BLOB NOT NULL,
@@ -93,7 +94,7 @@ CREATE TABLE obj_ident (
 
 -- Text attributes for any database object
 CREATE TABLE obj_text_attr (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     obj_id BLOB NOT NULL,
     prop_id BLOB NOT NULL,
     upd DATETIME NOT NULL,
@@ -103,18 +104,18 @@ CREATE TABLE obj_text_attr (
 );
 
 CREATE TABLE obj_foreign_dir_link (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     foreign_id BLOB NOT NULL,
     obj_id BLOB NOT NULL,
     upd DATETIME NOT NULL,
     overwritten INTEGER NOT NULL,
 
-    PRIMARY KEY (dir_id, foreign_id)
+    PRIMARY KEY (dir_key, foreign_id)
 );
 
 -- An object's label in its originating directory/document
 CREATE TABLE obj_label (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     obj_id BLOB NOT NULL PRIMARY KEY,
     upd DATETIME NOT NULL,
     label TEXT NOT NULL
@@ -122,7 +123,7 @@ CREATE TABLE obj_label (
 
 -- Namespace: entity property
 CREATE TABLE ns_ent_prop (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
     upd DATETIME NOT NULL,
     ns_id BLOB NOT NULL,
@@ -133,7 +134,7 @@ CREATE TABLE ns_ent_prop (
 
 -- Namespace: entity property attribute label
 CREATE TABLE ns_ent_attrlabel (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL,
     prop_id BLOB NOT NULL REFERENCES ns_ent_prop(id) DEFERRABLE INITIALLY DEFERRED,
     upd DATETIME NOT NULL,
@@ -144,7 +145,7 @@ CREATE TABLE ns_ent_attrlabel (
 
 -- Namespace: resource property
 CREATE TABLE ns_res_prop (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
     upd DATETIME NOT NULL,
     ns_id BLOB NOT NULL,
@@ -155,7 +156,7 @@ CREATE TABLE ns_res_prop (
 
 -- Namespace: resource attribute label
 CREATE TABLE ns_res_attrlabel (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
     upd DATETIME NOT NULL,
     prop_id BLOB NOT NULL REFERENCES ns_res_prop(id) DEFERRABLE INITIALLY DEFERRED,
@@ -166,7 +167,7 @@ CREATE TABLE ns_res_attrlabel (
 
 -- Service entities
 CREATE TABLE svc (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     svc_eid BLOB NOT NULL PRIMARY KEY,
     upd DATETIME NOT NULL,
     hosts_json TEXT
@@ -174,7 +175,7 @@ CREATE TABLE svc (
 
 -- Service: namespace participation
 CREATE TABLE svc_namespace (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     svc_eid BLOB NOT NULL REFERENCES svc(svc_eid) DEFERRABLE INITIALLY DEFERRED,
     ns_id BLOB NOT NULL,
     upd DATETIME NOT NULL,
@@ -184,7 +185,7 @@ CREATE TABLE svc_namespace (
 
 -- TODO: Should policies be associated to namespaces?
 CREATE TABLE policy (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL PRIMARY KEY,
     upd DATETIME NOT NULL,
     label TEXT NOT NULL,
@@ -195,7 +196,7 @@ CREATE TABLE policy (
 
 -- Policy binding - attribute matchers
 CREATE TABLE polbind_attr_match (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     polbind_id BLOB NOT NULL,
     attr_id BLOB NOT NULL,
     upd DATETIME NOT NULL,
@@ -205,7 +206,7 @@ CREATE TABLE polbind_attr_match (
 
 -- Policy binding - policy implication
 CREATE TABLE polbind_policy (
-    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     polbind_id BLOB NOT NULL,
     policy_id BLOB NOT NULL REFERENCES policy(id) DEFERRABLE INITIALLY DEFERRED,
     upd DATETIME NOT NULL,
@@ -248,7 +249,7 @@ CREATE TABLE am_mandate (
 );
 
 CREATE TABLE dir_oauth (
-    dir_id BLOB PRIMARY KEY REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER PRIMARY KEY REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     upd DATETIME NOT NULL,
     client_id TEXT NOT NULL,
 

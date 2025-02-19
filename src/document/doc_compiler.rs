@@ -16,9 +16,10 @@ use serde_spanned::Spanned;
 use tracing::debug;
 
 use crate::ctx::{GetDb, KubernetesConfig};
-use crate::db::directory_db::{DbDirectoryObjectLabel, DbDirectoryPolicy};
+use crate::db::directory_db::{query_dir_key, DbDirectoryObjectLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
+use crate::directory::DirKey;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, CompiledService, ObjectIdent, ObjectLabel, ObjectTextAttr,
 };
@@ -85,7 +86,7 @@ pub enum NamespaceKind {
 }
 
 struct CompileCtx {
-    /// Directory ID
+    dir_key: DirKey,
     dir_id: DirectoryId,
 
     namespaces: Namespaces,
@@ -114,8 +115,15 @@ pub async fn compile_doc(
     meta: DocumentMeta,
 ) -> Result<CompiledDocument, Vec<Spanned<DocError>>> {
     let db = deps.get_db();
+    let dir_id = DirectoryId::from_uint(doc.authly_document.id.get_ref().as_u128());
+    let dir_key = query_dir_key(db, dir_id)
+        .await
+        .map_err(|err| vec![Spanned::new(0..0, DocError::Db(err.to_string()))])?
+        .unwrap_or(DirKey(-1));
+
     let mut comp = CompileCtx {
-        dir_id: DirectoryId::from_uint(doc.authly_document.id.get_ref().as_u128()),
+        dir_key,
+        dir_id,
         namespaces: Default::default(),
         eprop_cache: Default::default(),
         rprop_cache: Default::default(),
@@ -890,7 +898,7 @@ impl CompileCtx {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
                 let db_props =
-                    directory_db::list_namespace_properties(db, self.dir_id, ns_id, property_kind)
+                    directory_db::list_namespace_properties(db, self.dir_key, ns_id, property_kind)
                         .await
                         .handle_err(&mut self.errors)?;
                 Some(vacant.insert(db_props))
@@ -907,7 +915,7 @@ impl CompileCtx {
         match cache.entry(self.dir_id) {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
-                let db_policies = DbDirectoryPolicy::query(db, self.dir_id)
+                let db_policies = DbDirectoryPolicy::query(db, self.dir_key)
                     .await
                     .handle_err(&mut self.errors)?;
 
@@ -923,7 +931,7 @@ impl CompileCtx {
         if self.label_cache.is_some() {
             Some(self.label_cache.as_mut().unwrap())
         } else {
-            let db_domains = DbDirectoryObjectLabel::query(db, self.dir_id)
+            let db_domains = DbDirectoryObjectLabel::query(db, self.dir_key)
                 .await
                 .handle_err(&mut self.errors)?;
 

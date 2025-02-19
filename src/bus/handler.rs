@@ -1,8 +1,12 @@
+use anyhow::Context;
 use tracing::info;
 
 use crate::{
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, RedistributeCertificates, ServiceBus, SetInstance},
-    db::{cryptography_db::load_authly_instance, directory_db},
+    db::{
+        cryptography_db::load_authly_instance,
+        directory_db::{self, query_dir_key},
+    },
     IsLeaderDb,
 };
 
@@ -39,8 +43,11 @@ pub async fn authly_node_handle_incoming_message(
         }
         ClusterMessage::DirectoryChanged { dir_id } => {
             info!(?dir_id, "directory changed");
+            let dir_key = query_dir_key(deps.get_db(), dir_id)
+                .await?
+                .context("no such directory")?;
 
-            for service in directory_db::DbDirectoryService::query(deps.get_db(), dir_id).await? {
+            for service in directory_db::DbDirectoryService::query(deps.get_db(), dir_key).await? {
                 deps.service_broadcast(service.svc_eid, ServiceMessage::ReloadCache);
             }
         }
