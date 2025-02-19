@@ -6,11 +6,47 @@ use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId}
 use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::indoc;
+use serde::{de::value::StringDeserializer, Deserialize};
+
+use crate::directory::DirectoryKind;
 
 use super::{
     policy_db::DbPolicy,
     service_db::{ServiceProperty, ServicePropertyKind},
 };
+
+pub struct DbDirectory {
+    pub id: DirectoryId,
+    pub kind: DirectoryKind,
+    pub url: String,
+    pub hash: [u8; 32],
+    pub label: Option<String>,
+}
+
+impl FromRow for DbDirectory {
+    fn from_row(row: &mut impl Row) -> Self {
+        Self {
+            id: row.get_id("id"),
+            kind: DirectoryKind::deserialize(StringDeserializer::<serde_json::Error>::new(
+                row.get_text("kind"),
+            ))
+            .unwrap(),
+            url: row.get_text("url"),
+            hash: row.get_blob_array("hash"),
+            label: row.get_opt_text("label"),
+        }
+    }
+}
+
+impl DbDirectory {
+    pub async fn query_by_kind(deps: &impl Db, kind: DirectoryKind) -> DbResult<Vec<DbDirectory>> {
+        deps.query_map(
+            "SELECT id, kind, url, hash, label FROM directory WHERE kind = $1".into(),
+            params!(format!("{kind}")),
+        )
+        .await
+    }
+}
 
 pub struct DbDirectoryObjectLabel {
     pub id: AnyId,

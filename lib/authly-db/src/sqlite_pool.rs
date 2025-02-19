@@ -168,6 +168,31 @@ impl Db for SqlitePool {
         .await?
     }
 
+    async fn execute_map<T>(
+        &self,
+        sql: Cow<'static, str>,
+        params: Params,
+    ) -> Result<Vec<Result<T, DbError>>, DbError>
+    where
+        T: FromRow + Send + 'static,
+    {
+        let conn = self.get().await?;
+
+        tokio::task::spawn_blocking(move || {
+            let mut stmt = conn.prepare_cached(&sql)?;
+            let mut rows = stmt.query(rusqlite_params(params))?;
+
+            let mut output = vec![];
+
+            while let Some(row) = rows.next()? {
+                output.push(Ok(T::from_row(&mut RusqliteRowBorrowed { row })));
+            }
+
+            Ok(output)
+        })
+        .await?
+    }
+
     async fn transact(
         &self,
         sql: Vec<(Cow<'static, str>, Params)>,

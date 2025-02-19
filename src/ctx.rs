@@ -4,6 +4,7 @@ use std::{future::Future, sync::Arc};
 
 use authly_common::id::ServiceId;
 use authly_db::Db;
+use indexmap::IndexMap;
 
 use crate::{
     bus::{
@@ -11,6 +12,7 @@ use crate::{
         service_events::ServiceMessageConnection,
         BusError,
     },
+    directory::PersonaDirectory,
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
     platform::CertificateDistributionPlatform,
@@ -24,6 +26,10 @@ pub trait GetDb {
     type Db: Db;
 
     fn get_db(&self) -> &Self::Db;
+}
+
+pub trait GetHttpClient {
+    fn get_internet_http_client(&self) -> reqwest::Client;
 }
 
 pub trait GetInstance {
@@ -73,6 +79,10 @@ pub trait RedistributeCertificates {
     fn redistribute_certificates_if_leader(&self) -> impl Future<Output = ()>;
 }
 
+pub trait Directories {
+    fn load_persona_directories(&self) -> Arc<IndexMap<String, PersonaDirectory>>;
+}
+
 pub trait HostsConfig {
     fn authly_hostname(&self) -> &str;
     fn is_k8s(&self) -> bool;
@@ -87,6 +97,12 @@ impl GetDb for AuthlyCtx {
 
     fn get_db(&self) -> &Self::Db {
         &self.hql
+    }
+}
+
+impl GetHttpClient for AuthlyCtx {
+    fn get_internet_http_client(&self) -> reqwest::Client {
+        self.internet_http_client.clone()
     }
 }
 
@@ -154,6 +170,12 @@ impl ServiceBus for AuthlyCtx {
 impl RedistributeCertificates for AuthlyCtx {
     async fn redistribute_certificates_if_leader(&self) {
         crate::platform::redistribute_certificates(self).await;
+    }
+}
+
+impl Directories for AuthlyCtx {
+    fn load_persona_directories(&self) -> Arc<IndexMap<String, PersonaDirectory>> {
+        self.persona_directories.load_full()
     }
 }
 

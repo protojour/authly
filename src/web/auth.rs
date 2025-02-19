@@ -1,24 +1,8 @@
-use authly_webstatic::static_folder;
-use axum::{extract::State, routing::get};
 use http::request::Parts;
 use indoc::indoc;
 use maud::{html, Markup, PreEscaped, DOCTYPE};
 
-use crate::AuthlyCtx;
-
-pub fn router() -> axum::Router<AuthlyCtx> {
-    axum::Router::new()
-        // Currently a quirk in the gateway requires this route to be added twice
-        // (`/` is appended by the gateway because /web/auth is a "matcher", => /web/auth/)
-        .route("/web/auth", get(index))
-        .route("/web/auth/", get(index))
-        .nest_service("/web/static", static_folder())
-}
-
-pub async fn index(
-    State(_ctx): State<AuthlyCtx>,
-    ForwardedPrefix(prefix): ForwardedPrefix,
-) -> Markup {
+pub async fn index(ForwardedPrefix(prefix): ForwardedPrefix) -> Markup {
     let js = indoc! {
         r#"
         document.body.addEventListener('htmx:afterRequest', function(evt) {
@@ -80,14 +64,11 @@ pub async fn index(
 pub struct ForwardedPrefix(String);
 
 #[axum::async_trait]
-impl axum::extract::FromRequestParts<AuthlyCtx> for ForwardedPrefix {
+impl<S> axum::extract::FromRequestParts<S> for ForwardedPrefix {
     type Rejection = ();
 
     /// Perform the extraction.
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _ctx: &AuthlyCtx,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let Some(prefix) = parts.headers.get("x-forwarded-prefix") else {
             return Ok(Self::default());
         };

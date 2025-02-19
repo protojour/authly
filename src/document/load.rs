@@ -10,8 +10,8 @@ use tracing::info;
 use crate::{
     audit::Actor,
     ctx::GetDb,
-    db::document_db::{self, DocumentDirectory},
-    directory,
+    db::directory_db::DbDirectory,
+    directory::{self, DirectoryKind},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     AuthlyCtx, EnvConfig,
 };
@@ -21,7 +21,7 @@ pub(crate) async fn load_cfg_documents(
     env_config: &EnvConfig,
     ctx: &AuthlyCtx,
 ) -> anyhow::Result<()> {
-    let doc_authorities = document_db::get_documents(ctx.get_db()).await?;
+    let doc_directories = DbDirectory::query_by_kind(ctx.get_db(), DirectoryKind::Document).await?;
 
     for dir_path in &env_config.document_path {
         let Ok(entries) = fs::read_dir(dir_path) else {
@@ -58,7 +58,7 @@ pub(crate) async fn load_cfg_documents(
 
             let dir_id = DirectoryId::from_uint(document.authly_document.id.get_ref().as_u128());
 
-            if should_process(dir_id, &meta, &doc_authorities) {
+            if should_process(dir_id, &meta, &doc_directories) {
                 info!(?path, "load");
 
                 let compiled_doc = match compile_doc(ctx, document, meta).await {
@@ -89,7 +89,7 @@ pub(crate) async fn load_cfg_documents(
 fn should_process(
     dir_id: DirectoryId,
     meta: &DocumentMeta,
-    doc_directories: &[DocumentDirectory],
+    doc_directories: &[DbDirectory],
 ) -> bool {
     for dir in doc_directories {
         if dir.id != dir_id {

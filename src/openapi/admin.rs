@@ -106,7 +106,7 @@ pub async fn post_authority_mandate_submission_token(
 ) -> Result<Response, Response> {
     let token = submission::authority::authority_generate_submission_token(
         &ctx,
-        proxied_base_uri.uri.to_string(),
+        proxied_base_uri.to_string(),
         Actor(auth.user_claims.authly.entity_id),
         None,
     )

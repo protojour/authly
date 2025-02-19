@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use http::{
     request::Parts,
@@ -8,8 +8,12 @@ use http::{
 
 /// An extractor that tries to guess the public Uri based on proxy headers
 #[derive(Default)]
-pub struct ProxiedBaseUri {
-    pub uri: Uri,
+pub struct ProxiedBaseUri(pub Uri);
+
+impl Display for ProxiedBaseUri {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 impl ProxiedBaseUri {
@@ -58,9 +62,7 @@ impl ProxiedBaseUri {
             };
         }
 
-        Ok(Self {
-            uri: Uri::from_parts(uri_parts).map_err(|_| ())?,
-        })
+        Ok(Self(Uri::from_parts(uri_parts).map_err(|_| ())?))
     }
 }
 

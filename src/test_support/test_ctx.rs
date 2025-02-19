@@ -7,6 +7,7 @@ use std::{
 use arc_swap::ArcSwap;
 use authly_common::id::ServiceId;
 use authly_db::sqlite_pool::{SqlitePool, Storage};
+use indexmap::IndexMap;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
 
@@ -19,10 +20,11 @@ use crate::{
     },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        ClusterBus, GetDb, GetDecryptedDeks, GetInstance, HostsConfig, KubernetesConfig,
-        LoadInstance, RedistributeCertificates, ServiceBus, SetInstance,
+        ClusterBus, Directories, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance, HostsConfig,
+        KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus, SetInstance,
     },
     db::cryptography_db,
+    directory::PersonaDirectory,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
     instance::{AuthlyId, AuthlyInstance},
     tls::{AuthlyCert, AuthlyCertKind},
@@ -37,6 +39,7 @@ pub struct TestCtx {
     instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
     deks: Arc<ArcSwap<DecryptedDeks>>,
     svc_event_dispatcher: ServiceEventDispatcher,
+    persona_directories: IndexMap<String, PersonaDirectory>,
 
     cluster_message_log: Arc<Mutex<Vec<ClusterMessage>>>,
 
@@ -56,6 +59,7 @@ impl TestCtx {
             instance: None,
             deks: Default::default(),
             svc_event_dispatcher: ServiceEventDispatcher::new(cancel.clone()),
+            persona_directories: Default::default(),
             cluster_message_log: Default::default(),
             cancel_guard: Arc::new(cancel.drop_guard()),
         }
@@ -159,6 +163,15 @@ impl TestCtx {
         self
     }
 
+    pub fn with_persona_directory(
+        mut self,
+        label: impl Into<String>,
+        dir: PersonaDirectory,
+    ) -> Self {
+        self.persona_directories.insert(label.into(), dir);
+        self
+    }
+
     pub fn get_decrypted_deks(&self) -> Arc<DecryptedDeks> {
         self.deks.as_ref().load_full()
     }
@@ -179,6 +192,12 @@ impl GetDb for TestCtx {
     #[track_caller]
     fn get_db(&self) -> &Self::Db {
         self.db.as_ref().expect("TestCtx has no database")
+    }
+}
+
+impl GetHttpClient for TestCtx {
+    fn get_internet_http_client(&self) -> reqwest::Client {
+        reqwest::Client::new()
     }
 }
 
@@ -257,6 +276,12 @@ impl ServiceBus for TestCtx {
 impl RedistributeCertificates for TestCtx {
     async fn redistribute_certificates_if_leader(&self) {
         info!("TestCtx redistribute certificates: ignored");
+    }
+}
+
+impl Directories for TestCtx {
+    fn load_persona_directories(&self) -> Arc<IndexMap<String, PersonaDirectory>> {
+        Arc::new(self.persona_directories.clone())
     }
 }
 

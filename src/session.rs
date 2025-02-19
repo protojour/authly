@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use authly_common::id::EntityId;
+use authly_db::DbResult;
 use cookie::{Cookie, Expiration, SameSite};
 use rand::Rng;
 use time::OffsetDateTime;
@@ -19,25 +20,19 @@ pub struct Session {
     pub expires_at: time::OffsetDateTime,
 }
 
-pub struct SessionToken(pub Vec<u8>);
-
-impl SessionToken {
-    pub fn new_random() -> Self {
-        Self(rand::thread_rng().gen::<[u8; TOKEN_WIDTH]>().to_vec())
+impl Session {
+    pub fn to_cookie(&self) -> Cookie<'static> {
+        let mut cookie = Cookie::new(
+            SESSION_COOKIE_NAME,
+            format!("{}", hexhex::hex(&self.token.0)),
+        );
+        cookie.set_path("/");
+        // cookie.set_secure(true);
+        cookie.set_http_only(true);
+        cookie.set_expires(Expiration::DateTime(self.expires_at));
+        cookie.set_same_site(SameSite::Strict);
+        cookie
     }
-}
-
-pub fn new_session_cookie(session: &Session) -> Cookie<'static> {
-    let mut cookie = Cookie::new(
-        SESSION_COOKIE_NAME,
-        format!("{}", hexhex::hex(&session.token.0)),
-    );
-    cookie.set_path("/");
-    // cookie.set_secure(true);
-    cookie.set_http_only(true);
-    cookie.set_expires(Expiration::DateTime(session.expires_at));
-    cookie.set_same_site(SameSite::Strict);
-    cookie
 }
 
 pub(crate) async fn authenticate_session_cookie(
@@ -60,6 +55,26 @@ pub(crate) async fn authenticate_session_cookie(
     if session.expires_at < now {
         return Err("session expired");
     }
+
+    Ok(session)
+}
+
+pub struct SessionToken(pub Vec<u8>);
+
+impl SessionToken {
+    pub fn new_random() -> Self {
+        Self(rand::thread_rng().gen::<[u8; TOKEN_WIDTH]>().to_vec())
+    }
+}
+
+pub async fn init_session(deps: &impl GetDb, eid: EntityId) -> DbResult<Session> {
+    let session = Session {
+        token: SessionToken::new_random(),
+        eid,
+        expires_at: time::OffsetDateTime::now_utc() + SESSION_TTL,
+    };
+
+    session_db::store_session(deps.get_db(), &session).await?;
 
     Ok(session)
 }

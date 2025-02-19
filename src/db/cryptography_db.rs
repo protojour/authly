@@ -1,11 +1,19 @@
 //! cryptography-oriented things stored in the DB (secret information is encrypted!)
 
-use std::{borrow::Cow, collections::HashMap, str::FromStr, time::Duration};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    str::{self, FromStr},
+    time::Duration,
+};
 
-use aes_gcm_siv::aead::Aead;
+use aes_gcm_siv::{
+    aead::{Aead, Nonce},
+    Aes256GcmSiv,
+};
 use anyhow::{anyhow, Context};
-use authly_common::id::{PropId, ServiceId};
-use authly_db::{param::AsParam, Db, DbError, FromRow, Row, TryFromRow};
+use authly_common::id::{AnyId, DirectoryId, PropId, ServiceId};
+use authly_db::{param::AsParam, Db, DbError, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param, Params};
 use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
@@ -15,6 +23,7 @@ use tracing::{debug, info};
 
 use crate::{
     cert::{authly_ca, client_cert, key_pair},
+    ctx::{GetDb, GetDecryptedDeks},
     encryption::{random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
     id::BuiltinProp,
     instance::AuthlyId,
@@ -365,6 +374,195 @@ pub fn save_tls_cert_sql(cert: &AuthlyCert) -> (Cow<'static, str>, Params) {
             cert_der
         ),
     )
+}
+
+#[derive(Clone)]
+pub struct EncryptedObjIdent {
+    pub prop_id: PropId,
+    pub fingerprint: [u8; 32],
+    pub nonce: Nonce<Aes256GcmSiv>,
+    pub ciph: Vec<u8>,
+}
+
+impl EncryptedObjIdent {
+    pub fn encrypt(prop_id: PropId, value: &str, deks: &DecryptedDeks) -> anyhow::Result<Self> {
+        let dek = deks.get(prop_id).map_err(CrDbError::Crypto)?;
+        let fingerprint = dek.fingerprint(value.as_bytes());
+        let nonce = random_nonce();
+        let ciph = dek
+            .aes()
+            .encrypt(&nonce, value.as_bytes())
+            .map_err(|err| CrDbError::Crypto(err.into()))?;
+
+        Ok(Self {
+            prop_id,
+            fingerprint,
+            nonce,
+            ciph,
+        })
+    }
+
+    pub async fn insert(
+        self,
+        deps: &impl Db,
+        dir_id: DirectoryId,
+        obj_id: AnyId,
+        now: i64,
+    ) -> DbResult<()> {
+        let (stmt, params) = self.insert_stmt(dir_id, obj_id, now);
+        deps.execute(stmt, params).await?;
+        Ok(())
+    }
+
+    pub fn insert_stmt(
+        self,
+        dir_id: DirectoryId,
+        obj_id: AnyId,
+        now: i64,
+    ) -> (Cow<'static, str>, Params) {
+        (
+            indoc! {
+                "
+                INSERT INTO obj_ident (dir_id, obj_id, prop_id, upd, fingerprint, nonce, ciph)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                "
+            }
+            .into(),
+            params!(
+                dir_id.as_param(),
+                obj_id.as_param(),
+                self.prop_id.as_param(),
+                now,
+                self.fingerprint.to_vec(),
+                self.nonce.to_vec(),
+                self.ciph
+            ),
+        )
+    }
+
+    pub async fn upsert(
+        self,
+        deps: &impl Db,
+        dir_id: DirectoryId,
+        obj_id: AnyId,
+        now: i64,
+    ) -> DbResult<()> {
+        let (stmt, params) = self.upsert_stmt(dir_id, obj_id, now);
+        deps.execute(stmt, params).await?;
+        Ok(())
+    }
+
+    pub fn upsert_stmt(
+        self,
+        dir_id: DirectoryId,
+        obj_id: AnyId,
+        now: i64,
+    ) -> (Cow<'static, str>, Params) {
+        (
+            indoc! {
+                "
+                INSERT INTO obj_ident (dir_id, obj_id, prop_id, upd, fingerprint, nonce, ciph)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT DO UPDATE SET
+                    upd = $4,
+                    fingerprint = $5,
+                    nonce = $6,
+                    ciph = $7
+                "
+            }
+            .into(),
+            params!(
+                dir_id.as_param(),
+                obj_id.as_param(),
+                self.prop_id.as_param(),
+                now,
+                self.fingerprint.to_vec(),
+                self.nonce.to_vec(),
+                self.ciph
+            ),
+        )
+    }
+}
+
+pub async fn lookup_obj_ident(
+    deps: &(impl GetDb + GetDecryptedDeks),
+    prop_id: PropId,
+    ident: &str,
+) -> Result<Option<AnyId>, CrDbError> {
+    struct TypedRow(AnyId);
+
+    impl FromRow for TypedRow {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self(row.get_id("obj_id"))
+        }
+    }
+
+    let ident_fingerprint = {
+        let deks = deps.get_decrypted_deks();
+        let dek = deks.get(prop_id).map_err(CrDbError::Crypto)?;
+
+        dek.fingerprint(ident.as_bytes())
+    };
+
+    let Some(row) = deps
+        .get_db()
+        .query_map_opt::<TypedRow>(
+            indoc! {
+                "
+                SELECT obj_id FROM obj_ident WHERE prop_id = $1 AND fingerprint = $2
+                ",
+            }
+            .into(),
+            params!(prop_id.as_param(), ident_fingerprint.as_slice()),
+        )
+        .await?
+    else {
+        return Ok(None);
+    };
+
+    Ok(Some(row.0))
+}
+
+pub async fn load_decrypt_obj_ident(
+    deps: &impl Db,
+    obj_id: AnyId,
+    prop_id: PropId,
+    deks: &DecryptedDeks,
+) -> Result<Option<String>, CrDbError> {
+    struct TypedRow {
+        pub nonce: Nonce<Aes256GcmSiv>,
+        pub ciph: Vec<u8>,
+    }
+
+    impl FromRow for TypedRow {
+        fn from_row(row: &mut impl Row) -> Self {
+            Self {
+                nonce: row.get_blob_array("nonce").into(),
+                ciph: row.get_blob("ciph"),
+            }
+        }
+    }
+
+    let Some(row) = deps
+        .query_map_opt::<TypedRow>(
+            "SELECT nonce, ciph FROM obj_ident WHERE obj_id = $1 AND prop_id = $2".into(),
+            params!(obj_id.as_param(), prop_id.as_param()),
+        )
+        .await?
+    else {
+        return Ok(None);
+    };
+
+    let decrypted = deks
+        .get(prop_id)
+        .map_err(|err| CrDbError::Crypto(err.into()))?
+        .aes()
+        .decrypt(&row.nonce, row.ciph.as_ref())
+        .map_err(|err| CrDbError::Crypto(err.into()))?;
+
+    Ok(Some(
+        String::from_utf8(decrypted).map_err(|err| CrDbError::Crypto(err.into()))?,
+    ))
 }
 
 impl From<hiqlite::Error> for CrDbError {

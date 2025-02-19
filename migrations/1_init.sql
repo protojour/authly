@@ -42,7 +42,8 @@ CREATE TABLE directory (
     parent_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
     kind TEXT NOT NULL,
     url TEXT,
-    hash BLOB
+    hash BLOB,
+    label TEXT UNIQUE
 );
 
 CREATE TABLE directory_audit (
@@ -99,6 +100,16 @@ CREATE TABLE obj_text_attr (
     value TEXT NOT NULL,
 
     PRIMARY KEY (obj_id, prop_id)
+);
+
+CREATE TABLE obj_foreign_dir_link (
+    dir_id BLOB NOT NULL REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    foreign_id BLOB NOT NULL,
+    obj_id BLOB NOT NULL,
+    upd DATETIME NOT NULL,
+    overwritten INTEGER NOT NULL,
+
+    PRIMARY KEY (dir_id, foreign_id)
 );
 
 -- An object's label in its originating directory/document
@@ -234,4 +245,27 @@ CREATE TABLE am_mandate (
     last_connection_time DATETIME NOT NULL,
 
     UNIQUE (public_key)
+);
+
+CREATE TABLE dir_oauth (
+    dir_id BLOB PRIMARY KEY REFERENCES directory(id) DEFERRABLE INITIALLY DEFERRED,
+    upd DATETIME NOT NULL,
+    client_id TEXT NOT NULL,
+
+    auth_url TEXT NOT NULL,
+    auth_req_scope TEXT,
+    auth_req_client_id_field TEXT,
+    auth_req_nonce_field TEXT,
+    auth_res_code_path TEXT,
+
+    token_url TEXT NOT NULL,
+    token_req_client_id_field TEXT,
+    token_req_client_secret_field TEXT,
+    token_req_code_field TEXT,
+    token_req_callback_url_field TEXT,
+    token_res_access_token_field TEXT,
+
+    user_url TEXT NOT NULL,
+    user_res_id_path TEXT,
+    user_res_email_path TEXT
 );
