@@ -1,8 +1,7 @@
 use std::{collections::BTreeMap, ops::Range};
 
 use authly_common::id::{
-    AnyId, AttrId, DirectoryId, DomainId, EntityId, PersonaId, PolicyBindingId, PolicyId, PropId,
-    ServiceId,
+    AnyId, AttrId, DirectoryId, DomainId, EntityId, PersonaId, PolicyId, PropId, ServiceId,
 };
 
 use crate::{
@@ -47,7 +46,7 @@ pub struct CompiledDocumentData {
     pub domain_res_props: Vec<CompiledProperty>,
 
     pub policies: Vec<Identified<PolicyId, policy_db::DbPolicy>>,
-    pub policy_bindings: Vec<Identified<PolicyBindingId, policy_db::DbPolicyBinding>>,
+    pub policy_bindings: Vec<policy_db::DbPolicyBinding>,
 }
 
 #[derive(Debug)]

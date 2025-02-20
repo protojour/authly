@@ -5,7 +5,7 @@ use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
 
 use authly_common::id::{
-    AnyId, AttrId, DirectoryId, DomainId, EntityId, PolicyBindingId, PolicyId, PropId, ServiceId,
+    AnyId, AttrId, DirectoryId, DomainId, EntityId, PolicyId, PropId, ServiceId,
 };
 use authly_common::policy::code::PolicyValue;
 use authly_common::{document, property::QualifiedAttributeName};
@@ -693,13 +693,10 @@ fn process_policy_bindings(
     comp: &mut CompileCtx,
 ) {
     for binding in policy_bindings {
-        let mut policy_binding = Identified(
-            PolicyBindingId::random(),
-            policy_db::DbPolicyBinding {
-                attr_matcher: Default::default(),
-                policies: Default::default(),
-            },
-        );
+        let mut policy_binding = policy_db::DbPolicyBinding {
+            attr_matcher: Default::default(),
+            policies: Default::default(),
+        };
 
         for spanned_qattr in binding.attributes {
             let Some(prop_id) = comp.ns_property_lookup(
@@ -719,7 +716,7 @@ fn process_policy_bindings(
                     }
                 };
 
-            policy_binding.data_mut().attr_matcher.insert(attr_id);
+            policy_binding.attr_matcher.insert(attr_id);
         }
 
         for spanned_policy in binding.policies {
@@ -727,7 +724,7 @@ fn process_policy_bindings(
                 continue;
             };
 
-            policy_binding.data_mut().policies.insert(policy_id);
+            policy_binding.policies.insert(policy_id);
         }
 
         data.policy_bindings.push(policy_binding);

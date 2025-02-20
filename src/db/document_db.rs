@@ -1,6 +1,6 @@
 use std::{borrow::Cow, ops::Range};
 
-use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyBindingId, PolicyId, PropId, ServiceId};
+use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
 use authly_db::{literal::Literal, param::AsParam, Db, DbError};
 use hiqlite::{params, Param, Params, StmtColumn, StmtIndex};
 use indoc::indoc;
@@ -88,9 +88,11 @@ impl DocumentTransaction {
         }
     }
 
-    fn push(&mut self, stmt: Stmt, span: Range<usize>) {
+    fn push(&mut self, stmt: Stmt, span: Range<usize>) -> usize {
+        let stmt_index = self.stmts.len();
         self.stmts.push(stmt);
         self.spans.push(span);
+        stmt_index
     }
 }
 
@@ -150,10 +152,10 @@ pub enum Stmt {
         label: String,
         policy_pc: Vec<u8>,
     },
-    PolBindAttrMatchGc,
-    PolBindPolicyGc,
-    PolBindAttrMatchWrite(PolicyBindingId, AttrId),
-    PolBindPolicyWrite(PolicyBindingId, PolicyId),
+    PolBindGc,
+    PolBindWrite,
+    PolBindAttrMatchWrite(usize, AttrId),
+    PolBindPolicyWrite(usize, PolicyId),
 }
 
 const NO_SPAN: Range<usize> = 0..0;
@@ -355,15 +357,18 @@ fn mk_document_transaction(document: CompiledDocument, actor: Actor) -> Document
 
     // service policy bindings
     {
-        txn.push(Stmt::PolBindAttrMatchGc, NO_SPAN);
-        txn.push(Stmt::PolBindPolicyGc, NO_SPAN);
+        txn.push(Stmt::PolBindGc, NO_SPAN);
+        // txn.push(Stmt::PolBindAttrMatchGc, NO_SPAN);
+        // txn.push(Stmt::PolBindPolicyGc, NO_SPAN);
 
-        for Identified(id, data) in data.policy_bindings {
-            for attr_id in data.attr_matcher {
-                txn.push(Stmt::PolBindAttrMatchWrite(id, attr_id), NO_SPAN);
+        for binding in data.policy_bindings {
+            let parent_stmt = txn.push(Stmt::PolBindWrite, NO_SPAN);
+
+            for attr_id in binding.attr_matcher {
+                txn.push(Stmt::PolBindAttrMatchWrite(parent_stmt, attr_id), NO_SPAN);
             }
-            for policy_id in data.policies {
-                txn.push(Stmt::PolBindPolicyWrite(id, policy_id), NO_SPAN);
+            for policy_id in binding.policies {
+                txn.push(Stmt::PolBindPolicyWrite(parent_stmt, policy_id), NO_SPAN);
             }
         }
     }
@@ -521,23 +526,23 @@ fn stmt_to_db_stmt(
             .into(),
             params!(dir_key, now, id.as_param(), label, policy_pc.as_slice()),
         ),
-        Stmt::PolBindAttrMatchGc => (
-            "DELETE FROM polbind_attr_match WHERE dir_key = $1".into(),
-            params!(dir_key),
+        Stmt::PolBindGc => (
+            "DELETE FROM polbind WHERE dir_key = $1".into(),
+            params!(dir_key)
         ),
-        Stmt::PolBindPolicyGc => (
-            "DELETE FROM polbind_policy WHERE dir_key = $1".into(),
-            params!(dir_key),
+        Stmt::PolBindWrite => (
+            "INSERT INTO polbind (dir_key, upd) VALUES ($1, $2) RETURNING key".into(),
+            params!(dir_key, now)
         ),
-        Stmt::PolBindAttrMatchWrite(pb_id, attr_id) => (
-            "INSERT INTO polbind_attr_match (dir_key, upd, polbind_id, attr_id) VALUES ($1, $2, $3, $4)"
+        Stmt::PolBindAttrMatchWrite(parent_stmt, attr_id) => (
+            "INSERT INTO polbind_attr_match (polbind_key, attr_id) VALUES ($1, $2)"
             .into(),
-            params!(dir_key, now, pb_id.as_param(), attr_id.as_param()),
+            params!(StmtIndex(*parent_stmt).column(0), attr_id.as_param()),
         ),
-        Stmt::PolBindPolicyWrite(pb_id, pol_id) => (
-            "INSERT INTO polbind_policy (dir_key, upd, polbind_id, policy_id) VALUES ($1, $2, $3, $4)"
+        Stmt::PolBindPolicyWrite(parent_stmt, pol_id) => (
+            "INSERT INTO polbind_policy (polbind_key, policy_id) VALUES ($1, $2)"
                 .into(),
-            params!(dir_key, now, pb_id.as_param(), pol_id.as_param()),
+            params!(StmtIndex(*parent_stmt).column(0), pol_id.as_param()),
         ),
     };
 

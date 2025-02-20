@@ -194,24 +194,27 @@ CREATE TABLE policy (
     UNIQUE (label)
 );
 
+-- Policy binding
+CREATE TABLE polbind (
+    key INTEGER PRIMARY KEY,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
+    upd DATETIME NOT NULL
+);
+
 -- Policy binding - attribute matchers
 CREATE TABLE polbind_attr_match (
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    polbind_id BLOB NOT NULL,
+    polbind_key INTEGER NOT NULL REFERENCES polbind(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     attr_id BLOB NOT NULL,
-    upd DATETIME NOT NULL,
 
-    PRIMARY KEY (polbind_id, attr_id)
+    PRIMARY KEY (polbind_key, attr_id)
 );
 
 -- Policy binding - policy implication
 CREATE TABLE polbind_policy (
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    polbind_id BLOB NOT NULL,
+    polbind_key INTEGER NOT NULL REFERENCES polbind(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     policy_id BLOB NOT NULL REFERENCES policy(id) DEFERRABLE INITIALLY DEFERRED,
-    upd DATETIME NOT NULL,
 
-    PRIMARY KEY (polbind_id, policy_id)
+    PRIMARY KEY (polbind_key, policy_id)
 );
 
 -- This table has one entry if Authly is trying to become a mandate of an authority

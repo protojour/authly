@@ -126,12 +126,12 @@ async fn list_svc_implied_policy_bindings(
                 CAST(group_concat(pb_am.attr_id, '') AS BLOB) attr_matcher,
                 CAST(group_concat(pb_pol.policy_id, '') AS BLOB) policies
             FROM polbind_policy pb_pol
-            JOIN polbind_attr_match pb_am ON pb_am.polbind_id = pb_pol.polbind_id
+            JOIN polbind_attr_match pb_am ON pb_am.polbind_key = pb_pol.polbind_key
             JOIN ns_res_attrlabel ra ON ra.id = pb_am.attr_id
             JOIN ns_res_prop rp ON rp.id = ra.prop_id
             JOIN svc_namespace sdom ON sdom.ns_id = rp.ns_id
             WHERE sdom.svc_eid = $1
-            GROUP BY pb_pol.polbind_id
+            GROUP BY pb_pol.polbind_key
             "
         }
         .into(),
