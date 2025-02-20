@@ -63,7 +63,7 @@ pub struct SessionToken(pub Vec<u8>);
 
 impl SessionToken {
     pub fn new_random() -> Self {
-        Self(rand::thread_rng().gen::<[u8; TOKEN_WIDTH]>().to_vec())
+        Self(rand::thread_rng().r#gen::<[u8; TOKEN_WIDTH]>().to_vec())
     }
 }
 
