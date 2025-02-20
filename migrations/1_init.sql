@@ -1,3 +1,40 @@
+-- Any kind of directory, including other Authly Authorities
+CREATE TABLE directory (
+    key integer NOT NULL PRIMARY KEY,
+    parent_key BLOB REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
+    id BLOB NOT NULL UNIQUE,
+    kind TEXT NOT NULL,
+    url TEXT,
+    hash BLOB,
+    label TEXT UNIQUE
+);
+
+CREATE TABLE namespace (
+    key INTEGER NOT NULL PRIMARY KEY,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
+    id BLOB NOT NULL,
+);
+
+CREATE TABLE prop (
+    key INTEGER PRIMARY KEY,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
+    ns_key INTEGER NOT NULL REFERENCES namespace(key) DEFERRABLE INITIALLY DEFERRED,
+    id BLOB NOT NULL UNIQUE,
+    kind TEXT NOT NULL,
+    upd DATETIME NOT NULL,
+    label TEXT NOT NULL
+);
+
+CREATE TABLE attr (
+    key INTEGER PRIMARY KEY,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
+    prop_key INTEGER NOT NULL REFERENCES prop(key) DEFERRABLE INITIALLY DEFERRED,
+    id BLOB NOT NULL UNIQUE,
+    kind TEXT NOT NULL,
+    upd DATETIME NOT NULL,
+    label TEXT NOT NULL
+);
+
 -- The version of the master encryption key Authly is currently using
 CREATE TABLE cr_master_version (
     version BLOB NOT NULL,
@@ -33,18 +70,6 @@ CREATE TABLE session (
     token BLOB NOT NULL PRIMARY KEY,
     eid BLOB NOT NULL,
     expires_at DATETIME NOT NULL
-);
-
--- Any kind of directory, including other Authly Authorities
-CREATE TABLE directory (
-    key integer NOT NULL PRIMARY KEY,
-    parent_key BLOB REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    id BLOB NOT NULL UNIQUE,
-    -- if the directory is owned/managed by another, the parent_id != id:
-    kind TEXT NOT NULL,
-    url TEXT,
-    hash BLOB,
-    label TEXT UNIQUE
 );
 
 CREATE TABLE directory_audit (
@@ -273,3 +298,5 @@ CREATE TABLE dir_oauth (
     user_res_id_path TEXT,
     user_res_email_path TEXT
 );
+
+-- seed
