@@ -112,6 +112,12 @@ impl From<BuiltinAttr> for AttrId {
 }
 
 impl BuiltinAttr {
+    pub fn iter() -> impl Iterator<Item = Self> {
+        (0..u32::MAX)
+            .map(Self::try_from)
+            .scan((), |_, item| item.ok())
+    }
+
     pub const fn label(self) -> Option<&'static str> {
         match self {
             Self::AuthlyRoleGetAccessToken => Some("get_access_token"),

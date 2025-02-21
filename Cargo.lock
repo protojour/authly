@@ -1869,7 +1869,7 @@ dependencies = [
 [[package]]
 name = "hiqlite"
 version = "0.5.0"
-source = "git+https://github.com/sebadob/hiqlite.git#1dcb79e462ecb06469deaa77bad7b8280a1ae9c1"
+source = "git+https://github.com/sebadob/hiqlite.git#61fab1a141f79adfb9a6de0312dd1bf9a59ecc22"
 dependencies = [
  "axum 0.8.1",
  "axum-server",

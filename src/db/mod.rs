@@ -3,6 +3,7 @@ pub mod cryptography_db;
 pub mod directory_db;
 pub mod document_db;
 pub mod entity_db;
+pub mod init_db;
 pub mod oauth_db;
 pub mod object_db;
 pub mod policy_db;

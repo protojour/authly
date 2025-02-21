@@ -23,7 +23,7 @@ use crate::{
         ClusterBus, Directories, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance, HostsConfig,
         KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus, SetInstance,
     },
-    db::cryptography_db,
+    db::{cryptography_db, init_db},
     directory::PersonaDirectory,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
     instance::{AuthlyId, AuthlyInstance},
@@ -72,6 +72,10 @@ impl TestCtx {
             sqlite_migrate::<Migrations>(&mut conn).await;
         }
 
+        init_db::load_authly_builtins(&pool, IsLeaderDb(true))
+            .await
+            .unwrap();
+
         self.db = Some(pool);
         self
     }
@@ -85,6 +89,10 @@ impl TestCtx {
             let mut conn = pool.get().await.unwrap();
             sqlite_migrate::<Migrations>(&mut conn).await;
         }
+
+        init_db::load_authly_builtins(&pool, IsLeaderDb(true))
+            .await
+            .unwrap();
 
         self.db = Some(pool);
         self

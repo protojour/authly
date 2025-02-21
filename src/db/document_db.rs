@@ -13,7 +13,7 @@ use crate::{
     document::{
         compiled_document::{
             CompiledDocument, CompiledEntityAttributeAssignment, CompiledEntityRelation,
-            CompiledService, DocumentMeta, ObjectIdent, ObjectLabel, ObjectTextAttr,
+            CompiledService, DocumentMeta, ObjectIdent, ObjectTextAttr,
         },
         error::DocError,
     },
@@ -21,7 +21,7 @@ use crate::{
     settings::Setting,
 };
 
-use super::{cryptography_db::EncryptedObjIdent, Identified};
+use super::{cryptography_db::EncryptedObjIdent, service_db::PropertyKind, Identified};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DocumentDbTxnError {
@@ -112,40 +112,29 @@ pub enum Stmt {
     ObjIdentWrite(ObjectIdent),
     ObjTextAttrGc,
     ObjTextAttrWrite(ObjectTextAttr),
-    ObjLabelGc(Vec<AnyId>),
-    ObjLabelWrite(ObjectLabel),
     EntRelGc,
     EntRelWrite(CompiledEntityRelation),
+    NamespaceGc(Vec<AnyId>),
+    NamespaceWrite(AnyId, String),
     ServiceGc(Vec<ServiceId>),
     ServiceWrite(ServiceId, CompiledService),
     ServiceNamespaceGc,
     ServiceNamespaceWrite(ServiceId, AnyId),
-    EntAttrGc,
-    EntAttrWrite(CompiledEntityAttributeAssignment),
-    NsEntPropGc(Vec<PropId>),
-    NsEntAttrLabelGc(Vec<AttrId>),
-    NsEntPropWrite {
+    NsPropGc(Vec<PropId>),
+    NsAttrGc(Vec<AttrId>),
+    NsPropWrite {
         id: PropId,
         ns_id: AnyId,
+        kind: PropertyKind,
         label: String,
     },
-    NsEntAttrLabelWrite {
+    NsAttrWrite {
+        prop_stmt: usize,
         id: AttrId,
-        prop_id: PropId,
         label: String,
     },
-    NsResPropGc(Vec<PropId>),
-    NsResAttrLabelGc(Vec<AttrId>),
-    NsResPropWrite {
-        id: PropId,
-        ns_id: AnyId,
-        label: String,
-    },
-    NsResAttrLabelWrite {
-        id: AttrId,
-        prop_id: PropId,
-        label: String,
-    },
+    EntAttrAssignmentGc,
+    EntAttrAssignmentWrite(CompiledEntityAttributeAssignment),
     PolicyGc(Vec<PolicyId>),
     PolicyWrite {
         id: PolicyId,
@@ -180,6 +169,16 @@ fn mk_document_transaction(document: CompiledDocument, actor: Actor) -> Document
         }
     }
 
+    // namespaces
+    {
+        let namespace_ids: Vec<_> = data.namespaces.keys().copied().collect();
+        txn.push(Stmt::NamespaceGc(namespace_ids), NO_SPAN);
+
+        for (namespace_id, (label, span)) in data.namespaces {
+            txn.push(Stmt::NamespaceWrite(namespace_id, label), span);
+        }
+    }
+
     // entity identifiers and text attributes
     {
         txn.push(Stmt::ObjIdentGc, NO_SPAN);
@@ -192,20 +191,6 @@ fn mk_document_transaction(document: CompiledDocument, actor: Actor) -> Document
 
         for (text_attr, span) in data.obj_text_attrs {
             txn.push(Stmt::ObjTextAttrWrite(text_attr), span);
-        }
-
-        txn.push(
-            Stmt::ObjLabelGc(
-                data.obj_labels
-                    .iter()
-                    .map(|(label, _)| label.obj_id)
-                    .collect(),
-            ),
-            NO_SPAN,
-        );
-
-        for (label, span) in data.obj_labels {
-            txn.push(Stmt::ObjLabelWrite(label), span);
         }
     }
 
@@ -246,93 +231,54 @@ fn mk_document_transaction(document: CompiledDocument, actor: Actor) -> Document
         }
     }
 
+    // namespaced properties
+    {
+        txn.push(
+            Stmt::NsPropGc(data.domain_props.iter().map(|s| s.id).collect()),
+            NO_SPAN,
+        );
+        txn.push(
+            Stmt::NsAttrGc(
+                data.domain_props
+                    .iter()
+                    .flat_map(|p| p.attributes.iter())
+                    .map(|a| a.id)
+                    .collect(),
+            ),
+            NO_SPAN,
+        );
+
+        for prop in data.domain_props {
+            let stmt_index = txn.push(
+                Stmt::NsPropWrite {
+                    id: prop.id,
+                    kind: prop.kind,
+                    ns_id: prop.ns_id,
+                    label: prop.label,
+                },
+                NO_SPAN,
+            );
+
+            for attr in prop.attributes {
+                txn.push(
+                    Stmt::NsAttrWrite {
+                        prop_stmt: stmt_index,
+                        id: attr.id,
+                        label: attr.label,
+                    },
+                    NO_SPAN,
+                );
+            }
+        }
+    }
+
     // entity attribute assignment
     {
         // not sure how to "GC" this?
-        txn.push(Stmt::EntAttrGc, NO_SPAN);
+        txn.push(Stmt::EntAttrAssignmentGc, NO_SPAN);
 
         for assignment in data.entity_attribute_assignments {
-            txn.push(Stmt::EntAttrWrite(assignment), NO_SPAN);
-        }
-    }
-
-    // namespaced entity props
-    {
-        txn.push(
-            Stmt::NsEntPropGc(data.domain_ent_props.iter().map(|s| s.id).collect()),
-            NO_SPAN,
-        );
-        txn.push(
-            Stmt::NsEntAttrLabelGc(
-                data.domain_ent_props
-                    .iter()
-                    .flat_map(|p| p.attributes.iter())
-                    .map(|a| a.id)
-                    .collect(),
-            ),
-            NO_SPAN,
-        );
-
-        for eprop in data.domain_ent_props {
-            txn.push(
-                Stmt::NsEntPropWrite {
-                    id: eprop.id,
-                    ns_id: eprop.ns_id,
-                    label: eprop.label,
-                },
-                NO_SPAN,
-            );
-
-            for attr in eprop.attributes {
-                txn.push(
-                    Stmt::NsEntAttrLabelWrite {
-                        id: attr.id,
-                        prop_id: eprop.id,
-                        label: attr.label,
-                    },
-                    NO_SPAN,
-                );
-            }
-        }
-    }
-
-    // namespace resource props
-    {
-        txn.push(
-            Stmt::NsResPropGc(data.domain_res_props.iter().map(|p| p.id).collect()),
-            NO_SPAN,
-        );
-        txn.push(
-            Stmt::NsResAttrLabelGc(
-                data.domain_res_props
-                    .iter()
-                    .flat_map(|p| p.attributes.iter())
-                    .map(|a| a.id)
-                    .collect(),
-            ),
-            NO_SPAN,
-        );
-
-        for rprop in data.domain_res_props {
-            txn.push(
-                Stmt::NsResPropWrite {
-                    id: rprop.id,
-                    ns_id: rprop.ns_id,
-                    label: rprop.label,
-                },
-                NO_SPAN,
-            );
-
-            for attr in rprop.attributes {
-                txn.push(
-                    Stmt::NsResAttrLabelWrite {
-                        id: attr.id,
-                        prop_id: rprop.id,
-                        label: attr.label,
-                    },
-                    NO_SPAN,
-                );
-            }
+            txn.push(Stmt::EntAttrAssignmentWrite(assignment), NO_SPAN);
         }
     }
 
@@ -358,8 +304,6 @@ fn mk_document_transaction(document: CompiledDocument, actor: Actor) -> Document
     // service policy bindings
     {
         txn.push(Stmt::PolBindGc, NO_SPAN);
-        // txn.push(Stmt::PolBindAttrMatchGc, NO_SPAN);
-        // txn.push(Stmt::PolBindPolicyGc, NO_SPAN);
 
         for binding in data.policy_bindings {
             let parent_stmt = txn.push(Stmt::PolBindWrite, NO_SPAN);
@@ -401,6 +345,11 @@ fn stmt_to_db_stmt(
             "INSERT INTO local_setting (dir_key, upd, setting, value) VALUES ($1, $2, $3, $4)".into(),
             params!(dir_key, now, *setting as i64, value),
         ),
+        Stmt::NamespaceGc(ids) => gc("namespace", NotIn("id", ids.iter().copied()), dir_key),
+        Stmt::NamespaceWrite(id, label) => (
+            "INSERT INTO namespace (dir_key, id, upd, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET upd = $3, label = $4".into(),
+            params!(dir_key, id.as_param(), now, label)
+        ),
         Stmt::ObjIdentGc => (
             "DELETE FROM obj_ident WHERE dir_key = $1".into(),
             params!(dir_key),
@@ -417,13 +366,6 @@ fn stmt_to_db_stmt(
         Stmt::ObjTextAttrWrite(attr) => (
             "INSERT INTO obj_text_attr (dir_key, upd, obj_id, prop_id, value) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
             params!(dir_key, now, attr.obj_id.as_param(), attr.prop_id.as_param(), &attr.value),
-        ),
-        Stmt::ObjLabelGc(ids) => {
-            gc("obj_label", NotIn("obj_id", ids.iter().copied()), dir_key)
-        },
-        Stmt::ObjLabelWrite(ObjectLabel { obj_id, label }) => (
-            "INSERT INTO obj_label (dir_key, upd, obj_id, label) VALUES ($1, $2, $3, $4) ON CONFLICT DO UPDATE SET upd = $2, label = $4".into(),
-            params!(dir_key, now, obj_id.as_param(), label),
         ),
         Stmt::EntRelGc => (
             "DELETE FROM ent_rel WHERE dir_key = $1".into(),
@@ -450,65 +392,46 @@ fn stmt_to_db_stmt(
             params!(dir_key),
         ),
         Stmt::ServiceNamespaceWrite(svc_id, ns_id) => (
-            "INSERT INTO svc_namespace (dir_key, upd, svc_eid, ns_id) VALUES ($1, $2, $3, $4)".into(),
+            "INSERT INTO svc_namespace (dir_key, upd, svc_eid, ns_key) VALUES ($1, $2, $3, (SELECT key FROM namespace WHERE id = $4))".into(),
             params!(dir_key, now, svc_id.as_param(), ns_id.as_param()),
         ),
-        Stmt::EntAttrGc => (
+        Stmt::EntAttrAssignmentGc => (
             "DELETE FROM ent_attr WHERE dir_key = $1".into(),
             params!(dir_key),
         ),
-        Stmt::EntAttrWrite(assignment) => (
-            "INSERT INTO ent_attr (dir_key, upd, eid, attrid) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING".into(),
+        Stmt::EntAttrAssignmentWrite(assignment) => (
+            "INSERT INTO ent_attr (dir_key, upd, eid, attr_key) VALUES ($1, $2, $3, (SELECT key FROM attr WHERE id = $4)) ON CONFLICT DO NOTHING".into(),
             params!(dir_key, now, assignment.eid.as_param(), assignment.attrid.as_param()),
         ),
-        Stmt::NsEntPropGc(ids) => gc(
-            "ns_ent_prop",
+        Stmt::NsPropGc(ids) => gc(
+            "prop",
             NotIn("id", ids.iter().copied()),
             dir_key,
         ),
-        Stmt::NsEntAttrLabelGc(ids) => gc(
-            "ns_ent_attrlabel",
-            NotIn(
-                "id",
-                ids.iter().copied()
-            ),
-            dir_key,
-        ),
-        Stmt::NsEntPropWrite { id, ns_id, label } => (
-            "INSERT INTO ns_ent_prop (dir_key, upd, id, ns_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO UPDATE SET upd = $2, label = $5".into(),
-            params!(dir_key, now, id.as_param(), ns_id.as_param(), label),
-        ),
-        Stmt::NsEntAttrLabelWrite { id, prop_id, label } => (
-            "INSERT INTO ns_ent_attrlabel (dir_key, upd, id, prop_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
-            params!(dir_key, now, id.as_param(), prop_id.as_param(), label)
-        ),
-        Stmt::NsResPropGc(ids) => gc(
-            "ns_res_prop",
+        Stmt::NsAttrGc(ids) => gc(
+            "attr",
             NotIn("id", ids.iter().copied()),
             dir_key,
         ),
-        Stmt::NsResAttrLabelGc(ids) => gc(
-            "ns_res_attrlabel",
-            NotIn(
-                "id",
-                ids.iter().copied()
-            ),
-            dir_key,
-        ),
-        Stmt::NsResPropWrite { id, ns_id, label } => (
+        Stmt::NsPropWrite { id, ns_id, kind, label } => (
             indoc! {
                 "
-                INSERT INTO ns_res_prop (dir_key, upd, id, ns_id, label)
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT DO UPDATE SET upd = $2, label = $5
+                INSERT INTO prop (dir_key, ns_key, upd, id, kind, label)
+                VALUES ($1, (SELECT key FROM namespace WHERE id = $2), $3, $4, $5, $6)
+                ON CONFLICT DO UPDATE SET upd = $3, kind = $5, label = $6
+                RETURNING key
                 "
-            }
-            .into(),
-            params!(dir_key, now, id.as_param(), ns_id.as_param(), label),
+            }.into(),
+            params!(dir_key, ns_id.as_param(), now, id.as_param(), format!("{kind}"), label),
         ),
-        Stmt::NsResAttrLabelWrite { id, prop_id, label } => (
-            "INSERT INTO ns_res_attrlabel (dir_key, upd, id, prop_id, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
-            params!(dir_key, now, id.as_param(), prop_id.as_param(), label)
+        Stmt::NsAttrWrite { prop_stmt, id, label } => (
+            indoc! {
+                "
+                INSERT INTO attr (dir_key, prop_key, upd, id, label)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT DO UPDATE SET upd = $2, label = $5"
+            }.into(),
+            params!(dir_key, StmtIndex(*prop_stmt).column(0), now, id.as_param(), label),
         ),
         Stmt::PolicyGc(ids) => gc(
             "policy",
@@ -535,7 +458,7 @@ fn stmt_to_db_stmt(
             params!(dir_key, now)
         ),
         Stmt::PolBindAttrMatchWrite(parent_stmt, attr_id) => (
-            "INSERT INTO polbind_attr_match (polbind_key, attr_id) VALUES ($1, $2)"
+            "INSERT INTO polbind_attr_match (polbind_key, attr_key) VALUES ($1, (SELECT key FROM attr WHERE id = $2))"
             .into(),
             params!(StmtIndex(*parent_stmt).column(0), attr_id.as_param()),
         ),

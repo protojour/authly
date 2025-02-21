@@ -13,7 +13,11 @@ use arc_swap::ArcSwap;
 use axum::{response::IntoResponse, Json};
 use bus::{message::ServiceMessage, service_events::ServiceEventDispatcher};
 use ctx::{GetDb, ServiceBus};
-use db::{cryptography_db, settings_db};
+use db::{
+    cryptography_db,
+    init_db::{self, Builtins},
+    settings_db,
+};
 use directory::PersonaDirectory;
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;
@@ -101,6 +105,7 @@ impl AuthlyCtx {
 struct AuthlyState {
     /// The client for hiqlite, an embedded database
     hql: hiqlite::Client,
+    builtins: Builtins,
     instance: ArcSwap<AuthlyInstance>,
     /// Dynamically updatable settings:
     settings: ArcSwap<Settings>,
@@ -251,6 +256,9 @@ async fn initialize() -> anyhow::Result<Init> {
         err
     })?;
 
+    let builtins =
+        init_db::load_authly_builtins(&hql, IsLeaderDb(hql.is_leader_db().await)).await?;
+
     let deks = encryption::load_decrypted_deks(
         &hql,
         IsLeaderDb(hql.is_leader_db().await),
@@ -274,6 +282,7 @@ async fn initialize() -> anyhow::Result<Init> {
     let ctx = AuthlyCtx {
         state: Arc::new(AuthlyState {
             hql,
+            builtins,
             instance: ArcSwap::new(Arc::new(instance)),
             settings: ArcSwap::new(Arc::new(Settings::default())),
             deks: ArcSwap::new(Arc::new(deks)),

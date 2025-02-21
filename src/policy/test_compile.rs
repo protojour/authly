@@ -8,6 +8,7 @@ use authly_common::{
 };
 
 use crate::{
+    db::service_db::PropertyKind,
     document::{
         compiled_document::{CompiledAttribute, CompiledDocumentData, CompiledProperty},
         doc_compiler::{NamespaceEntry, NamespaceKind, Namespaces},
@@ -36,9 +37,10 @@ fn test_env() -> (Namespaces, CompiledDocumentData) {
         ),
     ]);
     let mut doc_data = CompiledDocumentData::default();
-    doc_data.domain_ent_props.push(CompiledProperty {
+    doc_data.domain_props.push(CompiledProperty {
         id: ROLE,
         ns_id: SVC.upcast(),
+        kind: PropertyKind::Entity,
         label: "role".to_string(),
         attributes: vec![CompiledAttribute {
             id: ROLE_ROOT,

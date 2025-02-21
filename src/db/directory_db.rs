@@ -12,7 +12,7 @@ use crate::directory::{DirKey, DirectoryKind};
 
 use super::{
     policy_db::DbPolicy,
-    service_db::{ServiceProperty, ServicePropertyKind},
+    service_db::{NamespaceProperty, PropertyKind},
 };
 
 impl FromRow for DirKey {
@@ -72,25 +72,25 @@ impl DbDirectory {
     }
 }
 
-pub struct DbDirectoryObjectLabel {
+pub struct DbDirectoryNamespaceLabel {
     pub id: AnyId,
     pub label: String,
 }
 
-impl FromRow for DbDirectoryObjectLabel {
+impl FromRow for DbDirectoryNamespaceLabel {
     fn from_row(row: &mut impl Row) -> Self {
         Self {
-            id: row.get_id("obj_id"),
+            id: row.get_id("id"),
             label: row.get_text("label"),
         }
     }
 }
 
-impl DbDirectoryObjectLabel {
+impl DbDirectoryNamespaceLabel {
     pub async fn query(deps: &impl Db, dir_key: DirKey) -> DbResult<Vec<Self>> {
         deps.query_map(
             // FIXME: unindexed query
-            "SELECT obj_id, label FROM obj_label WHERE dir_key = $1".into(),
+            "SELECT id, label FROM namespace WHERE dir_key = $1".into(),
             params!(dir_key.as_param()),
         )
         .await
@@ -153,59 +153,48 @@ pub async fn list_namespace_properties(
     deps: &impl Db,
     dir_key: DirKey,
     ns_id: AnyId,
-    property_kind: ServicePropertyKind,
-) -> DbResult<Vec<ServiceProperty>> {
-    struct Output((PropId, String), (AttrId, String));
+) -> DbResult<Vec<NamespaceProperty>> {
+    struct Output((PropId, PropertyKind, String), (AttrId, String));
 
     impl FromRow for Output {
         fn from_row(row: &mut impl Row) -> Self {
             Self(
-                (row.get_id("pid"), row.get_text("plabel")),
+                (
+                    row.get_id("pid"),
+                    PropertyKind::deserialize(StringDeserializer::<serde_json::Error>::new(
+                        row.get_text("pkind"),
+                    ))
+                    .unwrap(),
+                    row.get_text("plabel"),
+                ),
                 (row.get_id("attrid"), row.get_text("alabel")),
             )
         }
     }
 
-    let outputs = match property_kind {
-        ServicePropertyKind::Entity => {
-            deps.query_map::<Output>(
-                indoc! {
-                    "
-                    SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM ns_ent_prop p
-                    JOIN ns_ent_attrlabel a ON a.prop_id = p.id
-                    WHERE p.dir_key = $1 AND p.ns_id = $2
-                    ",
-                }
-                .into(),
-                params!(dir_key.as_param(), ns_id.as_param()),
-            )
-            .await?
-        }
-        ServicePropertyKind::Resource => {
-            deps.query_map::<Output>(
-                indoc! {
-                    "
-                    SELECT p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM ns_res_prop p
-                    JOIN ns_res_attrlabel a ON a.prop_id = p.id
-                    WHERE p.dir_key = $1 AND p.ns_id = $2
-                    ",
-                }
-                .into(),
-                params!(dir_key.as_param(), ns_id.as_param()),
-            )
-            .await?
-        }
-    };
+    let outputs = deps
+        .query_map::<Output>(
+            indoc! {
+                "
+                SELECT p.id pid, p.kind pkind, p.label plabel, a.id attrid, a.label alabel
+                FROM prop p
+                JOIN attr a ON a.prop_key = p.key
+                WHERE p.dir_key = $1 AND p.ns_key = (SELECT key FROM namespace WHERE id = $2)
+                "
+            }
+            .into(),
+            params!(dir_key.as_param(), ns_id.as_param()),
+        )
+        .await?;
 
-    let mut properties: HashMap<PropId, ServiceProperty> = Default::default();
+    let mut properties: HashMap<PropId, NamespaceProperty> = Default::default();
 
-    for Output((prop_id, plabel), (attr_id, alabel)) in outputs {
+    for Output((prop_id, kind, plabel), (attr_id, alabel)) in outputs {
         let property = properties
             .entry(prop_id)
-            .or_insert_with(|| ServiceProperty {
+            .or_insert_with(|| NamespaceProperty {
                 id: prop_id,
+                kind,
                 label: plabel,
                 attributes: vec![],
             });

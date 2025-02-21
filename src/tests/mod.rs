@@ -27,7 +27,7 @@ use crate::{
     cert::Cert,
     db::{
         document_db::DocumentDbTxnError,
-        service_db::{self, ServicePropertyKind},
+        service_db::{self, PropertyKind},
     },
     directory::DirectoryError,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc, error::DocError},
@@ -220,13 +220,12 @@ struct ServiceProperties {
 impl ServiceProperties {
     async fn load(svc_eid: ServiceId, conn: &SqlitePool) -> Self {
         let resource =
-            service_db::get_service_property_mapping(conn, svc_eid, ServicePropertyKind::Resource)
+            service_db::get_service_property_mapping(conn, svc_eid, PropertyKind::Resource)
                 .await
                 .unwrap();
-        let entity =
-            service_db::get_service_property_mapping(conn, svc_eid, ServicePropertyKind::Entity)
-                .await
-                .unwrap();
+        let entity = service_db::get_service_property_mapping(conn, svc_eid, PropertyKind::Entity)
+            .await
+            .unwrap();
 
         Self { resource, entity }
     }

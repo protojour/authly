@@ -16,12 +16,12 @@ use serde_spanned::Spanned;
 use tracing::debug;
 
 use crate::ctx::{GetDb, KubernetesConfig};
-use crate::db::directory_db::{query_dir_key, DbDirectoryObjectLabel, DbDirectoryPolicy};
+use crate::db::directory_db::{query_dir_key, DbDirectoryNamespaceLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
 use crate::directory::DirKey;
 use crate::document::compiled_document::{
-    CompiledEntityAttributeAssignment, CompiledService, ObjectIdent, ObjectLabel, ObjectTextAttr,
+    CompiledEntityAttributeAssignment, CompiledService, ObjectIdent, ObjectTextAttr,
 };
 use crate::id::BuiltinProp;
 use crate::policy::compiler::PolicyCompiler;
@@ -91,8 +91,7 @@ struct CompileCtx {
 
     namespaces: Namespaces,
 
-    eprop_cache: HashMap<AnyId, Vec<service_db::ServiceProperty>>,
-    rprop_cache: HashMap<AnyId, Vec<service_db::ServiceProperty>>,
+    prop_cache: HashMap<AnyId, Vec<service_db::NamespaceProperty>>,
     policy_cache: HashMap<DirectoryId, Vec<DbDirectoryPolicy>>,
     label_cache: Option<HashMap<String, AnyId>>,
 
@@ -125,8 +124,7 @@ pub async fn compile_doc(
         dir_key,
         dir_id,
         namespaces: Default::default(),
-        eprop_cache: Default::default(),
-        rprop_cache: Default::default(),
+        prop_cache: Default::default(),
         policy_cache: Default::default(),
         label_cache: Default::default(),
         errors: Default::default(),
@@ -167,7 +165,7 @@ pub async fn compile_doc(
         seed_namespace(&doc, &mut comp);
 
         for domain in mem::take(&mut doc.domain) {
-            let Some(cache) = comp.db_directory_object_labels_cached(db).await else {
+            let Some(cache) = comp.db_directory_namespace_labels_cached(db).await else {
                 continue;
             };
 
@@ -179,13 +177,10 @@ pub async fn compile_doc(
 
             comp.ns_add(&domain.label, NamespaceKind::Domain(id));
 
-            data.obj_labels.push((
-                ObjectLabel {
-                    obj_id: id.upcast(),
-                    label: domain.label.as_ref().to_string(),
-                },
-                domain.label.span(),
-            ));
+            data.namespaces.insert(
+                id.upcast(),
+                (domain.label.as_ref().to_string(), domain.label.span()),
+            );
 
             if let Some(metadata) = domain.metadata {
                 let span = metadata.span();
@@ -230,13 +225,8 @@ pub async fn compile_doc(
         };
 
         if let Some(label) = &entity.label {
-            data.obj_labels.push((
-                ObjectLabel {
-                    obj_id: svc_eid.upcast(),
-                    label: label.as_ref().to_string(),
-                },
-                label.span(),
-            ));
+            data.namespaces
+                .insert(svc_eid.upcast(), (label.as_ref().to_string(), label.span()));
         }
 
         if let Some(k8s) = mem::take(&mut entity.kubernetes_account) {
@@ -470,10 +460,10 @@ async fn process_service_properties(
             continue;
         };
 
-        if let Some(compiled_property) = compile_service_property(
+        if let Some(compiled_property) = compile_ns_property(
             &doc_eprop.namespace,
             ns_id,
-            service_db::ServicePropertyKind::Entity,
+            service_db::PropertyKind::Entity,
             &doc_eprop.label,
             doc_eprop.attributes,
             comp,
@@ -481,7 +471,7 @@ async fn process_service_properties(
         )
         .await
         {
-            data.domain_ent_props.push(compiled_property);
+            data.domain_props.push(compiled_property);
         }
     }
 
@@ -490,10 +480,10 @@ async fn process_service_properties(
             continue;
         };
 
-        if let Some(compiled_property) = compile_service_property(
+        if let Some(compiled_property) = compile_ns_property(
             &doc_rprop.namespace,
             ns_id,
-            service_db::ServicePropertyKind::Resource,
+            service_db::PropertyKind::Resource,
             &doc_rprop.label,
             doc_rprop.attributes,
             comp,
@@ -501,27 +491,25 @@ async fn process_service_properties(
         )
         .await
         {
-            data.domain_res_props.push(compiled_property);
+            data.domain_props.push(compiled_property);
         }
     }
 }
 
-async fn compile_service_property(
-    svc_namespace: &Spanned<String>,
+async fn compile_ns_property(
+    namespace: &Spanned<String>,
     ns_id: AnyId,
-    property_kind: service_db::ServicePropertyKind,
+    property_kind: service_db::PropertyKind,
     doc_property_label: &Spanned<String>,
     doc_attributes: Vec<Spanned<String>>,
     comp: &mut CompileCtx,
     db: &impl Db,
 ) -> Option<CompiledProperty> {
-    let db_props_cached = comp
-        .db_namespace_properties_cached(ns_id, property_kind, db)
-        .await?;
+    let db_props_cached = comp.db_namespace_properties_cached(ns_id, db).await?;
 
-    let db_eprop = db_props_cached
-        .iter()
-        .find(|db_prop| &db_prop.label == doc_property_label.as_ref());
+    let db_eprop = db_props_cached.iter().find(|db_prop| {
+        db_prop.kind == property_kind && &db_prop.label == doc_property_label.as_ref()
+    });
 
     let mut compiled_property = CompiledProperty {
         id: db_eprop
@@ -529,6 +517,7 @@ async fn compile_service_property(
             .map(|db_prop| db_prop.id)
             .unwrap_or_else(PropId::random),
         ns_id,
+        kind: property_kind,
         label: doc_property_label.as_ref().to_string(),
         attributes: vec![],
     };
@@ -551,7 +540,7 @@ async fn compile_service_property(
     }
 
     comp.ns_add_entry(
-        svc_namespace,
+        namespace,
         doc_property_label,
         NamespaceEntry::PropertyLabel(compiled_property.id),
     );
@@ -883,21 +872,14 @@ impl CompileCtx {
     async fn db_namespace_properties_cached<'s>(
         &'s mut self,
         ns_id: AnyId,
-        property_kind: service_db::ServicePropertyKind,
         db: &impl Db,
-    ) -> Option<&'s Vec<service_db::ServiceProperty>> {
-        let cache = match property_kind {
-            service_db::ServicePropertyKind::Entity => &mut self.eprop_cache,
-            service_db::ServicePropertyKind::Resource => &mut self.rprop_cache,
-        };
-
-        match cache.entry(ns_id) {
+    ) -> Option<&'s Vec<service_db::NamespaceProperty>> {
+        match self.prop_cache.entry(ns_id) {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
-                let db_props =
-                    directory_db::list_namespace_properties(db, self.dir_key, ns_id, property_kind)
-                        .await
-                        .handle_err(&mut self.errors)?;
+                let db_props = directory_db::list_namespace_properties(db, self.dir_key, ns_id)
+                    .await
+                    .handle_err(&mut self.errors)?;
                 Some(vacant.insert(db_props))
             }
         }
@@ -921,14 +903,14 @@ impl CompileCtx {
         }
     }
 
-    async fn db_directory_object_labels_cached<'s>(
+    async fn db_directory_namespace_labels_cached<'s>(
         &'s mut self,
         db: &impl Db,
     ) -> Option<&'s HashMap<String, AnyId>> {
         if self.label_cache.is_some() {
             Some(self.label_cache.as_mut().unwrap())
         } else {
-            let db_domains = DbDirectoryObjectLabel::query(db, self.dir_key)
+            let db_domains = DbDirectoryNamespaceLabel::query(db, self.dir_key)
                 .await
                 .handle_err(&mut self.errors)?;
 
@@ -936,7 +918,7 @@ impl CompileCtx {
                 self.label_cache.insert(
                     db_domains
                         .into_iter()
-                        .map(|DbDirectoryObjectLabel { id, label }| (label, id))
+                        .map(|DbDirectoryNamespaceLabel { id, label }| (label, id))
                         .collect(),
                 ),
             )

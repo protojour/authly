@@ -12,27 +12,28 @@ CREATE TABLE directory (
 CREATE TABLE namespace (
     key INTEGER NOT NULL PRIMARY KEY,
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    id BLOB NOT NULL,
+    id BLOB NOT NULL UNIQUE,
+    upd DATETIME NOT NULL,
+    label TEXT NOT NULL
 );
 
 CREATE TABLE prop (
     key INTEGER PRIMARY KEY,
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    ns_key INTEGER NOT NULL REFERENCES namespace(key) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    ns_key INTEGER NOT NULL REFERENCES namespace(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL UNIQUE,
     kind TEXT NOT NULL,
     upd DATETIME NOT NULL,
-    label TEXT NOT NULL
+    label TEXT
 );
 
 CREATE TABLE attr (
     key INTEGER PRIMARY KEY,
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    prop_key INTEGER NOT NULL REFERENCES prop(key) DEFERRABLE INITIALLY DEFERRED,
+    dir_key INTEGER NOT NULL REFERENCES directory(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    prop_key INTEGER NOT NULL REFERENCES prop(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     id BLOB NOT NULL UNIQUE,
-    kind TEXT NOT NULL,
     upd DATETIME NOT NULL,
-    label TEXT NOT NULL
+    label TEXT
 );
 
 -- The version of the master encryption key Authly is currently using
@@ -88,10 +89,10 @@ CREATE TABLE local_setting (
 CREATE TABLE ent_attr (
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     eid BLOB NOT NULL,
-    attrid BLOB NOT NULL,
+    attr_key INTEGER NOT NULL REFERENCES attr(key) DEFERRABLE INITIALLY DEFERRED,
     upd DATETIME NOT NULL,
 
-    PRIMARY KEY (eid, attrid)
+    PRIMARY KEY (eid, attr_key)
 );
 
 CREATE TABLE ent_rel (
@@ -138,58 +139,6 @@ CREATE TABLE obj_foreign_dir_link (
     PRIMARY KEY (dir_key, foreign_id)
 );
 
--- An object's label in its originating directory/document
-CREATE TABLE obj_label (
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    obj_id BLOB NOT NULL PRIMARY KEY,
-    upd DATETIME NOT NULL,
-    label TEXT NOT NULL
-);
-
--- Namespace: entity property
-CREATE TABLE ns_ent_prop (
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    id BLOB NOT NULL PRIMARY KEY,
-    upd DATETIME NOT NULL,
-    ns_id BLOB NOT NULL,
-    label TEXT NOT NULL,
-
-    UNIQUE (ns_id, label)
-);
-
--- Namespace: entity property attribute label
-CREATE TABLE ns_ent_attrlabel (
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    id BLOB NOT NULL,
-    prop_id BLOB NOT NULL REFERENCES ns_ent_prop(id) DEFERRABLE INITIALLY DEFERRED,
-    upd DATETIME NOT NULL,
-    label TEXT NOT NULL,
-
-    UNIQUE (prop_id, label)
-);
-
--- Namespace: resource property
-CREATE TABLE ns_res_prop (
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    id BLOB NOT NULL PRIMARY KEY,
-    upd DATETIME NOT NULL,
-    ns_id BLOB NOT NULL,
-    label TEXT NOT NULL,
-
-    UNIQUE (ns_id, label)
-);
-
--- Namespace: resource attribute label
-CREATE TABLE ns_res_attrlabel (
-    dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    id BLOB NOT NULL PRIMARY KEY,
-    upd DATETIME NOT NULL,
-    prop_id BLOB NOT NULL REFERENCES ns_res_prop(id) DEFERRABLE INITIALLY DEFERRED,
-    label TEXT NOT NULL,
-
-    UNIQUE (prop_id, label)
-);
-
 -- Service entities
 CREATE TABLE svc (
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
@@ -202,10 +151,10 @@ CREATE TABLE svc (
 CREATE TABLE svc_namespace (
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     svc_eid BLOB NOT NULL REFERENCES svc(svc_eid) DEFERRABLE INITIALLY DEFERRED,
-    ns_id BLOB NOT NULL,
+    ns_key INTEGER NOT NULL REFERENCES namespace(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     upd DATETIME NOT NULL,
 
-    PRIMARY KEY (svc_eid, ns_id)
+    PRIMARY KEY (svc_eid, ns_key)
 );
 
 -- TODO: Should policies be associated to namespaces?
@@ -229,9 +178,9 @@ CREATE TABLE polbind (
 -- Policy binding - attribute matchers
 CREATE TABLE polbind_attr_match (
     polbind_key INTEGER NOT NULL REFERENCES polbind(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-    attr_id BLOB NOT NULL,
+    attr_key INTEGER NOT NULL REFERENCES attr(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 
-    PRIMARY KEY (polbind_key, attr_id)
+    PRIMARY KEY (polbind_key, attr_key)
 );
 
 -- Policy binding - policy implication
@@ -298,5 +247,3 @@ CREATE TABLE dir_oauth (
     user_res_id_path TEXT,
     user_res_email_path TEXT
 );
-
--- seed

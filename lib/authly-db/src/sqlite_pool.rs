@@ -9,6 +9,7 @@ use std::{
 use deadpool::managed::{Metrics, Object, Pool, PoolConfig, RecycleError, RecycleResult};
 use hiqlite::{Param, Params};
 use rusqlite::{types::Value, Connection};
+use tracing::warn;
 
 use crate::{
     sqlite::{rusqlite_params, RusqliteRowBorrowed},
@@ -254,6 +255,7 @@ impl Db for SqlitePool {
                                 break Ok(row_count);
                             }
                             Err(err) => {
+                                warn!("    error: {err:?}");
                                 break Err(DbError::Rusqlite(err));
                             }
                         };

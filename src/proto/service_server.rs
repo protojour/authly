@@ -31,7 +31,7 @@ use crate::{
     db::{
         entity_db, policy_db,
         service_db::{
-            self, find_service_label_by_eid, ServicePropertyKind, SvcNamespaceWithMetadata,
+            self, find_service_label_by_eid, PropertyKind, SvcNamespaceWithMetadata,
         },
     },
     id::{BuiltinAttr, BuiltinProp},
@@ -72,7 +72,7 @@ where
             let resource_property_mapping = service_db::get_service_property_mapping(
                 self.ctx.get_db(),
                 peer_svc.eid,
-                ServicePropertyKind::Resource,
+                PropertyKind::Resource,
             )
             .await
             .map_err(grpc_db_err)?;
@@ -180,7 +180,7 @@ where
         let resource_property_mapping = service_db::get_service_property_mapping(
             self.ctx.get_db(),
             peer_svc_eid,
-            ServicePropertyKind::Resource,
+            PropertyKind::Resource,
         )
         .await
         .map_err(grpc_db_err)?;
@@ -250,7 +250,7 @@ where
             let subject_entity_property_mapping = service_db::get_service_property_mapping(
                 self.ctx.get_db(),
                 subject_entity_id,
-                ServicePropertyKind::Entity,
+                PropertyKind::Entity,
             )
             .await
             .map_err(grpc_db_err)?;

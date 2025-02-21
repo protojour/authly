@@ -136,11 +136,7 @@ async fn test_insert_update_list_oauth_directory() {
 
 #[test_log::test(tokio::test)]
 async fn test_upsert_persona_link() {
-    let ctx = TestCtx::new()
-        .new_file_db("oauth.db")
-        .await
-        .supreme_instance()
-        .await;
+    let ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
     let dir_id = DirectoryId::random();
 
     let dir_key = {

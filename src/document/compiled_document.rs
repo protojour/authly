@@ -5,7 +5,7 @@ use authly_common::id::{
 };
 
 use crate::{
-    db::{policy_db, Identified},
+    db::{policy_db, service_db::PropertyKind, Identified},
     id::BuiltinProp,
     settings::Setting,
 };
@@ -33,17 +33,16 @@ pub struct CompiledDocumentData {
 
     pub entity_ident: Vec<(ObjectIdent, Range<usize>)>,
     pub obj_text_attrs: Vec<(ObjectTextAttr, Range<usize>)>,
-    pub obj_labels: Vec<(ObjectLabel, Range<usize>)>,
     pub entity_password: Vec<EntityPassword>,
 
+    pub namespaces: BTreeMap<AnyId, (String, Range<usize>)>,
     pub services: BTreeMap<ServiceId, CompiledService>,
 
     pub service_domains: Vec<(ServiceId, DomainId)>,
 
     pub entity_relations: Vec<CompiledEntityRelation>,
 
-    pub domain_ent_props: Vec<CompiledProperty>,
-    pub domain_res_props: Vec<CompiledProperty>,
+    pub domain_props: Vec<CompiledProperty>,
 
     pub policies: Vec<Identified<PolicyId, policy_db::DbPolicy>>,
     pub policy_bindings: Vec<policy_db::DbPolicyBinding>,
@@ -97,6 +96,7 @@ pub struct CompiledEntityRelation {
 pub struct CompiledProperty {
     pub id: PropId,
     pub ns_id: AnyId,
+    pub kind: PropertyKind,
     pub label: String,
 
     pub attributes: Vec<CompiledAttribute>,
@@ -115,10 +115,7 @@ pub enum AttrLookupError {
 
 impl CompiledDocumentData {
     pub fn find_property(&self, prop_id: PropId) -> Option<&CompiledProperty> {
-        self.domain_ent_props
-            .iter()
-            .chain(self.domain_res_props.iter())
-            .find(|prop| prop.id == prop_id)
+        self.domain_props.iter().find(|prop| prop.id == prop_id)
     }
 
     pub fn find_attribute_by_label(

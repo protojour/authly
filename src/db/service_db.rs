@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use authly_common::{
     id::{AnyId, AttrId, PropId, ServiceId},
     service::NamespacePropertyMapping,
@@ -5,20 +7,31 @@ use authly_common::{
 use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::{formatdoc, indoc};
+use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::id::BuiltinProp;
 
 #[derive(Debug)]
-pub struct ServiceProperty {
+pub struct NamespaceProperty {
     pub id: PropId,
+    pub kind: PropertyKind,
     pub label: String,
     pub attributes: Vec<(AttrId, String)>,
 }
 
-pub enum ServicePropertyKind {
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PropertyKind {
+    #[serde(rename = "ent")]
     Entity,
+    #[serde(rename = "res")]
     Resource,
+}
+
+impl Display for PropertyKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.serialize(f)
+    }
 }
 
 pub async fn find_service_label_by_eid(deps: &impl Db, eid: ServiceId) -> DbResult<Option<String>> {
@@ -32,7 +45,7 @@ pub async fn find_service_label_by_eid(deps: &impl Db, eid: ServiceId) -> DbResu
 
     Ok(deps
         .query_map_opt::<SvcLabel>(
-            "SELECT label FROM obj_label WHERE obj_id = $1".into(),
+            "SELECT label FROM namespace WHERE id = $1".into(),
             params!(eid.as_param()),
         )
         .await
@@ -106,7 +119,7 @@ pub async fn get_svc_local_k8s_account_name(
 pub async fn get_service_property_mapping(
     deps: &impl Db,
     svc_eid: ServiceId,
-    property_kind: ServicePropertyKind,
+    property_kind: PropertyKind,
 ) -> DbResult<NamespacePropertyMapping> {
     struct TypedRow(String, String, String, AttrId);
 
@@ -121,42 +134,22 @@ pub async fn get_service_property_mapping(
         }
     }
 
-    let rows: Vec<TypedRow> = match property_kind {
-        ServicePropertyKind::Entity => {
-            deps.query_map(
-                indoc! {
-                    "
-                    SELECT nslab.label ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM ns_ent_prop p
-                    JOIN ns_ent_attrlabel a ON a.prop_id = p.id
-                    JOIN svc_namespace ON svc_namespace.ns_id = p.ns_id
-                    JOIN obj_label nslab ON nslab.obj_id = p.ns_id
-                    WHERE svc_namespace.svc_eid = $1
-                    ",
-                }
-                .into(),
-                params!(svc_eid.as_param()),
-            )
-            .await?
-        }
-        ServicePropertyKind::Resource => {
-            deps.query_map(
-                indoc! {
-                    "
-                    SELECT nslab.label ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
-                    FROM ns_res_prop p
-                    JOIN ns_res_attrlabel a ON a.prop_id = p.id
-                    JOIN svc_namespace ON svc_namespace.ns_id = p.ns_id
-                    JOIN obj_label nslab ON nslab.obj_id = p.ns_id
-                    WHERE svc_namespace.svc_eid = $1
-                    ",
-                }
-                .into(),
-                params!(svc_eid.as_param()),
-            )
-            .await?
-        }
-    };
+    let rows: Vec<TypedRow> = deps
+        .query_map(
+            indoc! {
+                "
+                SELECT ns.label ns, p.id pid, p.label plabel, a.id attrid, a.label alabel
+                FROM prop p
+                JOIN attr a ON a.prop_key = p.key
+                JOIN svc_namespace ON svc_namespace.ns_key = p.ns_key
+                JOIN namespace ns ON ns.key = svc_namespace.ns_key
+                WHERE svc_namespace.svc_eid = $1 AND p.kind = $2
+                "
+            }
+            .into(),
+            params!(svc_eid.as_param(), format!("{property_kind}")),
+        )
+        .await?;
 
     let mut mapping = NamespacePropertyMapping::default();
 
@@ -199,14 +192,13 @@ pub async fn list_service_namespace_with_metadata(
         formatdoc! {
             "
             SELECT
-                svc_namespace.ns_id id,
-                obj_label.label label,
+                namespace.id id,
+                namespace.label label,
                 obj_text_attr.value metadata
-            FROM svc_namespace
-            JOIN obj_label
-                ON obj_label.obj_id = svc_namespace.ns_id
+            FROM namespace
+            JOIN svc_namespace ON svc_namespace.ns_key = namespace.key
             LEFT JOIN obj_text_attr
-                ON obj_text_attr.obj_id = svc_namespace.ns_id
+                ON obj_text_attr.obj_id = namespace.id
                 AND obj_text_attr.prop_id = {metadata}
             WHERE svc_namespace.svc_eid = $1
             ",

@@ -12,6 +12,7 @@ use crate::{
         service_events::ServiceMessageConnection,
         BusError,
     },
+    db::init_db::Builtins,
     directory::PersonaDirectory,
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
@@ -26,6 +27,10 @@ pub trait GetDb {
     type Db: Db;
 
     fn get_db(&self) -> &Self::Db;
+}
+
+pub trait GetBuiltins {
+    fn get_builtins(&self) -> &Builtins;
 }
 
 pub trait GetHttpClient {
@@ -97,6 +102,12 @@ impl GetDb for AuthlyCtx {
 
     fn get_db(&self) -> &Self::Db {
         &self.hql
+    }
+}
+
+impl GetBuiltins for AuthlyCtx {
+    fn get_builtins(&self) -> &Builtins {
+        &self.state.builtins
     }
 }
 

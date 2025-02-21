@@ -25,7 +25,14 @@ pub async fn list_entity_attrs(deps: &impl Db, eid: EntityId) -> DbResult<FnvHas
 
     Ok(deps
         .query_map::<EntityAttr>(
-            "SELECT attrid FROM ent_attr WHERE eid = $1".into(),
+            indoc! {
+                "
+                SELECT attr.id AS attrid
+                FROM ent_attr
+                JOIN attr ON attr.key = ent_attr.attr_key
+                WHERE ent_attr.eid = $1"
+            }
+            .into(),
             params!(eid.as_param()),
         )
         .await?
