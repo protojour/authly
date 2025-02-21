@@ -21,7 +21,7 @@ use tracing::{error, info};
 
 use crate::{
     cert::{client_cert, server_cert, Cert, CertificateParamsExt},
-    ctx::{GetDb, GetInstance},
+    ctx::{GetBuiltins, GetDb, GetInstance},
     db::service_db,
     instance::AuthlyInstance,
     util::remote_addr::{remote_addr_middleware, RemoteAddr},
@@ -120,6 +120,7 @@ async fn v0_authenticate_handler(
         state.ctx.get_db(),
         &kubernetes_io.namespace,
         &kubernetes_io.serviceaccount.name,
+        state.ctx.get_builtins(),
     )
     .await
     .map_err(|err| {

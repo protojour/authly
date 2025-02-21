@@ -3,7 +3,7 @@ use hexhex::hex_literal;
 use indoc::indoc;
 
 use crate::{
-    ctx::GetDb,
+    ctx::{GetBuiltins, GetDb},
     db::{entity_db, service_db},
     document::error::DocError,
     test_support::TestCtx,
@@ -12,7 +12,7 @@ use crate::{
 
 #[test_log::test(tokio::test)]
 async fn test_store_doc_trivial() {
-    let ctx = TestCtx::new().new_file_db("trivial.db").await;
+    let ctx = TestCtx::new().inmemory_db().await;
     let doc = indoc! {
         r#"
         [authly-document]
@@ -58,6 +58,7 @@ async fn test_store_doc_trivial() {
         ctx.get_db(),
         "default",
         "testservice",
+        ctx.get_builtins(),
     )
     .await
     .unwrap()

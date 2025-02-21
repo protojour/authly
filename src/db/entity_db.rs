@@ -7,6 +7,8 @@ use indoc::indoc;
 
 use crate::{directory::DirKey, id::BuiltinProp};
 
+use super::init_db::Builtins;
+
 pub struct EntityPasswordHash {
     pub eid: PersonaId,
     pub secret_hash: String,
@@ -54,20 +56,23 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
     deps: &impl Db,
     ident_prop_id: PropId,
     ident_fingerprint: &[u8],
+    builtins: &Builtins,
 ) -> DbResult<Option<EntityPasswordHash>> {
     deps.query_map_opt(
         indoc! {
             "
             SELECT ta.obj_id, ta.value FROM obj_text_attr ta
             JOIN obj_ident i ON i.obj_id = ta.obj_id
-            WHERE i.prop_id = $1 AND i.fingerprint = $2 AND ta.prop_id = $3
+            WHERE i.prop_key = (SELECT key FROM prop WHERE id = $1)
+                AND i.fingerprint = $2
+                AND ta.prop_key = $3
             ",
         }
         .into(),
         params!(
             ident_prop_id.as_param(),
             ident_fingerprint,
-            PropId::from(BuiltinProp::PasswordHash).as_param()
+            builtins.prop_key(BuiltinProp::PasswordHash)
         ),
     )
     .await

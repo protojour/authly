@@ -364,7 +364,11 @@ fn stmt_to_db_stmt(
             params!(dir_key),
         ),
         Stmt::ObjTextAttrWrite(attr) => (
-            "INSERT INTO obj_text_attr (dir_key, upd, obj_id, prop_id, value) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING".into(),
+            indoc! {
+                "INSERT INTO obj_text_attr (dir_key, upd, obj_id, prop_key, value)
+                VALUES ($1, $2, $3, (SELECT key FROM prop WHERE id = $4), $5)
+                ON CONFLICT DO NOTHING"
+            }.into(),
             params!(dir_key, now, attr.obj_id.as_param(), attr.prop_id.as_param(), &attr.value),
         ),
         Stmt::EntRelGc => (
@@ -372,13 +376,15 @@ fn stmt_to_db_stmt(
             params!(dir_key),
         ),
         Stmt::EntRelWrite(rel) => (
-            "INSERT INTO ent_rel (dir_key, upd, subject_eid, rel_id, object_eid) VALUES ($1, $2, $3, $4, $5)"
-                .into(),
+            indoc! {
+                "INSERT INTO ent_rel (dir_key, upd, prop_key, subject_eid, object_eid)
+                VALUES ($1, $2, (SELECT key FROM prop WHERE id = $3), $4, $5)"
+            }.into(),
             params!(
                 dir_key,
                 now,
-                rel.subject.as_param(),
                 rel.relation.as_param(),
+                rel.subject.as_param(),
                 rel.object.as_param()
             ),
         ),

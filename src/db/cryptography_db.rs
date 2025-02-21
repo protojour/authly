@@ -94,7 +94,14 @@ pub async fn list_all_cr_prop_deks(
 
     Ok(deps
         .query_filter_map(
-            "SELECT prop_id, nonce, ciph, created_at FROM cr_prop_dek".into(),
+            indoc! {
+                "
+                SELECT prop.id AS prop_id, nonce, ciph, created_at
+                FROM cr_prop_dek
+                JOIN prop ON prop.key = cr_prop_dek.prop_key
+                "
+            }
+            .into(),
             params!(),
         )
         .await?
@@ -109,7 +116,7 @@ pub async fn insert_cr_prop_deks(
 ) -> Result<(), CrDbError> {
     for (id, dek) in deks {
         deps.execute(
-            "INSERT INTO cr_prop_dek (prop_id, nonce, ciph, created_at) VALUES ($1, $2, $3, $4)"
+            "INSERT INTO cr_prop_dek (prop_key, nonce, ciph, created_at) VALUES ((SELECT key FROM prop WHERE id = $1), $2, $3, $4)"
                 .into(),
             params!(
                 id.as_param(),
@@ -423,8 +430,8 @@ impl EncryptedObjIdent {
         (
             indoc! {
                 "
-                INSERT INTO obj_ident (dir_key, obj_id, prop_id, upd, fingerprint, nonce, ciph)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO obj_ident (dir_key, obj_id, prop_key, upd, fingerprint, nonce, ciph)
+                VALUES ($1, $2, (SELECT key FROM prop WHERE id = $3), $4, $5, $6, $7)
                 "
             }
             .into(),
@@ -461,8 +468,8 @@ impl EncryptedObjIdent {
         (
             indoc! {
                 "
-                INSERT INTO obj_ident (dir_key, obj_id, prop_id, upd, fingerprint, nonce, ciph)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO obj_ident (dir_key, obj_id, prop_key, upd, fingerprint, nonce, ciph)
+                VALUES ($1, $2, (SELECT key FROM prop WHERE id = $3), $4, $5, $6, $7)
                 ON CONFLICT DO UPDATE SET
                     upd = $4,
                     fingerprint = $5,
@@ -509,7 +516,7 @@ pub async fn lookup_obj_ident(
         .query_map_opt::<TypedRow>(
             indoc! {
                 "
-                SELECT obj_id FROM obj_ident WHERE prop_id = $1 AND fingerprint = $2
+                SELECT obj_id FROM obj_ident WHERE prop_key = (SELECT key FROM prop WHERE id = $1) AND fingerprint = $2
                 ",
             }
             .into(),
@@ -545,7 +552,7 @@ pub async fn load_decrypt_obj_ident(
 
     let Some(row) = deps
         .query_map_opt::<TypedRow>(
-            "SELECT nonce, ciph FROM obj_ident WHERE obj_id = $1 AND prop_id = $2".into(),
+            "SELECT nonce, ciph FROM obj_ident WHERE obj_id = $1 AND prop_key = (SELECT key FROM prop WHERE id = $2)".into(),
             params!(obj_id.as_param(), prop_id.as_param()),
         )
         .await?

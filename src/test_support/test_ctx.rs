@@ -20,10 +20,14 @@ use crate::{
     },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        ClusterBus, Directories, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance, HostsConfig,
-        KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus, SetInstance,
+        ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
+        HostsConfig, KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus,
+        SetInstance,
     },
-    db::{cryptography_db, init_db},
+    db::{
+        cryptography_db,
+        init_db::{self, Builtins},
+    },
     directory::PersonaDirectory,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
     instance::{AuthlyId, AuthlyInstance},
@@ -36,6 +40,7 @@ use crate::{
 #[derive(Clone)]
 pub struct TestCtx {
     db: Option<SqlitePool>,
+    builtins: Option<Arc<Builtins>>,
     instance: Option<Arc<ArcSwap<AuthlyInstance>>>,
     deks: Arc<ArcSwap<DecryptedDeks>>,
     svc_event_dispatcher: ServiceEventDispatcher,
@@ -56,6 +61,7 @@ impl TestCtx {
 
         Self {
             db: None,
+            builtins: None,
             instance: None,
             deks: Default::default(),
             svc_event_dispatcher: ServiceEventDispatcher::new(cancel.clone()),
@@ -72,9 +78,11 @@ impl TestCtx {
             sqlite_migrate::<Migrations>(&mut conn).await;
         }
 
-        init_db::load_authly_builtins(&pool, IsLeaderDb(true))
-            .await
-            .unwrap();
+        self.builtins = Some(Arc::new(
+            init_db::load_authly_builtins(&pool, IsLeaderDb(true))
+                .await
+                .unwrap(),
+        ));
 
         self.db = Some(pool);
         self
@@ -90,9 +98,11 @@ impl TestCtx {
             sqlite_migrate::<Migrations>(&mut conn).await;
         }
 
-        init_db::load_authly_builtins(&pool, IsLeaderDb(true))
-            .await
-            .unwrap();
+        self.builtins = Some(Arc::new(
+            init_db::load_authly_builtins(&pool, IsLeaderDb(true))
+                .await
+                .unwrap(),
+        ));
 
         self.db = Some(pool);
         self
@@ -200,6 +210,12 @@ impl GetDb for TestCtx {
     #[track_caller]
     fn get_db(&self) -> &Self::Db {
         self.db.as_ref().expect("TestCtx has no database")
+    }
+}
+
+impl GetBuiltins for TestCtx {
+    fn get_builtins(&self) -> &init_db::Builtins {
+        self.builtins.as_ref().expect("TestCtx has not database")
     }
 }
 

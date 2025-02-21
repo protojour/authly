@@ -4,13 +4,15 @@ use authly_common::{
     id::{AnyId, AttrId, PropId, ServiceId},
     service::NamespacePropertyMapping,
 };
-use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
+use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
 use hiqlite::{params, Param};
 use indoc::{formatdoc, indoc};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::id::BuiltinProp;
+
+use super::init_db::Builtins;
 
 #[derive(Debug)]
 pub struct NamespaceProperty {
@@ -60,6 +62,7 @@ pub async fn find_service_eid_by_k8s_local_service_account_name(
     deps: &impl Db,
     namespace: &str,
     account_name: &str,
+    builtins: &Builtins,
 ) -> DbResult<Option<ServiceId>> {
     struct SvcEid(ServiceId);
 
@@ -71,9 +74,9 @@ pub async fn find_service_eid_by_k8s_local_service_account_name(
 
     Ok(deps
         .query_map_opt::<SvcEid>(
-            "SELECT obj_id FROM obj_text_attr WHERE prop_id = $1 AND value = $2".into(),
+            "SELECT obj_id FROM obj_text_attr WHERE prop_key = $1 AND value = $2".into(),
             params!(
-                PropId::from(BuiltinProp::K8sLocalServiceAccount).as_param(),
+                builtins.prop_key(BuiltinProp::K8sLocalServiceAccount),
                 format!("{namespace}/{account_name}")
             ),
         )
@@ -88,6 +91,7 @@ pub async fn find_service_eid_by_k8s_local_service_account_name(
 pub async fn get_svc_local_k8s_account_name(
     deps: &impl Db,
     svc_eid: ServiceId,
+    builtins: &Builtins,
 ) -> DbResult<Option<(String, String)>> {
     struct SvcK8sAccount(String);
 
@@ -99,10 +103,10 @@ pub async fn get_svc_local_k8s_account_name(
 
     Ok(deps
         .query_map_opt::<SvcK8sAccount>(
-            "SELECT value FROM obj_text_attr WHERE obj_id = $1 AND prop_id = $2".into(),
+            "SELECT value FROM obj_text_attr WHERE obj_id = $1 AND prop_key = $2".into(),
             params!(
                 svc_eid.as_param(),
-                PropId::from(BuiltinProp::K8sLocalServiceAccount).as_param()
+                builtins.prop_key(BuiltinProp::K8sLocalServiceAccount)
             ),
         )
         .await
@@ -187,6 +191,7 @@ impl TryFromRow for SvcNamespaceWithMetadata {
 pub async fn list_service_namespace_with_metadata(
     deps: &impl Db,
     svc_eid: ServiceId,
+    builtins: &Builtins,
 ) -> DbResult<Vec<SvcNamespaceWithMetadata>> {
     deps.query_filter_map(
         formatdoc! {
@@ -199,10 +204,10 @@ pub async fn list_service_namespace_with_metadata(
             JOIN svc_namespace ON svc_namespace.ns_key = namespace.key
             LEFT JOIN obj_text_attr
                 ON obj_text_attr.obj_id = namespace.id
-                AND obj_text_attr.prop_id = {metadata}
+                AND obj_text_attr.prop_key = {metadata}
             WHERE svc_namespace.svc_eid = $1
             ",
-            metadata = PropId::from(BuiltinProp::Metadata).literal()
+            metadata = builtins.prop_key(BuiltinProp::Metadata)
         }
         .into(),
         params!(svc_eid.as_param()),

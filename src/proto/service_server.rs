@@ -27,12 +27,10 @@ use crate::{
     access_control::{self, AuthorizedPeerService},
     access_token,
     bus::{message::ServiceMessage, service_events::ServiceMessageConnection},
-    ctx::{GetDb, GetInstance, HostsConfig, ServiceBus},
+    ctx::{GetBuiltins, GetDb, GetInstance, HostsConfig, ServiceBus},
     db::{
         entity_db, policy_db,
-        service_db::{
-            self, find_service_label_by_eid, PropertyKind, SvcNamespaceWithMetadata,
-        },
+        service_db::{self, find_service_label_by_eid, PropertyKind, SvcNamespaceWithMetadata},
     },
     id::{BuiltinAttr, BuiltinProp},
     proto::grpc_db_err,
@@ -54,7 +52,7 @@ impl<Ctx> AuthlyServiceServerImpl<Ctx> {
 #[tonic::async_trait]
 impl<Ctx> AuthlyService for AuthlyServiceServerImpl<Ctx>
 where
-    Ctx: GetDb + GetInstance + ServiceBus + HostsConfig + Send + Sync + 'static,
+    Ctx: GetDb + GetBuiltins + GetInstance + ServiceBus + HostsConfig + Send + Sync + 'static,
 {
     type MessagesStream = BoxStream<'static, tonic::Result<proto::ServiceMessage>>;
 
@@ -114,10 +112,13 @@ where
             .map_err(grpc_db_err)?
             .ok_or_else(|| tonic::Status::internal("no service label"))?;
 
-        let namespaces =
-            service_db::list_service_namespace_with_metadata(self.ctx.get_db(), peer_svc.eid)
-                .await
-                .map_err(grpc_db_err)?;
+        let namespaces = service_db::list_service_namespace_with_metadata(
+            self.ctx.get_db(),
+            peer_svc.eid,
+            self.ctx.get_builtins(),
+        )
+        .await
+        .map_err(grpc_db_err)?;
 
         Ok(Response::new(proto::ServiceMetadata {
             entity_id: peer_svc.eid.to_array_dynamic().to_vec(),

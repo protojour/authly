@@ -44,7 +44,7 @@ CREATE TABLE cr_master_version (
 
 -- Envelope encryption for Property Data Encryption Keys
 CREATE TABLE cr_prop_dek (
-    prop_id BLOB NOT NULL PRIMARY KEY,
+    prop_key INTEGER NOT NULL PRIMARY KEY REFERENCES prop(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     nonce BLOB NOT NULL,
     ciph BLOB NOT NULL,
     created_at DATETIME NOT NULL
@@ -97,36 +97,36 @@ CREATE TABLE ent_attr (
 
 CREATE TABLE ent_rel (
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
-    rel_id BLOB NOT NULL,
+    prop_key INTEGER NOT NULL REFERENCES prop(key) DEFERRABLE INITIALLY DEFERRED,
     subject_eid BLOB NOT NULL,
     object_eid BLOB NOT NULL,
     upd DATETIME NOT NULL,
 
-    PRIMARY KEY (rel_id, subject_eid, object_eid)
+    PRIMARY KEY (prop_key, subject_eid, object_eid)
 );
 
 CREATE TABLE obj_ident (
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     obj_id BLOB NOT NULL,
-    prop_id BLOB NOT NULL,
+    prop_key INTEGER NOT NULL REFERENCES prop(key) DEFERRABLE INITIALLY DEFERRED,
     fingerprint BLOB NOT NULL,
     nonce BLOB NOT NULL,
     ciph BLOB NOT NULL,
     upd DATETIME NOT NULL,
 
-    PRIMARY KEY (obj_id, prop_id),
-    UNIQUE (prop_id, fingerprint)
+    PRIMARY KEY (obj_id, prop_key),
+    UNIQUE (prop_key, fingerprint)
 );
 
 -- Text attributes for any database object
 CREATE TABLE obj_text_attr (
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     obj_id BLOB NOT NULL,
-    prop_id BLOB NOT NULL,
+    prop_key INTEGER NOT NULL REFERENCES prop(key) DEFERRABLE INITIALLY DEFERRED,
     upd DATETIME NOT NULL,
     value TEXT NOT NULL,
 
-    PRIMARY KEY (obj_id, prop_id)
+    PRIMARY KEY (obj_id, prop_key)
 );
 
 CREATE TABLE obj_foreign_dir_link (

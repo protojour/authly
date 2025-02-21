@@ -8,7 +8,7 @@ use tracing::warn;
 
 use crate::{
     access_control::{authorize_peer_service, SvcAccessControlError},
-    ctx::GetDb,
+    ctx::{GetBuiltins, GetDb},
     db::entity_db::{self, EntityPasswordHash},
     id::{BuiltinAttr, BuiltinProp},
     session::init_session,
@@ -97,6 +97,7 @@ pub async fn authenticate(
                 ctx.get_db(),
                 BuiltinProp::Username.into(),
                 &ident_fingerprint,
+                ctx.get_builtins(),
             )
             .await?
             .ok_or_else(|| AuthError::UserAuthFailed)?;

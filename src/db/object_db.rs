@@ -21,7 +21,7 @@ pub async fn find_obj_id_by_ident_fingerprint(
             indoc! {
                 "
                 SELECT obj_id FROM obj_ident
-                WHERE prop_id = $1 AND fingerprint = $2
+                WHERE prop_key = (SELECT key FROM prop WHERE id = $1) AND fingerprint = $2
                 ",
             }
             .into(),
