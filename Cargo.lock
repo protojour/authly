@@ -399,8 +399,8 @@ dependencies = [
 
 [[package]]
 name = "authly-client"
-version = "0.0.7"
-source = "git+https://github.com/protojour/authly-lib.git#5bb5cceaa13e8a39f6af56809b23a29398555f26"
+version = "0.0.8"
+source = "git+https://github.com/protojour/authly-lib.git#7257e4bd278c2659369087fea9381465a921c103"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -426,8 +426,8 @@ dependencies = [
 
 [[package]]
 name = "authly-common"
-version = "0.0.7"
-source = "git+https://github.com/protojour/authly-lib.git#5bb5cceaa13e8a39f6af56809b23a29398555f26"
+version = "0.0.8"
+source = "git+https://github.com/protojour/authly-lib.git#7257e4bd278c2659369087fea9381465a921c103"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -3361,7 +3361,7 @@ dependencies = [
 [[package]]
 name = "rcgen"
 version = "0.13.2"
-source = "git+https://github.com/rustls/rcgen.git#3f482d9664c4f550a3fa317bcd6174b87c41cb88"
+source = "git+https://github.com/rustls/rcgen.git#362e78a18495a6c7bcbd66f46e7ee56f28f88c5a"
 dependencies = [
  "pem",
  "ring",
