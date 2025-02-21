@@ -13,6 +13,7 @@ pub fn router() -> axum::Router<AuthlyCtx> {
         // (`/` is appended by the gateway because /web/auth is a "matcher", => /web/auth/)
         .route("/web/auth", get(auth::index))
         .route("/web/auth/", get(auth::index))
+        .route("/web/auth/login", post(auth::login))
         .nest_service("/web/static", static_folder())
         .route("/oauth/:label/callback", post(oauth::oauth_callback))
 }

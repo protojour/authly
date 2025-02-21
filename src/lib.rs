@@ -32,7 +32,7 @@ use settings::Settings;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
 use tracing::info;
-use util::{protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
+use util::{dev::IsDev, protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
 
 // These are public for the integration test crate
 pub mod access_token;
@@ -56,6 +56,7 @@ mod access_control;
 mod directory;
 mod id;
 mod k8s;
+mod login;
 mod openapi;
 mod persona_directory;
 mod policy;
@@ -185,9 +186,16 @@ pub async fn serve() -> anyhow::Result<()> {
 
     #[cfg(feature = "dev")]
     if let Some(debug_web_port) = env_config.debug_web_port {
+        use authly_common::{id::ServiceId, mtls_server::PeerServiceEntity};
+
         tokio::spawn(
             tower_server::Builder::new(format!("0.0.0.0:{debug_web_port}").parse()?)
                 .with_scheme(Scheme::Http)
+                .with_connection_middleware(|req, _| {
+                    req.extensions_mut()
+                        .insert(PeerServiceEntity(ServiceId::from_uint(1)));
+                    req.extensions_mut().insert(IsDev(true));
+                })
                 .bind()
                 .await?
                 .serve(web::router().with_state(ctx.clone())),
