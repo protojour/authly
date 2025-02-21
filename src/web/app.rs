@@ -1,6 +1,19 @@
+use axum::response::IntoResponse;
 use maud::{html, Markup, DOCTYPE};
 
 use crate::util::{auth_extract::WebAuth, base_uri::ForwardedPrefix};
+
+pub mod persona;
+
+mod tabs;
+
+pub enum AppError {}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        "something went wrong".into_response()
+    }
+}
 
 /// The "index.html" of the Authly web app
 pub async fn index(ForwardedPrefix(prefix): ForwardedPrefix, _auth: WebAuth<()>) -> Markup {
@@ -11,7 +24,7 @@ pub async fn index(ForwardedPrefix(prefix): ForwardedPrefix, _auth: WebAuth<()>)
                 meta charset="utf-8";
                 meta name="viewport" content="device-width, intial-scale=1";
                 meta name="color-scheme" content="light dark";
-                title { "Authly sign in" }
+                title { "Authly" }
                 script src={(prefix)"/web/static/vendor/htmx.min.js"} {}
                 link rel="shortcut icon" href={(prefix)"/web/static/favicon.svg"} type="image/svg+xml";
                 link rel="stylesheet" href={(prefix)"/web/static/vendor/pico.classless.min.css"};
@@ -21,6 +34,8 @@ pub async fn index(ForwardedPrefix(prefix): ForwardedPrefix, _auth: WebAuth<()>)
             body {
                 main {
                     img alt="Authly" src={(prefix)"/web/static/logo.svg"};
+
+                    div id="tabs" hx-get={(prefix)"/web/tab/persona"} hx-trigger="load delay:100ms" hx-target="#tabs" hx-swap="innerHTML";
                 }
             }
         }
