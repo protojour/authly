@@ -172,7 +172,7 @@ async fn test_connect_http() {
         TunnelSecurity::MutuallySecure,
         axum::Router::new().route(
             "/hello",
-            axum::routing::get(|ext: Extension<PeerServiceEntity>| async move {
+            axum::routing::get(async |ext: Extension<PeerServiceEntity>| {
                 let Extension(PeerServiceEntity(eid)) = ext;
                 format!("HELLO {eid}!").into_response()
             }),

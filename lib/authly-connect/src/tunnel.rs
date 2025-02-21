@@ -104,16 +104,14 @@ where
     }));
 
     // copy incoming bytes into the tunnel
-    tokio::spawn({
-        async move {
-            tokio::select! {
-                result = tokio::io::copy(&mut incoming_reader, &mut incoming_write_half) => {
-                    if let Err(err) = result {
-                        info!(?err, "client tunnel incoming error");
-                    }
+    tokio::spawn(async move {
+        tokio::select! {
+            result = tokio::io::copy(&mut incoming_reader, &mut incoming_write_half) => {
+                if let Err(err) = result {
+                    info!(?err, "client tunnel incoming error");
                 }
-                _ = close_signal.cancelled() => {}
             }
+            _ = close_signal.cancelled() => {}
         }
     });
 
