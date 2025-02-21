@@ -32,7 +32,7 @@ use settings::Settings;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
 use tracing::info;
-use util::{protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
+use util::{dev::IsDev, protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
 
 // These are public for the integration test crate
 pub mod access_token;
@@ -194,6 +194,7 @@ pub async fn serve() -> anyhow::Result<()> {
                 .with_connection_middleware(|req, _| {
                     req.extensions_mut()
                         .insert(PeerServiceEntity(ServiceId::from_uint(1)));
+                    req.extensions_mut().insert(IsDev(true));
                 })
                 .bind()
                 .await?

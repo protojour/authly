@@ -10,12 +10,14 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::{
-    login::{try_username_password_login, LoginError},
+    login::{try_username_password_login, LoginError, LoginOptions},
+    util::dev::IsDev,
     AuthlyCtx,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryParams {
+    #[serde(default)]
     next: String,
 }
 
@@ -93,11 +95,14 @@ pub struct LoginBody {
 pub async fn login(
     State(ctx): State<AuthlyCtx>,
     Extension(peer_svc): Extension<PeerServiceEntity>,
+    is_dev: IsDev,
     ForwardedPrefix(prefix): ForwardedPrefix,
     Query(params): Query<QueryParams>,
     Form(LoginBody { username, password }): Form<LoginBody>,
 ) -> Response {
-    match try_username_password_login(&ctx, peer_svc, username, password).await {
+    let login_options = LoginOptions::default().dev(is_dev);
+
+    match try_username_password_login(&ctx, peer_svc, username, password, login_options).await {
         Ok((_persona_id, session)) => (
             axum_extra::extract::CookieJar::new().add(session.to_cookie()),
             [(

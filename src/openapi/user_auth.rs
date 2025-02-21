@@ -63,7 +63,8 @@ pub async fn authenticate(
 
     let (persona_id, session) = match body {
         AuthenticateRequest::User { username, password } => {
-            try_username_password_login(&ctx, peer_svc, username, password).await?
+            try_username_password_login(&ctx, peer_svc, username, password, Default::default())
+                .await?
         }
     };
 

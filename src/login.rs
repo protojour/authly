@@ -11,6 +11,7 @@ use crate::{
     db::entity_db::{self, EntityPasswordHash},
     id::{BuiltinAttr, BuiltinProp},
     session::{init_session, Session},
+    util::dev::IsDev,
 };
 
 pub enum LoginError {
@@ -34,13 +35,30 @@ impl From<SvcAccessControlError> for LoginError {
     }
 }
 
+#[derive(Default)]
+pub struct LoginOptions {
+    disable_peer_service_auth: bool,
+}
+
+impl LoginOptions {
+    pub fn dev(mut self, is_dev: IsDev) -> Self {
+        if is_dev.0 {
+            self.disable_peer_service_auth = true;
+        }
+        self
+    }
+}
+
 pub async fn try_username_password_login(
     deps: &(impl GetDb + GetBuiltins + GetDecryptedDeks),
     PeerServiceEntity(peer_svc_eid): PeerServiceEntity,
     username: String,
     password: String,
+    options: LoginOptions,
 ) -> Result<(PersonaId, Session), LoginError> {
-    authorize_peer_service(deps, peer_svc_eid, &[BuiltinAttr::AuthlyRoleAuthenticate]).await?;
+    if !options.disable_peer_service_auth {
+        authorize_peer_service(deps, peer_svc_eid, &[BuiltinAttr::AuthlyRoleAuthenticate]).await?;
+    }
 
     let ident_fingerprint = {
         let deks = deps.get_decrypted_deks();
