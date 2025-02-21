@@ -1,3 +1,4 @@
+pub mod auth_extract;
 pub mod base_uri;
 pub mod dev;
 pub mod error;

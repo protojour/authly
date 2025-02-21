@@ -4,7 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Form,
 };
-use http::{request::Parts, HeaderName, HeaderValue};
+use http::{HeaderName, HeaderValue};
 use maud::{html, Markup, DOCTYPE};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -13,7 +13,7 @@ pub mod oauth;
 
 use crate::{
     login::{try_username_password_login, LoginError, LoginOptions},
-    util::dev::IsDev,
+    util::{base_uri::ForwardedPrefix, dev::IsDev},
     AuthlyCtx,
 };
 
@@ -39,6 +39,7 @@ pub async fn index(
                 link rel="shortcut icon" href={(prefix)"/web/static/favicon.svg"} type="image/svg+xml";
                 link rel="stylesheet" href={(prefix)"/web/static/vendor/pico.classless.min.css"};
                 link rel="stylesheet" href={(prefix)"/web/static/style.css"};
+                link rel="stylesheet" href={(prefix)"/web/static/auth.css"};
             }
             body {
                 div id="root" {
@@ -129,26 +130,5 @@ pub async fn login(
 
             login_form(&prefix, &params, Some("Invalid username or password")).into_response()
         }
-    }
-}
-
-#[derive(Default)]
-pub struct ForwardedPrefix(String);
-
-#[axum::async_trait]
-impl<S> axum::extract::FromRequestParts<S> for ForwardedPrefix {
-    type Rejection = ();
-
-    /// Perform the extraction.
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let Some(prefix) = parts.headers.get("x-forwarded-prefix") else {
-            return Ok(Self::default());
-        };
-
-        let Ok(prefix) = prefix.to_str() else {
-            return Ok(Self::default());
-        };
-
-        Ok(Self(prefix.to_string()))
     }
 }

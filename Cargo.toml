@@ -65,6 +65,7 @@ num-derive = "0.4"
 num-traits = "0.2"
 openraft = { version = "0.9", default-features = false }
 pem = "3"
+percent-encoding = "2.3"
 pest = "2"
 pest_derive = "2"
 postcard = { version = "1", default-features = false, features = ["alloc"] }

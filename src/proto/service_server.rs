@@ -452,7 +452,7 @@ async fn session_auth(deps: &impl GetDb, metadata: &MetadataMap) -> Result<Sessi
             .filter_map(|data| data.to_str().ok()),
     )?;
 
-    authenticate_session_cookie(deps, session_cookie).await
+    authenticate_session_cookie(deps, &session_cookie).await
 }
 
 fn get_access_token_opt(

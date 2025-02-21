@@ -75,3 +75,24 @@ impl<S> axum::extract::FromRequestParts<S> for ProxiedBaseUri {
         Self::from_parts(parts)
     }
 }
+
+#[derive(Default)]
+pub struct ForwardedPrefix(pub String);
+
+#[axum::async_trait]
+impl<S> axum::extract::FromRequestParts<S> for ForwardedPrefix {
+    type Rejection = ();
+
+    /// Perform the extraction.
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let Some(prefix) = parts.headers.get("x-forwarded-prefix") else {
+            return Ok(Self::default());
+        };
+
+        let Ok(prefix) = prefix.to_str() else {
+            return Ok(Self::default());
+        };
+
+        Ok(Self(prefix.to_string()))
+    }
+}

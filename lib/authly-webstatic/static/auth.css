@@ -1,0 +1,62 @@
+/* Style for the Auth login page */
+#root {
+  min-height: 100vh;
+  height: fit-content;
+  max-width: 100vw;
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: minmax(auto, 960px);
+}
+
+main {
+  display: grid;
+  place-items: center;
+  gap: 64px;
+}
+
+.card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid black;
+  box-shadow: rgba(0, 0, 0, 0.18) 0px 2px 4px;
+  border-radius: var(--pico-border-radius);
+  padding: 16px;
+  width: 420px;
+}
+
+.card h2 {
+  margin-bottom: 0;
+}
+
+.card form {
+  display: grid;
+  align-items: start;
+  gap: 16px;
+}
+
+.card .inputs {
+  display: grid;
+  gap: 8px;
+}
+
+.card button {
+  width: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.card input,
+.card button {
+  font-size: 0.875rem;
+}
+
+.card input:not(:focus-within) {
+  cursor: pointer;
+}

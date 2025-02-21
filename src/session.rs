@@ -37,7 +37,7 @@ impl Session {
 
 pub(crate) async fn authenticate_session_cookie(
     deps: &impl GetDb,
-    session_cookie: Cookie<'_>,
+    session_cookie: &Cookie<'_>,
 ) -> Result<Session, &'static str> {
     let now = OffsetDateTime::now_utc();
 

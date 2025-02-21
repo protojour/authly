@@ -39,20 +39,27 @@ pub fn create_access_token(
     instance: &AuthlyInstance,
 ) -> Result<String, AccessTokenError> {
     let jwt_header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
+    let claims = create_access_token_claims(session, user_attributes);
+
+    jsonwebtoken::encode(&jwt_header, &claims, &instance.local_jwt_encoding_key())
+        .map_err(|_| AccessTokenError::EncodeError)
+}
+
+pub fn create_access_token_claims(
+    session: &Session,
+    user_attributes: FnvHashSet<AttrId>,
+) -> AuthlyAccessTokenClaims {
     let now = time::OffsetDateTime::now_utc();
     let expiration = now + EXPIRATION;
 
-    let claims = AuthlyAccessTokenClaims {
+    AuthlyAccessTokenClaims {
         iat: now.unix_timestamp(),
         exp: expiration.unix_timestamp(),
         authly: Authly {
             entity_id: session.eid,
             entity_attributes: user_attributes,
         },
-    };
-
-    jsonwebtoken::encode(&jwt_header, &claims, &instance.local_jwt_encoding_key())
-        .map_err(|_| AccessTokenError::EncodeError)
+    }
 }
 
 pub fn verify_access_token(

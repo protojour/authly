@@ -362,6 +362,7 @@ dependencies = [
  "num-traits",
  "openraft",
  "pem",
+ "percent-encoding",
  "pest",
  "pest_derive",
  "postcard",
