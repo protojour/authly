@@ -292,7 +292,7 @@ async fn test_callback_github_like() {
         .and(query_param("code", code))
         .and(query_param(
             "redirect_uri",
-            "http://localhost/oauth/buksehub/callback",
+            "http://localhost/web/auth/oauth/buksehub/callback",
         ))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "access_token": "gho_16C7e42F292c6912E7710c838347Ae178B4a",
