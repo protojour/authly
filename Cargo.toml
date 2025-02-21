@@ -86,6 +86,7 @@ secrecy = "0.10"
 serde = "1"
 serde_json = "1"
 serde_spanned = "0.6"
+serde_urlencoded = "0.7"
 strum = { version = "0.26", features = ["derive"] }
 thiserror = "2"
 time = { version = "0.3", features = ["serde"] }
