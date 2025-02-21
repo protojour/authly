@@ -9,6 +9,8 @@ use maud::{html, Markup, DOCTYPE};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
+pub mod oauth;
+
 use crate::{
     login::{try_username_password_login, LoginError, LoginOptions},
     util::dev::IsDev,

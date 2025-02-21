@@ -17,7 +17,7 @@ use crate::{
     persona_directory::{self, ForeignPersona},
     test_support::TestCtx,
     util::base_uri::ProxiedBaseUri,
-    web::oauth::OAuthState,
+    web::auth::oauth::OAuthState,
 };
 
 fn random_oauth(dir_id: DirectoryId, dir_key: DirKey) -> OAuthDirectory {
@@ -315,7 +315,7 @@ async fn test_callback_github_like() {
         .mount(&hubmock)
         .await;
 
-    let _result = crate::web::oauth::oauth_callback(
+    let _result = crate::web::auth::oauth::oauth_callback(
         State(OAuthState(ctx)),
         ProxiedBaseUri("http://localhost".parse().unwrap()),
         Path("buksehub".to_string()),

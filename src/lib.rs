@@ -32,7 +32,7 @@ use settings::Settings;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
 use tracing::info;
-use util::{dev::IsDev, protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
+use util::{protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
 
 // These are public for the integration test crate
 pub mod access_token;
@@ -186,6 +186,7 @@ pub async fn serve() -> anyhow::Result<()> {
 
     #[cfg(feature = "dev")]
     if let Some(debug_web_port) = env_config.debug_web_port {
+        use crate::util::dev::IsDev;
         use authly_common::{id::ServiceId, mtls_server::PeerServiceEntity};
 
         tokio::spawn(
