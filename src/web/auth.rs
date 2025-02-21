@@ -4,7 +4,6 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Form,
 };
-use cookie::CookieJar;
 use http::{request::Parts, HeaderName, HeaderValue};
 use maud::{html, Markup, DOCTYPE};
 use serde::{Deserialize, Serialize};
@@ -100,7 +99,7 @@ pub async fn login(
 ) -> Response {
     match try_username_password_login(&ctx, peer_svc, username, password).await {
         Ok((_persona_id, session)) => (
-            CookieJar::new().add(session.to_cookie()),
+            axum_extra::extract::CookieJar::new().add(session.to_cookie()),
             [(
                 HeaderName::from_static("hx-redirect"),
                 HeaderValue::from_str(&params.next).unwrap_or_else(|err| {
