@@ -15,7 +15,7 @@ use crate::{
     AuthlyCtx,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct QueryParams {
     next: String,
 }
@@ -103,7 +103,14 @@ pub async fn login(
             CookieJar::new().add(session.to_cookie()),
             [(
                 HeaderName::from_static("hx-redirect"),
-                HeaderValue::from_str(&params.next).unwrap(),
+                HeaderValue::from_str(&params.next).unwrap_or_else(|err| {
+                    warn!(
+                        ?err,
+                        ?params,
+                        "client tried to fool us with a misformatted redirect url"
+                    );
+                    HeaderValue::from_static("")
+                }),
             )],
         )
             .into_response(),
