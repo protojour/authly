@@ -16,7 +16,7 @@ impl IntoResponse for AppError {
 }
 
 /// The "index.html" of the Authly web app
-pub async fn index(ForwardedPrefix(prefix): ForwardedPrefix, _auth: WebAuth<()>) -> Markup {
+pub async fn index(_auth: WebAuth<()>, ForwardedPrefix(prefix): ForwardedPrefix) -> Markup {
     html! {
         (DOCTYPE)
         html {
@@ -25,17 +25,17 @@ pub async fn index(ForwardedPrefix(prefix): ForwardedPrefix, _auth: WebAuth<()>)
                 meta name="viewport" content="device-width, intial-scale=1";
                 meta name="color-scheme" content="light dark";
                 title { "Authly" }
-                script src={(prefix)"/web/static/vendor/htmx.min.js"} {}
-                link rel="shortcut icon" href={(prefix)"/web/static/favicon.svg"} type="image/svg+xml";
-                link rel="stylesheet" href={(prefix)"/web/static/vendor/pico.classless.min.css"};
-                link rel="stylesheet" href={(prefix)"/web/static/style.css"};
-                link rel="stylesheet" href={(prefix)"/web/static/app.css"};
+                script src={(prefix)"/static/vendor/htmx.min.js"} {}
+                link rel="shortcut icon" href={(prefix)"/static/favicon.svg"} type="image/svg+xml";
+                link rel="stylesheet" href={(prefix)"/static/vendor/pico.classless.min.css"};
+                link rel="stylesheet" href={(prefix)"/static/style.css"};
+                link rel="stylesheet" href={(prefix)"/static/app.css"};
             }
             body {
                 main {
-                    img alt="Authly" src={(prefix)"/web/static/logo.svg"};
+                    img alt="Authly" src={(prefix)"/static/logo.svg"};
 
-                    div id="tabs" hx-get={(prefix)"/web/tab/persona"} hx-trigger="load delay:100ms" hx-target="#tabs" hx-swap="innerHTML";
+                    div id="tabs" hx-get={(prefix)"/tab/persona"} hx-trigger="load delay:100ms" hx-target="#tabs" hx-swap="innerHTML";
                 }
             }
         }

@@ -22,13 +22,18 @@ spec:
           port: 443
     - matches:
         - path:
-            value: /authly/web
+            value: /authly/api
       filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: authly.id
+            kind: Service
+            name: authn
         - type: URLRewrite
           urlRewrite:
             path:
               type: ReplacePrefixMatch
-              replacePrefixMatch: /web
+              replacePrefixMatch: /api
       backendRefs:
         - name: authly
           port: 443
@@ -40,7 +45,9 @@ spec:
           extensionRef:
             group: authly.id
             kind: Service
-            name: authn
+            # Opportunistic authentication means that sessionless requests are sent to the backend,
+            # without access token.
+            name: authn-opportunistic
         - type: URLRewrite
           urlRewrite:
             path:
@@ -68,8 +75,6 @@ spec:
           extensionRef:
             group: authly.id
             kind: Service
-            # Opportunistic authentication means that sessionless requests are sent to the backend,
-            # without access token.
             name: authn-opportunistic
         - type: URLRewrite
           urlRewrite:

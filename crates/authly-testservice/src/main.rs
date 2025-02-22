@@ -119,7 +119,7 @@ async fn index(ctx: HtmlCtx) -> Markup {
             if (evt.detail.xhr.status == 401) {
                 // redirect to login
                 const next = encodeURIComponent(document.location.href);
-                window.location.href = `/authly/web/auth/?next=${next}`;
+                window.location.href = `/authly/auth/?next=${next}`;
             } else {
                 console.log('unhandled response error');
             }

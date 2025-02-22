@@ -184,7 +184,7 @@ fn build_authly_oauth_callback_url(
     let mut url = Url::parse(&base_uri.0.to_string()).map_err(|_| OAuthError::CallbackUrl)?;
     url.path_segments_mut()
         .map_err(|_| OAuthError::CallbackUrl)?
-        .extend(["web", "auth", "oauth", label, "callback"]);
+        .extend(["auth", "oauth", label, "callback"]);
 
     Ok(url.as_str().to_string())
 }

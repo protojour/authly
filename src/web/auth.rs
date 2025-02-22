@@ -35,16 +35,16 @@ pub async fn index(
                 meta name="viewport" content="device-width, intial-scale=1";
                 meta name="color-scheme" content="light dark";
                 title { "Authly sign in" }
-                script src={(prefix)"/web/static/vendor/htmx.min.js"} {}
-                link rel="shortcut icon" href={(prefix)"/web/static/favicon.svg"} type="image/svg+xml";
-                link rel="stylesheet" href={(prefix)"/web/static/vendor/pico.classless.min.css"};
-                link rel="stylesheet" href={(prefix)"/web/static/style.css"};
-                link rel="stylesheet" href={(prefix)"/web/static/auth.css"};
+                script src={(prefix)"/static/vendor/htmx.min.js"} {}
+                link rel="shortcut icon" href={(prefix)"/static/favicon.svg"} type="image/svg+xml";
+                link rel="stylesheet" href={(prefix)"/static/vendor/pico.classless.min.css"};
+                link rel="stylesheet" href={(prefix)"/static/style.css"};
+                link rel="stylesheet" href={(prefix)"/static/auth.css"};
             }
             body {
                 div id="root" {
                     main {
-                        img alt="Authly" src={(prefix)"/web/static/logo.svg"};
+                        img alt="Authly" src={(prefix)"/static/logo.svg"};
                         div class="card" {
                             h2 { "Sign in" }
                             (login_form(&prefix, &params, None))
@@ -59,7 +59,7 @@ pub async fn index(
 /// A login form with an optional error message
 fn login_form(prefix: &str, params: &QueryParams, message: Option<&str>) -> Markup {
     let login_url = format!(
-        "{prefix}/web/auth/login?{}",
+        "{prefix}/auth/login?{}",
         &serde_urlencoded::to_string(params).unwrap()
     );
 
@@ -77,7 +77,7 @@ fn login_form(prefix: &str, params: &QueryParams, message: Option<&str>) -> Mark
             div {
                 button type="submit" {
                     svg {
-                        use href={(prefix)"/web/static/vendor/login.svg#icon"};
+                        use href={(prefix)"/static/vendor/login.svg#icon"};
                     }
                     "Sign in"
                 }

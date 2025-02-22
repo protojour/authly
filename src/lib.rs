@@ -224,8 +224,8 @@ pub async fn serve() -> anyhow::Result<()> {
 
 fn main_service_http_router(ctx: AuthlyCtx) -> axum::Router {
     axum::Router::new()
-        .merge(openapi::router::router())
         .merge(web::router())
+        .merge(openapi::router::router())
         .with_state(ctx.clone())
 }
 

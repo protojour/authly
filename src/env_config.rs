@@ -61,7 +61,7 @@ pub struct EnvConfig {
     /// Disable at-rest encryption by using a constant secret backend
     pub danger_disable_encryption: bool,
 
-    /// A plain http (no https) debug port for serving /web/ endpoints, intended for development.
+    /// A plain http (no https) debug port for serving "/" HTML endpoints, intended for development.
     #[cfg(feature = "dev")]
     pub debug_web_port: Option<u16>,
 }

@@ -19,7 +19,10 @@ use crate::{
     AuthlyCtx,
 };
 
-use super::{base_uri::ForwardedPrefix, dev::IsDev};
+use super::{
+    base_uri::{ForwardedPrefix, ProxiedUri},
+    dev::IsDev,
+};
 
 /// Auth handler for web APIs
 pub struct ApiAuth<R: VerifyAuthlyRole> {
@@ -64,10 +67,13 @@ impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for WebAuth
                 _phantom: PhantomData,
             }),
             Err((status, msg)) => match status {
-                StatusCode::UNAUTHORIZED => Err(redirect_to_login(parts).await.map_err(|err| {
-                    tracing::error!(?err, "redirect");
-                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
-                })?),
+                StatusCode::UNAUTHORIZED => {
+                    tracing::info!(msg, "unauthorized, redirecting");
+                    Err(redirect_to_login(parts).await.map_err(|err| {
+                        tracing::error!(?err, "redirect");
+                        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                    })?)
+                }
                 _ => Err((status, msg).into_response()),
             },
         }
@@ -123,10 +129,14 @@ async fn redirect_to_login(parts: &mut Parts) -> anyhow::Result<axum::response::
         .await
         .map_err(|_| anyhow!("no prefix"))?;
 
-    let next_uri = parts.uri.to_string();
+    let next_uri = ProxiedUri::from_request_parts(parts, &())
+        .await
+        .map_err(|_| anyhow!("unable to extract proxied uri"))?
+        .0
+        .to_string();
     let next_uri = utf8_percent_encode(&next_uri, NON_ALPHANUMERIC);
 
-    let auth_location = HeaderValue::from_str(&format!("{prefix}/web/auth?next={next_uri}"))?;
+    let auth_location = HeaderValue::from_str(&format!("{prefix}/auth?next={next_uri}"))?;
 
     Ok((StatusCode::FOUND, [(LOCATION, auth_location)]).into_response())
 }
