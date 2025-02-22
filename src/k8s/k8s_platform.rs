@@ -1,10 +1,11 @@
+use authly_domain::ctx::GetInstance;
 use k8s_openapi::api::core::v1::ConfigMap;
 use kube::{
     api::{ObjectMeta, Patch, PatchParams},
     Api, Client,
 };
 
-use crate::{ctx::GetInstance, AuthlyCtx};
+use crate::AuthlyCtx;
 
 pub async fn k8s_redistribute_certificates(ctx: AuthlyCtx) {
     let client = Client::try_default().await.unwrap();

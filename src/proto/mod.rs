@@ -6,10 +6,11 @@ use authly_connect::{
     TunnelSecurity,
 };
 use authly_db::DbError;
+use authly_domain::ctx::GetInstance;
 use mandate_submission::AuthlyMandateSubmissionServerImpl;
 use tracing::warn;
 
-use crate::{ctx::GetInstance, tls, AuthlyCtx};
+use crate::{tls, AuthlyCtx};
 
 pub mod mandate_submission;
 pub mod service_server;

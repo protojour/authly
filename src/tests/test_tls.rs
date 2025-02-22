@@ -1,16 +1,16 @@
 use std::{error::Error, sync::Arc};
 
 use authly_common::{id::ServiceId, mtls_server::PeerServiceEntity};
+use authly_domain::cert::{
+    authly_ca, client_cert, server_cert, server_cert_csr, Cert, CertificateParamsExt,
+};
 use axum::{response::IntoResponse, Extension};
 use rcgen::CertificateSigningRequestParams;
 use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
 use time::Duration;
 use tokio_util::sync::{CancellationToken, DropGuard};
 
-use crate::{
-    cert::{authly_ca, client_cert, server_cert, server_cert_csr, Cert, CertificateParamsExt},
-    tests::{rustls_server_config_mtls, rustls_server_config_no_client_auth},
-};
+use crate::tests::{rustls_server_config_mtls, rustls_server_config_no_client_auth};
 
 fn localhost() -> Vec<String> {
     vec!["localhost".to_string()]

@@ -4,21 +4,20 @@ use std::str::FromStr;
 use std::{cmp, mem};
 use std::{collections::HashMap, ops::Range};
 
-use authly_common::id::{
-    AnyId, AttrId, DirectoryId, DomainId, EntityId, PolicyId, PropId, ServiceId,
+use authly_common::{
+    document,
+    id::{AnyId, AttrId, DirectoryId, DomainId, EntityId, PolicyId, PropId, ServiceId},
+    policy::code::PolicyValue,
+    property::QualifiedAttributeName,
 };
-use authly_common::policy::code::PolicyValue;
-use authly_common::{document, property::QualifiedAttributeName};
 use authly_db::{Db, DbError};
-use authly_domain::ctx::GetDb;
-use authly_domain::directory::DirKey;
-use authly_domain::id::BuiltinProp;
+use authly_domain::ctx::KubernetesConfig;
+use authly_domain::{ctx::GetDb, directory::DirKey, id::BuiltinProp};
 use serde::de::value::StrDeserializer;
 use serde::Deserialize;
 use serde_spanned::Spanned;
 use tracing::debug;
 
-use crate::ctx::KubernetesConfig;
 use crate::db::directory_db::{query_dir_key, DbDirectoryNamespaceLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};

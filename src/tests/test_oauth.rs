@@ -1,6 +1,10 @@
 use authly_common::id::DirectoryId;
 use authly_db::Db;
-use authly_domain::{ctx::GetDb, directory::DirKey, id::BuiltinProp};
+use authly_domain::{
+    ctx::{GetDb, GetDecryptedDeks},
+    directory::{DirKey, OAuthDirectory, PersonaDirectory},
+    id::BuiltinProp,
+};
 use axum::extract::{Path, Query, State};
 use itertools::Itertools;
 use rand::{rngs::OsRng, Rng};
@@ -11,9 +15,15 @@ use wiremock::{
 };
 
 use crate::{
-    ctx::GetDecryptedDeks,
-    db::{cryptography_db::EncryptedObjIdent, oauth_db::upsert_oauth_directory_stmt, object_db},
-    directory::{load_persona_directories, OAuthDirectory, PersonaDirectory},
+    db::{
+        cryptography_db::EncryptedObjIdent,
+        oauth_db::{
+            oauth_upsert_params, oauth_upsert_secret_stmt, oauth_upsert_stmt,
+            upsert_oauth_directory_stmt,
+        },
+        object_db,
+    },
+    directory::load_persona_directories,
     persona_directory::{self, ForeignPersona},
     test_support::TestCtx,
     util::base_uri::ProxiedBaseUri,
@@ -102,15 +112,19 @@ async fn test_insert_update_list_oauth_directory() {
     let oauth_a = random_oauth(dir_id, dir_key);
 
     {
-        let (sql, params) = oauth_a
-            .upsert_secret_stmt::<<TestCtx as GetDb>::Db>(dir_key, now, &ctx.get_decrypted_deks())
-            .unwrap();
+        let (sql, params) = oauth_upsert_secret_stmt::<<TestCtx as GetDb>::Db>(
+            &oauth_a,
+            dir_key,
+            now,
+            &ctx.get_decrypted_deks(),
+        )
+        .unwrap();
 
         ctx.get_db().execute(sql, params).await.unwrap();
     }
 
     ctx.get_db()
-        .execute(OAuthDirectory::upsert_stmt(), oauth_a.upsert_params(now))
+        .execute(oauth_upsert_stmt(), oauth_upsert_params(oauth_a, now))
         .await
         .unwrap();
 
@@ -118,8 +132,8 @@ async fn test_insert_update_list_oauth_directory() {
 
     ctx.get_db()
         .execute(
-            OAuthDirectory::upsert_stmt(),
-            oauth_b.clone().upsert_params(now),
+            oauth_upsert_stmt(),
+            oauth_upsert_params(oauth_b.clone(), now),
         )
         .await
         .unwrap();

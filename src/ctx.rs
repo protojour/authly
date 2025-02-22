@@ -5,7 +5,13 @@ use std::{future::Future, sync::Arc};
 use authly_common::id::ServiceId;
 use authly_domain::{
     builtins::Builtins,
-    ctx::{GetBuiltins, GetDb},
+    ctx::{
+        Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance, HostsConfig,
+        KubernetesConfig, LoadInstance, RedistributeCertificates, SetInstance,
+    },
+    directory::PersonaDirectory,
+    encryption::DecryptedDeks,
+    instance::AuthlyInstance,
 };
 use indexmap::IndexMap;
 
@@ -15,36 +21,9 @@ use crate::{
         service_events::ServiceMessageConnection,
         BusError,
     },
-    directory::PersonaDirectory,
-    encryption::DecryptedDeks,
-    instance::AuthlyInstance,
     platform::CertificateDistributionPlatform,
     AuthlyCtx,
 };
-
-pub trait GetHttpClient {
-    fn get_internet_http_client(&self) -> reqwest::Client;
-}
-
-pub trait GetInstance {
-    // Gets cheap read guard for the AuthlyInstance
-    fn get_instance(&self) -> arc_swap::Guard<Arc<AuthlyInstance>>;
-}
-
-pub trait LoadInstance {
-    // Get full load of AuthlyInstance
-    fn load_instance(&self) -> Arc<AuthlyInstance>;
-}
-
-pub trait SetInstance {
-    // Sets a new AuthlyInstance
-    fn set_instance(&self, instance: AuthlyInstance);
-}
-
-pub trait GetDecryptedDeks {
-    fn get_decrypted_deks(&self) -> arc_swap::Guard<Arc<DecryptedDeks>>;
-    fn load_decrypted_deks(&self) -> Arc<DecryptedDeks>;
-}
 
 pub trait ClusterBus {
     /// Send broadcast message to the Authly cluster unconditionally
@@ -67,23 +46,6 @@ pub trait ServiceBus {
     fn service_broadcast(&self, svc_id: ServiceId, msg: ServiceMessage);
 
     fn service_broadcast_all(&self, msg: ServiceMessage);
-}
-
-pub trait RedistributeCertificates {
-    fn redistribute_certificates_if_leader(&self) -> impl Future<Output = ()>;
-}
-
-pub trait Directories {
-    fn load_persona_directories(&self) -> Arc<IndexMap<String, PersonaDirectory>>;
-}
-
-pub trait HostsConfig {
-    fn authly_hostname(&self) -> &str;
-    fn is_k8s(&self) -> bool;
-}
-
-pub trait KubernetesConfig {
-    fn authly_local_k8s_namespace(&self) -> &str;
 }
 
 impl GetDb for AuthlyCtx {

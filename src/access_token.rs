@@ -10,6 +10,7 @@ use authly_common::{
     access_token::{Authly, AuthlyAccessTokenClaims},
     id::AttrId,
 };
+use authly_domain::{ctx::GetInstance, instance::AuthlyInstance};
 use axum::RequestPartsExt;
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -18,7 +19,7 @@ use axum_extra::{
 use fnv::FnvHashSet;
 use http::{request::Parts, StatusCode};
 
-use crate::{ctx::GetInstance, instance::AuthlyInstance, session::Session, AuthlyCtx};
+use crate::{session::Session, AuthlyCtx};
 
 const EXPIRATION: time::Duration = time::Duration::days(365);
 

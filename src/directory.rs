@@ -1,8 +1,14 @@
 use std::{any::Any, collections::HashMap, fmt::Display, fs};
 
-use authly_common::id::{DirectoryId, ServiceId};
+use authly_common::id::ServiceId;
 use authly_db::{Db, DbError};
-use authly_domain::{ctx::GetDb, directory::DirKey, id::BuiltinProp};
+use authly_domain::{
+    cert::{client_cert, CertificateParamsExt},
+    ctx::{GetDb, GetDecryptedDeks, GetInstance},
+    directory::{DirKey, OAuthDirectory, PersonaDirectory},
+    encryption::DecryptedDeks,
+    id::BuiltinProp,
+};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -10,15 +16,14 @@ use tracing::error;
 use crate::{
     audit::Actor,
     bus::{message::ClusterMessage, BusError},
-    cert::{client_cert, CertificateParamsExt},
-    ctx::{ClusterBus, GetDecryptedDeks, GetInstance},
+    ctx::ClusterBus,
     db::{
         cryptography_db::{self, CrDbError},
         directory_db::DbDirectory,
         document_db::{DocumentDbTxnError, DocumentTransaction},
+        oauth_db::{self, OAuthRow},
     },
     document::compiled_document::CompiledDocument,
-    encryption::DecryptedDeks,
     AuthlyCtx,
 };
 
@@ -53,36 +58,6 @@ impl Display for DirectoryKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.serialize(f)
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum PersonaDirectory {
-    OAuth(OAuthDirectory),
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct OAuthDirectory {
-    pub dir_key: DirKey,
-    pub dir_id: DirectoryId,
-    pub client_id: String,
-    pub client_secret: String,
-
-    pub auth_url: String,
-    pub auth_req_scope: Option<String>,
-    pub auth_req_client_id_field: Option<String>,
-    pub auth_req_nonce_field: Option<String>,
-    pub auth_res_code_path: Option<String>,
-
-    pub token_url: String,
-    pub token_req_client_id_field: Option<String>,
-    pub token_req_client_secret_field: Option<String>,
-    pub token_req_code_field: Option<String>,
-    pub token_req_callback_url_field: Option<String>,
-    pub token_res_access_token_field: Option<String>,
-
-    pub user_url: String,
-    pub user_res_id_path: Option<String>,
-    pub user_res_email_path: Option<String>,
 }
 
 /// Apply (write or overwrite) a document directory, publish change message
@@ -122,10 +97,10 @@ pub async fn load_persona_directories(
     deks: &DecryptedDeks,
 ) -> Result<IndexMap<String, PersonaDirectory>, DirectoryError> {
     let directories = DbDirectory::query_by_kind(db, DirectoryKind::Persona).await?;
-    let mut oauth_dirs: HashMap<DirKey, OAuthDirectory> = OAuthDirectory::query(db)
+    let mut oauth_dirs: HashMap<DirKey, OAuthDirectory> = oauth_db::oauth_query(db)
         .await?
         .into_iter()
-        .map(|o| (o.dir_key, o))
+        .map(|OAuthRow(dir)| (dir.dir_key, dir))
         .collect();
 
     let mut persona_dirs: Vec<(String, PersonaDirectory)> = vec![];

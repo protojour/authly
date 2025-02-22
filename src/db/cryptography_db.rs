@@ -1,11 +1,6 @@
 //! cryptography-oriented things stored in the DB (secret information is encrypted!)
 
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    str::{self, FromStr},
-    time::Duration,
-};
+use std::{borrow::Cow, collections::HashMap, str, time::Duration};
 
 use aes_gcm_siv::{
     aead::{Aead, Nonce},
@@ -14,19 +9,22 @@ use aes_gcm_siv::{
 use anyhow::{anyhow, Context};
 use authly_common::id::{AnyId, PropId, ServiceId};
 use authly_db::{param::ToBlob, params, Db, DbError, DbResult, FromRow, Row, TryFromRow};
-use authly_domain::{ctx::GetDb, id::BuiltinProp};
+use authly_domain::{
+    cert::{authly_ca, client_cert, key_pair},
+    ctx::{GetDb, GetDecryptedDeks},
+    encryption::DecryptedDeks,
+    id::BuiltinProp,
+    instance::AuthlyId,
+    tls::{AuthlyCert, AuthlyCertKind},
+};
 use indoc::indoc;
-use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rcgen::{KeyPair, PKCS_ECDSA_P256_SHA256};
+use rustls::pki_types::PrivateKeyDer;
 use thiserror::Error;
 use tracing::{debug, info};
 
 use crate::{
-    cert::{authly_ca, client_cert, key_pair},
-    ctx::GetDecryptedDeks,
-    encryption::{random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
-    instance::AuthlyId,
-    tls::{AuthlyCert, AuthlyCertKind},
+    encryption::{random_nonce, EncryptedDek, MasterVersion},
     AuthlyInstance, IsLeaderDb,
 };
 
@@ -302,26 +300,6 @@ pub async fn save_instance(
     .await?;
 
     Ok(())
-}
-
-impl TryFromRow for AuthlyCert {
-    type Error = anyhow::Error;
-
-    fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error> {
-        let kind = row.get_text("kind");
-        let Ok(kind) = AuthlyCertKind::from_str(&kind) else {
-            return Err(anyhow!("invalid cert kind: {kind}"));
-        };
-        let cert_der = CertificateDer::from(row.get_blob("der"));
-
-        Ok(Self {
-            kind,
-            certifies: row.get_id("certifies_eid"),
-            signed_by: row.get_id("signed_by_eid"),
-            params: CertificateParams::from_ca_cert_der(&cert_der)?,
-            der: cert_der,
-        })
-    }
 }
 
 async fn load_certs(db: &impl Db) -> Result<Vec<AuthlyCert>, CrDbError> {

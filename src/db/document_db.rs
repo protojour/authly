@@ -2,6 +2,7 @@ use std::{borrow::Cow, ops::Range};
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
 use authly_db::{literal::Literal, param::ToBlob, params, Db, DbError};
+use authly_domain::encryption::DecryptedDeks;
 use hiqlite::{StmtColumn, StmtIndex};
 use indoc::indoc;
 use itertools::Itertools;
@@ -17,7 +18,6 @@ use crate::{
         },
         error::DocError,
     },
-    encryption::DecryptedDeks,
     settings::Setting,
 };
 

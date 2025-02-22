@@ -1,11 +1,7 @@
 use std::env;
 
-use authly::{
-    cert::{server_cert, CertificateParamsExt},
-    configure,
-    env_config::ClusterTlsPath,
-    serve, EnvConfig,
-};
+use authly::{configure, env_config::ClusterTlsPath, serve, EnvConfig};
+use authly_domain::cert::{server_cert, CertificateParamsExt};
 use clap::{Parser, Subcommand};
 use mimalloc::MiMalloc;
 use rand::{rngs::OsRng, Rng};

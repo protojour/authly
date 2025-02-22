@@ -12,6 +12,7 @@ use authly_connect::{
     TunnelSecurity,
 };
 use authly_db::sqlite_pool::SqlitePool;
+use authly_domain::cert::Cert;
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -24,7 +25,6 @@ use tracing::{info_span, Instrument};
 
 use crate::{
     audit::Actor,
-    cert::Cert,
     db::{
         document_db::DocumentDbTxnError,
         service_db::{self, PropertyKind},

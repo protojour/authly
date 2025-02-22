@@ -8,6 +8,7 @@ use authly_connect::{
     client::new_authly_connect_grpc_client_service, tunnel::authly_connect_client_tunnel,
     TunnelSecurity,
 };
+use authly_domain::cert::{authly_ca, client_cert, server_cert, CertificateParamsExt};
 use authly_test_grpc::{
     test_grpc_client::TestGrpcClient, test_grpc_server::TestGrpcServer, TestMsg,
 };
@@ -24,10 +25,7 @@ use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::{
-    cert::{authly_ca, client_cert, server_cert, CertificateParamsExt},
-    tests::{rustls_server_config_mtls, spawn_test_connect_server},
-};
+use crate::tests::{rustls_server_config_mtls, spawn_test_connect_server};
 
 #[test(tokio::test)]
 async fn test_connect_grpc() {

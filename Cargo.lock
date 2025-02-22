@@ -499,16 +499,28 @@ dependencies = [
 name = "authly-domain"
 version = "0.0.0"
 dependencies = [
+ "aes-gcm-siv",
+ "anyhow",
+ "arc-swap",
  "authly-common",
  "authly-db",
+ "blake3",
  "fnv",
  "hexhex",
+ "indexmap 2.7.1",
  "int-enum",
  "itertools 0.14.0",
+ "jsonwebtoken",
+ "pem",
+ "rcgen 0.13.2 (git+https://github.com/rustls/rcgen.git)",
+ "reqwest",
+ "rustls",
  "thiserror 2.0.11",
  "time",
  "tokio",
  "tracing",
+ "x509-parser",
+ "zeroize",
 ]
 
 [[package]]

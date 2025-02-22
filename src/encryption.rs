@@ -1,13 +1,16 @@
-use std::{collections::HashMap, fmt::Debug, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use aes_gcm_siv::{
     aead::{Aead, Nonce},
-    Aes256GcmSiv, Key, KeyInit,
+    Aes256GcmSiv, KeyInit,
 };
 use anyhow::anyhow;
 use authly_common::id::PropId;
 use authly_db::Db;
-use authly_domain::id::BuiltinProp;
+use authly_domain::{
+    encryption::{AesKey, DecryptedDeks},
+    id::BuiltinProp,
+};
 use authly_secrets::AuthlySecrets;
 use rand::{rngs::OsRng, RngCore};
 use secrecy::ExposeSecret;
@@ -16,24 +19,6 @@ use tracing::info;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::{db::cryptography_db, IsLeaderDb};
-
-/// The set of Data Encryption Keys used by authly
-#[derive(Default, Debug)]
-pub struct DecryptedDeks {
-    deks: HashMap<PropId, AesKey>,
-}
-
-impl DecryptedDeks {
-    pub fn new(deks: HashMap<PropId, AesKey>) -> Self {
-        Self { deks }
-    }
-
-    pub fn get(&self, id: PropId) -> anyhow::Result<&AesKey> {
-        self.deks
-            .get(&id)
-            .ok_or_else(|| anyhow!("no DEK present for {id}"))
-    }
-}
 
 #[derive(Clone)]
 pub struct MasterVersion {
@@ -57,7 +42,7 @@ impl DecryptedMaster {
                 let mut key = [0u8; 32];
                 OsRng.fill_bytes(key.as_mut_slice());
 
-                AesKey { key: key.into() }
+                AesKey::new(key.into())
             },
         }
     }
@@ -68,44 +53,6 @@ pub struct EncryptedDek {
     pub nonce: Nonce<Aes256GcmSiv>,
     pub ciph: Vec<u8>,
     pub created_at: time::OffsetDateTime,
-}
-
-pub struct AesKey {
-    key: Key<Aes256GcmSiv>,
-}
-
-impl Debug for AesKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AesKey").finish()
-    }
-}
-
-impl AesKey {
-    fn load(bytes: Zeroizing<Vec<u8>>) -> anyhow::Result<Self> {
-        let key = Key::<Aes256GcmSiv>::from_exact_iter(bytes.iter().copied())
-            .ok_or_else(|| anyhow!("invalid key length"))?;
-
-        Ok(Self { key })
-    }
-
-    /// Make an AES cipher for this key
-    pub fn aes(&self) -> Aes256GcmSiv {
-        Aes256GcmSiv::new(&self.key)
-    }
-
-    // Use blake3 to produce a fingerprint of the given data, with this Dek as "salt"
-    pub fn fingerprint(&self, data: &[u8]) -> [u8; 32] {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(self.key.as_slice());
-        hasher.update(data);
-        *hasher.finalize().as_bytes()
-    }
-}
-
-impl Drop for AesKey {
-    fn drop(&mut self) {
-        self.key.zeroize();
-    }
 }
 
 pub async fn load_decrypted_deks(
@@ -155,7 +102,7 @@ pub async fn load_decrypted_deks(
         }
     };
 
-    Ok(DecryptedDeks { deks })
+    Ok(DecryptedDeks::new(deks))
 }
 
 async fn gen_new_master(secrets: &dyn AuthlySecrets) -> anyhow::Result<DecryptedMaster> {
@@ -166,9 +113,7 @@ async fn gen_new_master(secrets: &dyn AuthlySecrets) -> anyhow::Result<Decrypted
             version: version.0,
             created_at: time::OffsetDateTime::now_utc(),
         },
-        key: AesKey {
-            key: (*secret.expose_secret()).into(),
-        },
+        key: AesKey::new((*secret.expose_secret()).into()),
     })
 }
 
@@ -182,9 +127,7 @@ async fn decrypt_master(
 
     Ok(DecryptedMaster {
         encrypted,
-        key: AesKey {
-            key: (*secret.expose_secret()).into(),
-        },
+        key: AesKey::new((*secret.expose_secret()).into()),
     })
 }
 
@@ -220,7 +163,7 @@ pub async fn gen_prop_deks(
                 },
             );
 
-            let key = AesKey { key: dek };
+            let key = AesKey::new(dek);
             dek.zeroize();
             key
         };

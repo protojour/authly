@@ -3,14 +3,12 @@ use authly_common::{
     id::{Id128DynamicArrayConv, ServiceId},
     proto::mandate_submission::{self as proto},
 };
+use authly_domain::tls::{AuthlyCert, AuthlyCertKind};
 use rcgen::CertificateParams;
 use rustls::pki_types::CertificateDer;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    tls::{AuthlyCert, AuthlyCertKind},
-    util::serde::UrlSafeBase64,
-};
+use crate::util::serde::UrlSafeBase64;
 
 pub mod authority;
 pub mod mandate;
@@ -69,33 +67,30 @@ impl TryFrom<proto::SubmissionResponse> for MandateSubmissionData {
                 mandate_identity: value
                     .mandate_identity_cert
                     .ok_or_else(|| anyhow!("no identity cert"))
-                    .and_then(|cert| (cert, AuthlyCertKind::Identity).try_into())?,
-                mandate_local_ca: (proto_local_ca, AuthlyCertKind::Ca).try_into()?,
+                    .and_then(|cert| cert_from_proto(cert, AuthlyCertKind::Identity))?,
+                mandate_local_ca: cert_from_proto(proto_local_ca, AuthlyCertKind::Ca)?,
             },
             upstream_ca_chain: proto_ca_chain
-                .map(|cert| (cert, AuthlyCertKind::Ca).try_into())
+                .map(|cert| cert_from_proto(cert, AuthlyCertKind::Ca))
                 .collect::<Result<_, _>>()?,
         })
     }
 }
 
-impl TryFrom<(proto::AuthlyCertificate, AuthlyCertKind)> for AuthlyCert {
-    type Error = anyhow::Error;
+fn cert_from_proto(
+    proto: proto::AuthlyCertificate,
+    kind: AuthlyCertKind,
+) -> anyhow::Result<AuthlyCert> {
+    let der = CertificateDer::from(proto.der);
+    let params = CertificateParams::from_ca_cert_der(&der)?;
 
-    fn try_from(
-        (proto, kind): (proto::AuthlyCertificate, AuthlyCertKind),
-    ) -> Result<Self, Self::Error> {
-        let der = CertificateDer::from(proto.der);
-        let params = CertificateParams::from_ca_cert_der(&der)?;
-
-        Ok(AuthlyCert {
-            kind,
-            certifies: read_id(&proto.certifies_entity_id)?,
-            signed_by: read_id(&proto.signed_by_entity_id)?,
-            params,
-            der,
-        })
-    }
+    Ok(AuthlyCert {
+        kind,
+        certifies: read_id(&proto.certifies_entity_id)?,
+        signed_by: read_id(&proto.signed_by_entity_id)?,
+        params,
+        der,
+    })
 }
 
 fn read_id(bytes: &[u8]) -> anyhow::Result<ServiceId> {

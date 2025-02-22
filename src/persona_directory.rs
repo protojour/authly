@@ -1,15 +1,16 @@
 use authly_common::id::PersonaId;
 use authly_db::{DbError, DidInsert};
-use authly_domain::{ctx::GetDb, directory::DirKey, id::BuiltinProp};
+use authly_domain::{
+    ctx::{GetDb, GetDecryptedDeks},
+    directory::DirKey,
+    id::BuiltinProp,
+};
 use tracing::info;
 
-use crate::{
-    ctx::GetDecryptedDeks,
-    db::{
-        cryptography_db::EncryptedObjIdent,
-        entity_db::{self, OverwritePersonaId},
-        object_db,
-    },
+use crate::db::{
+    cryptography_db::EncryptedObjIdent,
+    entity_db::{self, OverwritePersonaId},
+    object_db,
 };
 
 // A persona whose source is a 3rd-party directory (OAuth/LDAP/etc)

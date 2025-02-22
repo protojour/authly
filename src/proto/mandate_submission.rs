@@ -7,13 +7,13 @@ use authly_common::{
         },
     },
 };
-use authly_domain::ctx::GetDb;
+use authly_domain::ctx::{GetDb, GetInstance};
 use rcgen::CertificateSigningRequestParams;
 use rustls::pki_types::CertificateSigningRequestDer;
 use tonic::{Request, Response};
 use tracing::warn;
 
-use crate::{authority_mandate::submission, ctx::GetInstance};
+use crate::authority_mandate::submission;
 
 pub struct AuthlyMandateSubmissionServerImpl<Ctx> {
     ctx: Ctx,

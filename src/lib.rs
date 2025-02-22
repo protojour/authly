@@ -10,17 +10,17 @@ use std::{
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
-use authly_domain::{builtins::Builtins, ctx::GetDb};
+use authly_domain::{
+    builtins::Builtins, ctx::GetDb, directory::PersonaDirectory, encryption::DecryptedDeks,
+    instance::AuthlyInstance,
+};
 use axum::{response::IntoResponse, Json};
 use bus::{message::ServiceMessage, service_events::ServiceEventDispatcher};
 use ctx::ServiceBus;
 use db::{cryptography_db, init_db, settings_db};
-use directory::PersonaDirectory;
 use document::load::load_cfg_documents;
-use encryption::DecryptedDeks;
 pub use env_config::EnvConfig;
 use indexmap::IndexMap;
-use instance::AuthlyInstance;
 use openraft::RaftMetrics;
 use platform::CertificateDistributionPlatform;
 use serde::{Deserialize, Serialize};
@@ -36,13 +36,11 @@ pub mod access_token;
 pub mod audit;
 pub mod authority_mandate;
 pub mod bus;
-pub mod cert;
 pub mod ctx;
 pub mod db;
 pub mod document;
 pub mod encryption;
 pub mod env_config;
-pub mod instance;
 pub mod platform;
 pub mod proto;
 pub mod session;

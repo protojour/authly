@@ -13,7 +13,10 @@ use authly_connect::{
     TunnelSecurity,
 };
 use authly_db::{param::ToBlob, params, Db};
-use authly_domain::ctx::GetDb;
+use authly_domain::{
+    cert::client_cert_csr,
+    ctx::{GetDb, GetDecryptedDeks, GetInstance, SetInstance},
+};
 use axum::body::Bytes;
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 use rustls::ClientConfig;
@@ -21,8 +24,7 @@ use tracing::error;
 
 use crate::{
     bus::{message::ClusterMessage, BusError},
-    cert::client_cert_csr,
-    ctx::{ClusterBus, GetDecryptedDeks, GetInstance, SetInstance},
+    ctx::ClusterBus,
     db::cryptography_db,
 };
 
