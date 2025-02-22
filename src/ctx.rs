@@ -1,13 +1,15 @@
-//! Traits for abstracting away application context
+//! trait implementations for AuthlyCtx
 
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use authly_common::id::ServiceId;
 use authly_domain::{
     builtins::Builtins,
+    bus::{BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection},
     ctx::{
-        Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance, HostsConfig,
-        KubernetesConfig, LoadInstance, RedistributeCertificates, SetInstance,
+        ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
+        HostsConfig, KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus,
+        SetInstance,
     },
     directory::PersonaDirectory,
     encryption::DecryptedDeks,
@@ -15,38 +17,7 @@ use authly_domain::{
 };
 use indexmap::IndexMap;
 
-use crate::{
-    bus::{
-        message::{ClusterMessage, ServiceMessage},
-        service_events::ServiceMessageConnection,
-        BusError,
-    },
-    platform::CertificateDistributionPlatform,
-    AuthlyCtx,
-};
-
-pub trait ClusterBus {
-    /// Send broadcast message to the Authly cluster unconditionally
-    fn broadcast_to_cluster(
-        &self,
-        message: ClusterMessage,
-    ) -> impl Future<Output = Result<(), BusError>>;
-
-    /// Send broadcast message to the Authly cluster, if this node is the leader
-    fn broadcast_to_cluster_if_leader(
-        &self,
-        message: ClusterMessage,
-    ) -> impl Future<Output = Result<(), BusError>>;
-}
-
-pub trait ServiceBus {
-    /// Register a subscriber for service messages.
-    fn service_subscribe(&self, svc_id: ServiceId, connection: ServiceMessageConnection);
-
-    fn service_broadcast(&self, svc_id: ServiceId, msg: ServiceMessage);
-
-    fn service_broadcast_all(&self, msg: ServiceMessage);
-}
+use crate::{platform::CertificateDistributionPlatform, AuthlyCtx};
 
 impl GetDb for AuthlyCtx {
     type Db = hiqlite::Client;

@@ -1,15 +1,17 @@
-use tokio::sync::broadcast;
-
 pub mod cluster;
 pub mod handler;
-pub mod message;
 pub mod service_events;
 
-#[derive(thiserror::Error, Debug)]
-pub enum BusError {
-    #[error("hiqlite notify error: {0}")]
-    HqlNotify(hiqlite::Error),
+#[test]
+fn directory_changed_serde() {
+    use authly_common::id::DirectoryId;
+    use authly_domain::bus::ClusterMessage;
 
-    #[error("bus receive error: {0}")]
-    Receive(broadcast::error::RecvError),
+    let msg0 = ClusterMessage::DirectoryChanged {
+        dir_id: DirectoryId::random(),
+    };
+    let json = serde_json::to_vec(&msg0).unwrap();
+    let msg1: ClusterMessage = serde_json::from_slice(&json).unwrap();
+
+    assert_eq!(msg0, msg1);
 }

@@ -1,5 +1,8 @@
+use std::net::SocketAddr;
+
 use authly_common::id::DirectoryId;
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
 
 /// Message type used by the Authly message bus (hiqlite notify mechanism).
 ///
@@ -45,13 +48,17 @@ pub enum ServiceMessage {
     Ping,
 }
 
-#[test]
-fn directory_changed_serde() {
-    let msg0 = ClusterMessage::DirectoryChanged {
-        dir_id: DirectoryId::random(),
-    };
-    let json = serde_json::to_vec(&msg0).unwrap();
-    let msg1: ClusterMessage = serde_json::from_slice(&json).unwrap();
+#[derive(Clone)]
+pub struct ServiceMessageConnection {
+    pub sender: tokio::sync::mpsc::Sender<ServiceMessage>,
+    pub addr: SocketAddr,
+}
 
-    assert_eq!(msg0, msg1);
+#[derive(thiserror::Error, Debug)]
+pub enum BusError {
+    #[error("notify error: {0}")]
+    Notify(anyhow::Error),
+
+    #[error("bus receive error: {0}")]
+    Receive(broadcast::error::RecvError),
 }

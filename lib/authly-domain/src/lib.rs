@@ -1,4 +1,5 @@
 pub mod builtins;
+pub mod bus;
 pub mod cert;
 pub mod ctx;
 pub mod directory;

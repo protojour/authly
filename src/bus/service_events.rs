@@ -1,24 +1,16 @@
 use std::{
     collections::BTreeMap,
-    net::SocketAddr,
     sync::{Arc, RwLock},
     time::Duration,
 };
 
 use authly_common::id::ServiceId;
+use authly_domain::bus::{ServiceMessage, ServiceMessageConnection};
 use fnv::FnvHashMap;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use super::message::ServiceMessage;
-
 type MsgSender = tokio::sync::mpsc::Sender<ServiceMessage>;
-
-#[derive(Clone)]
-pub struct ServiceMessageConnection {
-    pub sender: tokio::sync::mpsc::Sender<ServiceMessage>,
-    pub addr: SocketAddr,
-}
 
 type SenderMap = FnvHashMap<ServiceId, Vec<ServiceMessageConnection>>;
 

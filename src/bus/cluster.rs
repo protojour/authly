@@ -1,9 +1,8 @@
+use authly_domain::bus::{BusError, ClusterMessage};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::AuthlyCtx;
-
-use super::{message::ClusterMessage, BusError};
 
 /// Message type used by the Authly cluster-wide broadcast bus (hiqlite notify mechanism).
 ///
@@ -36,7 +35,7 @@ pub(crate) async fn authly_ctx_notify_cluster_wide(
             },
         })
         .await
-        .map_err(BusError::HqlNotify)?;
+        .map_err(|err| BusError::Notify(err.into()))?;
 
     Ok(())
 }

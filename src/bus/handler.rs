@@ -1,17 +1,17 @@
 use anyhow::Context;
-use authly_domain::ctx::{GetDb, GetDecryptedDeks, RedistributeCertificates, SetInstance};
+use authly_domain::{
+    bus::{ClusterMessage, ServiceMessage},
+    ctx::{ClusterBus, GetDb, GetDecryptedDeks, RedistributeCertificates, ServiceBus, SetInstance},
+};
 use tracing::info;
 
 use crate::{
-    ctx::{ClusterBus, ServiceBus},
     db::{
         cryptography_db::load_authly_instance,
         directory_db::{self, query_dir_key},
     },
     IsLeaderDb,
 };
-
-use super::message::{ClusterMessage, ServiceMessage};
 
 /// Handle incoming message from the cluster notify mechanism
 pub async fn authly_node_handle_incoming_message(

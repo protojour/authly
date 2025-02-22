@@ -515,6 +515,7 @@ dependencies = [
  "rcgen 0.13.2 (git+https://github.com/rustls/rcgen.git)",
  "reqwest",
  "rustls",
+ "serde",
  "thiserror 2.0.11",
  "time",
  "tokio",

@@ -1,10 +1,14 @@
 use std::{future::Future, sync::Arc};
 
+use authly_common::id::ServiceId;
 use authly_db::Db;
 use indexmap::IndexMap;
 
 use crate::{
-    builtins::Builtins, directory::PersonaDirectory, encryption::DecryptedDeks,
+    builtins::Builtins,
+    bus::{BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection},
+    directory::PersonaDirectory,
+    encryption::DecryptedDeks,
     instance::AuthlyInstance,
 };
 
@@ -34,6 +38,29 @@ pub trait LoadInstance {
 pub trait SetInstance {
     // Sets a new AuthlyInstance
     fn set_instance(&self, instance: AuthlyInstance);
+}
+
+pub trait ClusterBus {
+    /// Send broadcast message to the Authly cluster unconditionally
+    fn broadcast_to_cluster(
+        &self,
+        message: ClusterMessage,
+    ) -> impl Future<Output = Result<(), BusError>>;
+
+    /// Send broadcast message to the Authly cluster, if this node is the leader
+    fn broadcast_to_cluster_if_leader(
+        &self,
+        message: ClusterMessage,
+    ) -> impl Future<Output = Result<(), BusError>>;
+}
+
+pub trait ServiceBus {
+    /// Register a subscriber for service messages.
+    fn service_subscribe(&self, svc_id: ServiceId, connection: ServiceMessageConnection);
+
+    fn service_broadcast(&self, svc_id: ServiceId, msg: ServiceMessage);
+
+    fn service_broadcast_all(&self, msg: ServiceMessage);
 }
 
 pub trait GetHttpClient {
