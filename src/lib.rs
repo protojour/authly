@@ -10,15 +10,11 @@ use std::{
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
-use authly_domain::ctx::GetDb;
+use authly_domain::{builtins::Builtins, ctx::GetDb};
 use axum::{response::IntoResponse, Json};
 use bus::{message::ServiceMessage, service_events::ServiceEventDispatcher};
 use ctx::ServiceBus;
-use db::{
-    cryptography_db,
-    init_db::{self, Builtins},
-    settings_db,
-};
+use db::{cryptography_db, init_db, settings_db};
 use directory::PersonaDirectory;
 use document::load::load_cfg_documents;
 use encryption::DecryptedDeks;

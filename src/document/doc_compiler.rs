@@ -11,6 +11,7 @@ use authly_common::policy::code::PolicyValue;
 use authly_common::{document, property::QualifiedAttributeName};
 use authly_db::{Db, DbError};
 use authly_domain::ctx::GetDb;
+use authly_domain::directory::DirKey;
 use authly_domain::id::BuiltinProp;
 use serde::de::value::StrDeserializer;
 use serde::Deserialize;
@@ -21,7 +22,6 @@ use crate::ctx::KubernetesConfig;
 use crate::db::directory_db::{query_dir_key, DbDirectoryNamespaceLabel, DbDirectoryPolicy};
 use crate::db::policy_db::DbPolicy;
 use crate::db::{directory_db, policy_db, service_db, Identified};
-use crate::directory::DirKey;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, CompiledService, ObjectIdent, ObjectTextAttr,
 };

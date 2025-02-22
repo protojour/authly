@@ -2,13 +2,10 @@
 
 use authly_common::id::ServiceId;
 use authly_db::DbError;
-use authly_domain::ctx::GetDb;
+use authly_domain::ctx::{GetBuiltins, GetDb};
 use tracing::info;
 
-use crate::{
-    ctx::{GetBuiltins, HostsConfig},
-    db::service_db,
-};
+use crate::{ctx::HostsConfig, db::service_db};
 
 pub async fn get_service_hosts(
     deps: &(impl GetDb + GetBuiltins + HostsConfig),

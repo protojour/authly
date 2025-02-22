@@ -2,14 +2,11 @@ use std::borrow::Cow;
 
 use authly_common::id::DirectoryId;
 use authly_db::{param::ToBlob, params, Db, DbResult, FromRow};
-use authly_domain::id::BuiltinProp;
+use authly_domain::{directory::DirKey, id::BuiltinProp};
 use hiqlite::Params;
 use indoc::indoc;
 
-use crate::{
-    directory::{DirKey, OAuthDirectory},
-    encryption::DecryptedDeks,
-};
+use crate::{directory::OAuthDirectory, encryption::DecryptedDeks};
 
 use super::cryptography_db::{CrDbError, EncryptedObjIdent};
 

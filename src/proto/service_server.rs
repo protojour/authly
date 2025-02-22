@@ -14,7 +14,7 @@ use authly_common::{
     },
 };
 use authly_domain::{
-    ctx::GetDb,
+    ctx::{GetBuiltins, GetDb},
     id::{BuiltinAttr, BuiltinProp},
 };
 use futures_util::{stream::BoxStream, StreamExt};
@@ -31,7 +31,7 @@ use crate::{
     access_control::{self, AuthorizedPeerService},
     access_token,
     bus::{message::ServiceMessage, service_events::ServiceMessageConnection},
-    ctx::{GetBuiltins, GetInstance, HostsConfig, ServiceBus},
+    ctx::{GetInstance, HostsConfig, ServiceBus},
     db::{
         entity_db, policy_db,
         service_db::{self, find_service_label_by_eid, PropertyKind, SvcNamespaceWithMetadata},

@@ -5,12 +5,10 @@ use authly_common::{
     service::NamespacePropertyMapping,
 };
 use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Row, TryFromRow};
-use authly_domain::id::BuiltinProp;
+use authly_domain::{builtins::Builtins, id::BuiltinProp};
 use indoc::{formatdoc, indoc};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
-
-use super::init_db::Builtins;
 
 #[derive(Debug)]
 pub struct NamespaceProperty {

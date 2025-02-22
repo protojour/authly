@@ -1,11 +1,9 @@
 use std::borrow::Cow;
 
 use authly_db::{params, Db, DbResult, Row, TryFromRow};
+use authly_domain::directory::DirKey;
 
-use crate::{
-    directory::DirKey,
-    settings::{Setting, Settings},
-};
+use crate::settings::{Setting, Settings};
 
 struct LocalSetting {
     #[expect(unused)]

@@ -4,14 +4,14 @@ use argon2::Argon2;
 use authly_common::{id::PersonaId, mtls_server::PeerServiceEntity};
 use authly_db::DbError;
 use authly_domain::{
-    ctx::GetDb,
+    ctx::{GetBuiltins, GetDb},
     id::{BuiltinAttr, BuiltinProp},
 };
 use tracing::warn;
 
 use crate::{
     access_control::{authorize_peer_service, SvcAccessControlError},
-    ctx::{GetBuiltins, GetDecryptedDeks},
+    ctx::GetDecryptedDeks,
     db::entity_db::{self, EntityPasswordHash},
     session::{init_session, Session},
     util::dev::IsDev,

@@ -2,7 +2,7 @@ use std::{any::Any, collections::HashMap, fmt::Display, fs};
 
 use authly_common::id::{DirectoryId, ServiceId};
 use authly_db::{Db, DbError};
-use authly_domain::{ctx::GetDb, id::BuiltinProp};
+use authly_domain::{ctx::GetDb, directory::DirKey, id::BuiltinProp};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -21,9 +21,6 @@ use crate::{
     encryption::DecryptedDeks,
     AuthlyCtx,
 };
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct DirKey(pub i64);
 
 #[derive(thiserror::Error, Debug)]
 pub enum DirectoryError {

@@ -1,13 +1,9 @@
 use argon2::{password_hash::SaltString, Argon2};
 use authly_common::id::{AttrId, EntityId, PersonaId, PropId};
 use authly_db::{param::ToBlob, params, Db, DbResult, DidInsert, FromRow, Row};
-use authly_domain::id::BuiltinProp;
+use authly_domain::{builtins::Builtins, directory::DirKey, id::BuiltinProp};
 use fnv::FnvHashSet;
 use indoc::indoc;
-
-use crate::directory::DirKey;
-
-use super::init_db::Builtins;
 
 pub struct EntityPasswordHash {
     pub eid: PersonaId,

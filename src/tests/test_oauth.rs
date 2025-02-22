@@ -1,6 +1,6 @@
 use authly_common::id::DirectoryId;
 use authly_db::Db;
-use authly_domain::{ctx::GetDb, id::BuiltinProp};
+use authly_domain::{ctx::GetDb, directory::DirKey, id::BuiltinProp};
 use axum::extract::{Path, Query, State};
 use itertools::Itertools;
 use rand::{rngs::OsRng, Rng};
@@ -13,7 +13,7 @@ use wiremock::{
 use crate::{
     ctx::GetDecryptedDeks,
     db::{cryptography_db::EncryptedObjIdent, oauth_db::upsert_oauth_directory_stmt, object_db},
-    directory::{load_persona_directories, DirKey, OAuthDirectory, PersonaDirectory},
+    directory::{load_persona_directories, OAuthDirectory, PersonaDirectory},
     persona_directory::{self, ForeignPersona},
     test_support::TestCtx,
     util::base_uri::ProxiedBaseUri,

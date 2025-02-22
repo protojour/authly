@@ -3,7 +3,10 @@
 use std::{future::Future, sync::Arc};
 
 use authly_common::id::ServiceId;
-use authly_domain::ctx::GetDb;
+use authly_domain::{
+    builtins::Builtins,
+    ctx::{GetBuiltins, GetDb},
+};
 use indexmap::IndexMap;
 
 use crate::{
@@ -12,17 +15,12 @@ use crate::{
         service_events::ServiceMessageConnection,
         BusError,
     },
-    db::init_db::Builtins,
     directory::PersonaDirectory,
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
     platform::CertificateDistributionPlatform,
     AuthlyCtx,
 };
-
-pub trait GetBuiltins {
-    fn get_builtins(&self) -> &Builtins;
-}
 
 pub trait GetHttpClient {
     fn get_internet_http_client(&self) -> reqwest::Client;

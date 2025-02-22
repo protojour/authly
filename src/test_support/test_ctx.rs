@@ -7,7 +7,10 @@ use std::{
 use arc_swap::ArcSwap;
 use authly_common::id::ServiceId;
 use authly_db::sqlite_pool::{SqlitePool, Storage};
-use authly_domain::ctx::GetDb;
+use authly_domain::{
+    builtins::Builtins,
+    ctx::{GetBuiltins, GetDb},
+};
 use indexmap::IndexMap;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
@@ -21,13 +24,12 @@ use crate::{
     },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        ClusterBus, Directories, GetBuiltins, GetDecryptedDeks, GetHttpClient, GetInstance,
-        HostsConfig, KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus,
-        SetInstance,
+        ClusterBus, Directories, GetDecryptedDeks, GetHttpClient, GetInstance, HostsConfig,
+        KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus, SetInstance,
     },
     db::{
         cryptography_db,
-        init_db::{self, Builtins},
+        init_db::{self},
     },
     directory::PersonaDirectory,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
@@ -215,7 +217,7 @@ impl GetDb for TestCtx {
 }
 
 impl GetBuiltins for TestCtx {
-    fn get_builtins(&self) -> &init_db::Builtins {
+    fn get_builtins(&self) -> &Builtins {
         self.builtins.as_ref().expect("TestCtx has not database")
     }
 }

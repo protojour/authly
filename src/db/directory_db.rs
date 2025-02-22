@@ -4,29 +4,16 @@ use std::collections::HashMap;
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
 use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Row, TryFromRow};
+use authly_domain::directory::DirKey;
 use indoc::indoc;
 use serde::{de::value::StringDeserializer, Deserialize};
 
-use crate::directory::{DirKey, DirectoryKind};
+use crate::directory::DirectoryKind;
 
 use super::{
     policy_db::DbPolicy,
     service_db::{NamespaceProperty, PropertyKind},
 };
-
-impl FromRow for DirKey {
-    fn from_row(row: &mut impl Row) -> Self {
-        Self(row.get_int("key"))
-    }
-}
-
-pub struct DirForeignKey(pub DirKey);
-
-impl FromRow for DirForeignKey {
-    fn from_row(row: &mut impl Row) -> Self {
-        Self(DirKey(row.get_int("dir_key")))
-    }
-}
 
 pub async fn query_dir_key(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Option<DirKey>> {
     deps.query_map_opt::<DirKey>(
