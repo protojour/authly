@@ -18,6 +18,7 @@ use authly_domain::{
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
 };
+use authly_hiqlite::HiqliteClient;
 use axum::{response::IntoResponse, Json};
 use bus::service_events::ServiceEventDispatcher;
 use db::{cryptography_db, init_db, settings_db};
@@ -102,7 +103,7 @@ impl AuthlyCtx {
 
 struct AuthlyState {
     /// The client for hiqlite, an embedded database
-    hql: hiqlite::Client,
+    hql: HiqliteClient,
     builtins: Builtins,
     instance: ArcSwap<AuthlyInstance>,
     /// Dynamically updatable settings:
@@ -253,7 +254,7 @@ async fn initialize() -> anyhow::Result<Init> {
     info!("using `{}` secret backend", secrets.name());
 
     let node_config = hiqlite_node_config(&env_config);
-    let hql = hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?;
+    let hql = HiqliteClient::new(hiqlite::start_node_with_cache::<CacheEntry>(node_config).await?);
 
     hql.wait_until_healthy_db().await;
 

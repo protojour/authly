@@ -549,12 +549,6 @@ pub async fn load_decrypt_obj_ident(
     ))
 }
 
-impl From<hiqlite::Error> for CrDbError {
-    fn from(value: hiqlite::Error) -> Self {
-        Self::Db(DbError::Hiqlite(value))
-    }
-}
-
 impl From<rcgen::Error> for CrDbError {
     fn from(value: rcgen::Error) -> Self {
         Self::Crypto(value.into())

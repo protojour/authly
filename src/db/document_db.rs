@@ -3,7 +3,6 @@ use std::{borrow::Cow, ops::Range};
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
 use authly_db::{literal::Literal, param::ToBlob, params, Db, DbError};
 use authly_domain::encryption::DecryptedDeks;
-use hiqlite::{StmtColumn, StmtIndex};
 use indoc::indoc;
 use itertools::Itertools;
 use serde_spanned::Spanned;
@@ -326,7 +325,7 @@ fn stmt_to_db_stmt<D: Db>(
     deks: &DecryptedDeks,
     now: i64,
 ) -> Result<(Cow<'static, str>, Vec<<D as Db>::Param>), DocumentDbTxnError> {
-    let dir_key = StmtIndex(0).column(0);
+    let dir_key = D::stmt_column(0, 0);
 
     let output = match stmt {
         Stmt::DirectoryWrite(meta) => (
@@ -437,7 +436,7 @@ fn stmt_to_db_stmt<D: Db>(
                 VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT DO UPDATE SET upd = $2, label = $5"
             }.into(),
-            params!(dir_key, StmtIndex(*prop_stmt).column(0), now, id.to_blob(), label.clone()),
+            params!(dir_key, D::stmt_column(*prop_stmt, 0), now, id.to_blob(), label.clone()),
         ),
         Stmt::PolicyGc(ids) => gc::<D>(
             "policy",
@@ -466,12 +465,12 @@ fn stmt_to_db_stmt<D: Db>(
         Stmt::PolBindAttrMatchWrite(parent_stmt, attr_id) => (
             "INSERT INTO polbind_attr_match (polbind_key, attr_key) VALUES ($1, (SELECT key FROM attr WHERE id = $2))"
             .into(),
-            params!(StmtIndex(*parent_stmt).column(0), attr_id.to_blob()),
+            params!(D::stmt_column(*parent_stmt, 0), attr_id.to_blob()),
         ),
         Stmt::PolBindPolicyWrite(parent_stmt, pol_id) => (
             "INSERT INTO polbind_policy (polbind_key, policy_id) VALUES ($1, $2)"
                 .into(),
-            params!(StmtIndex(*parent_stmt).column(0), pol_id.to_blob()),
+            params!(D::stmt_column(*parent_stmt, 0), pol_id.to_blob()),
         ),
     };
 
@@ -483,7 +482,7 @@ struct NotIn<'a, I>(&'a str, I);
 fn gc<D: Db>(
     table: &str,
     NotIn(id, keep): NotIn<impl Iterator<Item = impl Literal>>,
-    dir_key: StmtColumn<usize>,
+    dir_key: D::Param,
 ) -> (Cow<'static, str>, Vec<<D as Db>::Param>) {
     (
         format!(
@@ -498,8 +497,7 @@ fn gc<D: Db>(
 fn txn_error_to_doc_error(stmt: Stmt, db_error: DbError) -> DocError {
     info!(?stmt, "doc transaction error");
     match db_error {
-        DbError::Hiqlite(hiqlite::Error::Sqlite(_)) => DocError::ConstraintViolation,
-        DbError::Rusqlite(_) => DocError::ConstraintViolation,
+        DbError::Sqlite(_) => DocError::ConstraintViolation,
         err => DocError::Db(format!("{err:?}")),
     }
 }

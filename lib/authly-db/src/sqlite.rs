@@ -4,14 +4,57 @@
 
 use core::str;
 
-use hiqlite::Param;
-use rusqlite::{
-    params_from_iter,
-    types::{ToSqlOutput, Value},
-    ParamsFromIter,
-};
+use rusqlite::{params_from_iter, types::ToSqlOutput, ParamsFromIter};
 
 use crate::Row;
+
+#[derive(Clone)]
+pub enum RusqliteParam {
+    Value(rusqlite::types::Value),
+    StmtOutputIndexed(usize, usize),
+}
+
+impl From<i64> for RusqliteParam {
+    fn from(value: i64) -> Self {
+        Self::Value(value.into())
+    }
+}
+
+impl From<Option<i64>> for RusqliteParam {
+    fn from(value: Option<i64>) -> Self {
+        Self::Value(value.into())
+    }
+}
+
+impl From<String> for RusqliteParam {
+    fn from(value: String) -> Self {
+        Self::Value(value.into())
+    }
+}
+
+impl From<Option<String>> for RusqliteParam {
+    fn from(value: Option<String>) -> Self {
+        Self::Value(value.into())
+    }
+}
+
+impl From<Vec<u8>> for RusqliteParam {
+    fn from(value: Vec<u8>) -> Self {
+        Self::Value(value.into())
+    }
+}
+
+impl From<&str> for RusqliteParam {
+    fn from(value: &str) -> Self {
+        Self::Value(value.to_string().into())
+    }
+}
+
+impl From<Option<&str>> for RusqliteParam {
+    fn from(value: Option<&str>) -> Self {
+        Self::Value(value.map(|s| s.to_string()).into())
+    }
+}
 
 pub struct RusqliteRowBorrowed<'a, 'b> {
     pub(super) row: &'a rusqlite::Row<'b>,
@@ -44,18 +87,12 @@ impl Row for RusqliteRowBorrowed<'_, '_> {
 }
 
 pub(super) fn rusqlite_params(
-    params: hiqlite::Params,
+    params: Vec<RusqliteParam>,
 ) -> ParamsFromIter<impl Iterator<Item = ToSqlOutput<'static>>> {
     params_from_iter(params.into_iter().map(|p| {
         ToSqlOutput::Owned(match p {
-            Param::Null => Value::Null,
-            Param::Integer(i) => Value::Integer(i),
-            Param::Real(r) => Value::Real(r),
-            Param::Text(t) => Value::Text(t),
-            Param::Blob(vec) => Value::Blob(vec),
-            Param::StmtOutputIndexed(..) | Param::StmtOutputNamed(..) => {
-                panic!("StmtOutput can only be used in transaction")
-            }
+            RusqliteParam::Value(value) => value,
+            _ => panic!("variables only work in transaction context"),
         })
     }))
 }

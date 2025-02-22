@@ -7,12 +7,11 @@ use std::{
 };
 
 use deadpool::managed::{Metrics, Object, Pool, PoolConfig, RecycleError, RecycleResult};
-use hiqlite::{Param, Params};
 use rusqlite::{types::Value, Connection};
 use tracing::warn;
 
 use crate::{
-    sqlite::{rusqlite_params, RusqliteRowBorrowed},
+    sqlite::{rusqlite_params, RusqliteParam, RusqliteRowBorrowed},
     Db, DbError, FromRow, TryFromRow,
 };
 
@@ -46,9 +45,13 @@ impl SqlitePool {
 }
 
 impl Db for SqlitePool {
-    type Param = hiqlite::Param;
+    type Param = RusqliteParam;
 
-    async fn query_map<T>(&self, stmt: Cow<'static, str>, params: Params) -> Result<Vec<T>, DbError>
+    async fn query_map<T>(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Vec<RusqliteParam>,
+    ) -> Result<Vec<T>, DbError>
     where
         T: FromRow + Send + 'static,
     {
@@ -72,7 +75,7 @@ impl Db for SqlitePool {
     async fn query_map_opt<T>(
         &self,
         stmt: Cow<'static, str>,
-        params: Params,
+        params: Vec<RusqliteParam>,
     ) -> Result<Option<T>, DbError>
     where
         T: FromRow + Send + 'static,
@@ -101,7 +104,7 @@ impl Db for SqlitePool {
     async fn query_try_map_opt<T>(
         &self,
         stmt: Cow<'static, str>,
-        params: Params,
+        params: Vec<RusqliteParam>,
     ) -> Result<Option<Result<T, T::Error>>, DbError>
     where
         T: TryFromRow + Send + 'static,
@@ -130,7 +133,7 @@ impl Db for SqlitePool {
     async fn query_filter_map<T>(
         &self,
         stmt: Cow<'static, str>,
-        params: Params,
+        params: Vec<RusqliteParam>,
     ) -> Result<Vec<T>, DbError>
     where
         T: TryFromRow + Send + 'static,
@@ -158,7 +161,11 @@ impl Db for SqlitePool {
         .await?
     }
 
-    async fn execute(&self, stmt: Cow<'static, str>, params: Params) -> Result<usize, DbError> {
+    async fn execute(
+        &self,
+        stmt: Cow<'static, str>,
+        params: Vec<RusqliteParam>,
+    ) -> Result<usize, DbError> {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
@@ -174,7 +181,7 @@ impl Db for SqlitePool {
     async fn execute_map<T>(
         &self,
         sql: Cow<'static, str>,
-        params: Params,
+        params: Vec<RusqliteParam>,
     ) -> Result<Vec<Result<T, DbError>>, DbError>
     where
         T: FromRow + Send + 'static,
@@ -196,9 +203,13 @@ impl Db for SqlitePool {
         .await?
     }
 
+    fn stmt_column(stmt_index: usize, column_index: usize) -> Self::Param {
+        RusqliteParam::StmtOutputIndexed(stmt_index, column_index)
+    }
+
     async fn transact(
         &self,
-        sql: Vec<(Cow<'static, str>, Params)>,
+        sql: Vec<(Cow<'static, str>, Vec<RusqliteParam>)>,
     ) -> Result<Vec<Result<usize, DbError>>, DbError> {
         let mut conn = self.get().await?;
 
@@ -211,28 +222,17 @@ impl Db for SqlitePool {
             let mut executed_rows: Vec<Vec<Value>> = Vec::with_capacity(sql.len());
 
             for (sql, params) in sql {
-                let mut stmt = txn.prepare_cached(&sql).map_err(DbError::Rusqlite)?;
+                let mut stmt = txn.prepare_cached(&sql).map_err(rusqlite_err)?;
                 for (idx, param) in params.into_iter().enumerate() {
                     let rparam = match param {
-                        Param::Null => Value::Null,
-                        Param::Integer(i) => Value::Integer(i),
-                        Param::Real(r) => Value::Real(r),
-                        Param::Text(t) => Value::Text(t),
-                        Param::Blob(b) => Value::Blob(b),
-                        Param::StmtOutputIndexed(stmt_idx, col_idx) => {
-                            executed_rows[stmt_idx][col_idx].clone()
-                        }
-                        Param::StmtOutputNamed(stmt_idx, col) => {
-                            let sql = &executed_sql[idx];
-                            let stmt = txn.prepare_cached(sql)?;
-                            let col_idx = stmt.column_index(&col).unwrap();
-
+                        RusqliteParam::Value(value) => value,
+                        RusqliteParam::StmtOutputIndexed(stmt_idx, col_idx) => {
                             executed_rows[stmt_idx][col_idx].clone()
                         }
                     };
 
                     stmt.raw_bind_parameter(idx + 1, rparam)
-                        .map_err(DbError::Rusqlite)?;
+                        .map_err(rusqlite_err)?;
                 }
 
                 let column_count = stmt.column_count();
@@ -258,14 +258,14 @@ impl Db for SqlitePool {
                             }
                             Err(err) => {
                                 warn!("    error: {err:?}");
-                                break Err(DbError::Rusqlite(err));
+                                break Err(rusqlite_err(err));
                             }
                         };
                     };
 
                     (result, first_row)
                 } else {
-                    (stmt.raw_execute().map_err(DbError::Rusqlite), vec![])
+                    (stmt.raw_execute().map_err(rusqlite_err), vec![])
                 };
 
                 executed_sql.push(sql);
@@ -357,5 +357,15 @@ impl deadpool::managed::Manager for SqlitePoolManager {
         } else {
             Err(RecycleError::message("Recycle count mismatch"))
         }
+    }
+}
+
+fn rusqlite_err(err: rusqlite::Error) -> DbError {
+    DbError::Sqlite(format!("{err:?}").into())
+}
+
+impl From<rusqlite::Error> for DbError {
+    fn from(err: rusqlite::Error) -> Self {
+        Self::Sqlite(format!("{err:?}").into())
     }
 }

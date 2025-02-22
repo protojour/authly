@@ -1,22 +1,21 @@
 use std::borrow::Cow;
 
 use authly_common::id::DirectoryId;
-use authly_db::{param::ToBlob, params, Db, DbResult, FromRow};
+use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Params};
 use authly_domain::{
     directory::{DirKey, OAuthDirectory},
     encryption::DecryptedDeks,
     id::BuiltinProp,
 };
-use hiqlite::Params;
 use indoc::indoc;
 
 use super::cryptography_db::{CrDbError, EncryptedObjIdent};
 
-pub fn upsert_oauth_directory_stmt(
+pub fn upsert_oauth_directory_stmt<D: Db>(
     parent_key: Option<DirKey>,
     dir_id: DirectoryId,
     label: &str,
-) -> (Cow<'static, str>, Params) {
+) -> (Cow<'static, str>, Params<D>) {
     (
         indoc! {
             "
@@ -104,7 +103,7 @@ pub fn oauth_upsert_stmt() -> Cow<'static, str> {
     .into()
 }
 
-pub fn oauth_upsert_params(dir: OAuthDirectory, now: i64) -> Params {
+pub fn oauth_upsert_params<D: Db>(dir: OAuthDirectory, now: i64) -> Params<D> {
     params!(
         dir.dir_key.0,
         now,

@@ -29,6 +29,7 @@ authly-common = { workspace = true, features = [
 authly-connect = { path = "lib/authly-connect" }
 authly-db = { path = "lib/authly-db" }
 authly-domain = { path = "lib/authly-domain" }
+authly-hiqlite = { path = "lib/authly-hiqlite" }
 authly-secrets = { path = "lib/authly-secrets" }
 authly-webstatic = { path = "lib/authly-webstatic" }
 
@@ -128,6 +129,7 @@ members = [
     "lib/authly-connect",
     "lib/authly-db",
     "lib/authly-domain",
+    "lib/authly-hiqlite",
     "lib/authly-secrets",
     "lib/authly-test-grpc",
     "lib/authly-webstatic",

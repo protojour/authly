@@ -10,7 +10,6 @@ use authly_domain::{
     id::{BuiltinAttr, BuiltinProp},
 };
 use fnv::FnvHashMap;
-use hiqlite::StmtIndex;
 use indoc::indoc;
 use tracing::info;
 
@@ -71,8 +70,8 @@ async fn write_builtins<D: Db>(deps: &D, missing: Vec<Missing>) -> DbResult<()> 
     let mut stmts: Vec<(Cow<'static, str>, Vec<<D as Db>::Param>)> =
         Vec::with_capacity(missing.len());
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
-    let dir_stmt = StmtIndex(0);
-    let ns_stmt = StmtIndex(1);
+    let dir_key = D::stmt_column(0, 0);
+    let ns_key = D::stmt_column(1, 0);
 
     stmts.push((
         "INSERT INTO directory (id, kind, label) VALUES ($1, 'authly', 'authly') ON CONFLICT DO NOTHING RETURNING key".into(),
@@ -81,7 +80,7 @@ async fn write_builtins<D: Db>(deps: &D, missing: Vec<Missing>) -> DbResult<()> 
     stmts.push((
         "INSERT INTO namespace (dir_key, id, upd, label) VALUES ($1, $2, $3, 'authly') ON CONFLICT DO NOTHING RETURNING key"
             .into(),
-        params!(dir_stmt.column(0), ServiceId::from_uint(0).to_blob(), now),
+        params!(dir_key.clone(), ServiceId::from_uint(0).to_blob(), now),
     ));
 
     for m in missing {
@@ -90,7 +89,7 @@ async fn write_builtins<D: Db>(deps: &D, missing: Vec<Missing>) -> DbResult<()> 
             Missing::Prop(builtin_prop) => {
                 stmts.push((
                     "INSERT INTO prop (dir_key, ns_key, id, kind, upd, label) VALUES ($1, $2, $3, 'ent', $4, $5) ON CONFLICT DO NOTHING RETURNING key".into(),
-                    params!(dir_stmt.column(0), ns_stmt.column(0), PropId::from(builtin_prop).to_blob(), now, builtin_prop.label())
+                    params!(dir_key.clone(), ns_key.clone(), PropId::from(builtin_prop).to_blob(), now, builtin_prop.label())
                 ));
             }
             Missing::Attr(builtin_attr) => {
@@ -106,7 +105,7 @@ async fn write_builtins<D: Db>(deps: &D, missing: Vec<Missing>) -> DbResult<()> 
                     }
                     .into(),
                     params!(
-                        dir_stmt.column(0),
+                        dir_key.clone(),
                         PropId::from(BuiltinProp::AuthlyRole).to_blob(),
                         AttrId::from(builtin_attr).to_blob(),
                         now,

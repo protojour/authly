@@ -1,5 +1,5 @@
 use authly_common::id::DirectoryId;
-use authly_db::Db;
+use authly_db::{sqlite_pool::SqlitePool, Db};
 use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks},
     directory::{DirKey, OAuthDirectory, PersonaDirectory},
@@ -95,7 +95,7 @@ async fn test_insert_update_list_oauth_directory() {
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
 
     let dir_key = {
-        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, "buksehub");
+        let (sql, params) = upsert_oauth_directory_stmt::<SqlitePool>(None, dir_id, "buksehub");
 
         // insert and upsert
         ctx.get_db()
@@ -124,7 +124,10 @@ async fn test_insert_update_list_oauth_directory() {
     }
 
     ctx.get_db()
-        .execute(oauth_upsert_stmt(), oauth_upsert_params(oauth_a, now))
+        .execute(
+            oauth_upsert_stmt(),
+            oauth_upsert_params::<SqlitePool>(oauth_a, now),
+        )
         .await
         .unwrap();
 
@@ -133,7 +136,7 @@ async fn test_insert_update_list_oauth_directory() {
     ctx.get_db()
         .execute(
             oauth_upsert_stmt(),
-            oauth_upsert_params(oauth_b.clone(), now),
+            oauth_upsert_params::<SqlitePool>(oauth_b.clone(), now),
         )
         .await
         .unwrap();
@@ -154,7 +157,7 @@ async fn test_upsert_persona_link() {
     let dir_id = DirectoryId::random();
 
     let dir_key = {
-        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, "buksehub");
+        let (sql, params) = upsert_oauth_directory_stmt::<SqlitePool>(None, dir_id, "buksehub");
 
         // insert and upsert
         ctx.get_db()
@@ -237,7 +240,7 @@ async fn test_upsert_persona_link_email_disambiguator() {
         .copied()
         .zip(["buksehub", "stillongshub"])
     {
-        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, label);
+        let (sql, params) = upsert_oauth_directory_stmt::<SqlitePool>(None, dir_id, label);
         dir_keys.push(
             ctx.get_db()
                 .query_map_opt::<DirKey>(sql.clone(), params.clone())
@@ -288,7 +291,7 @@ async fn test_callback_github_like() {
     let ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
 
     let dir_key = {
-        let (sql, params) = upsert_oauth_directory_stmt(None, dir_id, "buksehub");
+        let (sql, params) = upsert_oauth_directory_stmt::<SqlitePool>(None, dir_id, "buksehub");
         ctx.get_db()
             .query_map_opt::<DirKey>(sql.clone(), params.clone())
             .await

@@ -15,12 +15,13 @@ use authly_domain::{
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
 };
+use authly_hiqlite::HiqliteClient;
 use indexmap::IndexMap;
 
 use crate::{platform::CertificateDistributionPlatform, AuthlyCtx};
 
 impl GetDb for AuthlyCtx {
-    type Db = hiqlite::Client;
+    type Db = HiqliteClient;
 
     fn get_db(&self) -> &Self::Db {
         &self.hql
