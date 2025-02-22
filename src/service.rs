@@ -2,10 +2,11 @@
 
 use authly_common::id::ServiceId;
 use authly_db::DbError;
+use authly_domain::ctx::GetDb;
 use tracing::info;
 
 use crate::{
-    ctx::{GetBuiltins, GetDb, HostsConfig},
+    ctx::{GetBuiltins, HostsConfig},
     db::service_db,
 };
 

@@ -10,9 +10,10 @@ use std::{
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
+use authly_domain::ctx::GetDb;
 use axum::{response::IntoResponse, Json};
 use bus::{message::ServiceMessage, service_events::ServiceEventDispatcher};
-use ctx::{GetDb, ServiceBus};
+use ctx::ServiceBus;
 use db::{
     cryptography_db,
     init_db::{self, Builtins},
@@ -54,7 +55,6 @@ pub mod tls;
 
 mod access_control;
 mod directory;
-mod id;
 mod k8s;
 mod login;
 mod openapi;

@@ -7,6 +7,7 @@ use std::{
 use arc_swap::ArcSwap;
 use authly_common::id::ServiceId;
 use authly_db::sqlite_pool::{SqlitePool, Storage};
+use authly_domain::ctx::GetDb;
 use indexmap::IndexMap;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
@@ -20,7 +21,7 @@ use crate::{
     },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
-        ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
+        ClusterBus, Directories, GetBuiltins, GetDecryptedDeks, GetHttpClient, GetInstance,
         HostsConfig, KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus,
         SetInstance,
     },

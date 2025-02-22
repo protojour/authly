@@ -13,6 +13,10 @@ use authly_common::{
         authly_service_server::{AuthlyService, AuthlyServiceServer},
     },
 };
+use authly_domain::{
+    ctx::GetDb,
+    id::{BuiltinAttr, BuiltinProp},
+};
 use futures_util::{stream::BoxStream, StreamExt};
 use http::header::{AUTHORIZATION, COOKIE};
 use rcgen::{CertificateSigningRequestParams, DnType, SanType};
@@ -27,12 +31,11 @@ use crate::{
     access_control::{self, AuthorizedPeerService},
     access_token,
     bus::{message::ServiceMessage, service_events::ServiceMessageConnection},
-    ctx::{GetBuiltins, GetDb, GetInstance, HostsConfig, ServiceBus},
+    ctx::{GetBuiltins, GetInstance, HostsConfig, ServiceBus},
     db::{
         entity_db, policy_db,
         service_db::{self, find_service_label_by_eid, PropertyKind, SvcNamespaceWithMetadata},
     },
-    id::{BuiltinAttr, BuiltinProp},
     proto::grpc_db_err,
     service,
     session::{authenticate_session_cookie, find_session_cookie, Session},

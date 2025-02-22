@@ -1,9 +1,10 @@
 use authly_common::id::ServiceId;
+use authly_domain::ctx::GetDb;
 use hexhex::hex_literal;
 use indoc::indoc;
 
 use crate::{
-    ctx::{GetBuiltins, GetDb},
+    ctx::GetBuiltins,
     db::{entity_db, service_db},
     document::error::DocError,
     test_support::TestCtx,

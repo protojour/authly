@@ -1,0 +1,25 @@
+[package]
+name = "authly-domain"
+description = "Authly central domain"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+authly-db = { path = "../authly-db" }
+authly-common.workspace = true
+fnv = "1"
+hexhex = "1"
+int-enum = "1"
+itertools = "0.14"
+thiserror = "2"
+time = "0.3"
+tokio = { version = "1", features = ["macros"] }
+tracing = "0.1"

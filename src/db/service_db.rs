@@ -4,13 +4,11 @@ use authly_common::{
     id::{AnyId, AttrId, PropId, ServiceId},
     service::NamespacePropertyMapping,
 };
-use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
-use hiqlite::{params, Param};
+use authly_db::{params, param::ToBlob, Db, DbResult, FromRow, Row, TryFromRow};
+use authly_domain::id::BuiltinProp;
 use indoc::{formatdoc, indoc};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
-
-use crate::id::BuiltinProp;
 
 use super::init_db::Builtins;
 
@@ -48,7 +46,7 @@ pub async fn find_service_label_by_eid(deps: &impl Db, eid: ServiceId) -> DbResu
     Ok(deps
         .query_map_opt::<SvcLabel>(
             "SELECT label FROM namespace WHERE id = $1".into(),
-            params!(eid.as_param()),
+            params!(eid.to_blob()),
         )
         .await
         .map_err(|err| {
@@ -105,7 +103,7 @@ pub async fn get_svc_local_k8s_account_name(
         .query_map_opt::<SvcK8sAccount>(
             "SELECT value FROM obj_text_attr WHERE obj_id = $1 AND prop_key = $2".into(),
             params!(
-                svc_eid.as_param(),
+                svc_eid.to_blob(),
                 builtins.prop_key(BuiltinProp::K8sLocalServiceAccount)
             ),
         )
@@ -151,7 +149,7 @@ pub async fn get_service_property_mapping(
                 "
             }
             .into(),
-            params!(svc_eid.as_param(), format!("{property_kind}")),
+            params!(svc_eid.to_blob(), format!("{property_kind}")),
         )
         .await?;
 
@@ -210,7 +208,7 @@ pub async fn list_service_namespace_with_metadata(
             metadata = builtins.prop_key(BuiltinProp::Metadata)
         }
         .into(),
-        params!(svc_eid.as_param()),
+        params!(svc_eid.to_blob()),
     )
     .await
 }
@@ -231,7 +229,7 @@ pub async fn list_service_hosts(deps: &impl Db, svc_eid: ServiceId) -> DbResult<
     let Some(row) = deps
         .query_map_opt::<TypedRow>(
             "SELECT hosts_json FROM svc WHERE svc_eid = $1".into(),
-            params!(svc_eid.as_param()),
+            params!(svc_eid.to_blob()),
         )
         .await?
     else {

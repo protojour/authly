@@ -2,12 +2,13 @@ use std::time::Duration;
 
 use authly_common::id::EntityId;
 use authly_db::DbResult;
+use authly_domain::ctx::GetDb;
 use cookie::{Cookie, Expiration, SameSite};
 use rand::Rng;
 use time::OffsetDateTime;
 use tracing::warn;
 
-use crate::{ctx::GetDb, db::session_db};
+use crate::db::session_db;
 
 pub const TOKEN_WIDTH: usize = 20;
 pub const SESSION_TTL: Duration = Duration::from_secs(60 * 60);

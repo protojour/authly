@@ -1,7 +1,8 @@
 use std::{any::Any, collections::HashMap, fmt::Display, fs};
 
 use authly_common::id::{DirectoryId, ServiceId};
-use authly_db::{param::AsParam, Db, DbError};
+use authly_db::{Db, DbError};
+use authly_domain::{ctx::GetDb, id::BuiltinProp};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -10,7 +11,7 @@ use crate::{
     audit::Actor,
     bus::{message::ClusterMessage, BusError},
     cert::{client_cert, CertificateParamsExt},
-    ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance},
+    ctx::{ClusterBus, GetDecryptedDeks, GetInstance},
     db::{
         cryptography_db::{self, CrDbError},
         directory_db::DbDirectory,
@@ -18,18 +19,11 @@ use crate::{
     },
     document::compiled_document::CompiledDocument,
     encryption::DecryptedDeks,
-    id::BuiltinProp,
     AuthlyCtx,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct DirKey(pub i64);
-
-impl AsParam for DirKey {
-    fn as_param(&self) -> hiqlite::Param {
-        self.0.into()
-    }
-}
 
 #[derive(thiserror::Error, Debug)]
 pub enum DirectoryError {

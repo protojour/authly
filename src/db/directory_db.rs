@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
-use authly_db::{param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
-use hiqlite::{params, Param};
+use authly_db::{params, param::ToBlob, Db, DbResult, FromRow, Row, TryFromRow};
 use indoc::indoc;
 use serde::{de::value::StringDeserializer, Deserialize};
 
@@ -32,7 +31,7 @@ impl FromRow for DirForeignKey {
 pub async fn query_dir_key(deps: &impl Db, dir_id: DirectoryId) -> DbResult<Option<DirKey>> {
     deps.query_map_opt::<DirKey>(
         "SELECT key FROM directory WHERE id = $1".into(),
-        params!(dir_id.as_param()),
+        params!(dir_id.to_blob()),
     )
     .await
 }
@@ -91,7 +90,7 @@ impl DbDirectoryNamespaceLabel {
         deps.query_map(
             // FIXME: unindexed query
             "SELECT id, label FROM namespace WHERE dir_key = $1".into(),
-            params!(dir_key.as_param()),
+            params!(dir_key.0),
         )
         .await
     }
@@ -114,7 +113,7 @@ impl DbDirectoryService {
         deps.query_map(
             // FIXME: unindexed query
             "SELECT svc_eid FROM svc WHERE dir_key = $1".into(),
-            params!(dir_key.as_param()),
+            params!(dir_key.0),
         )
         .await
     }
@@ -143,7 +142,7 @@ impl DbDirectoryPolicy {
     pub async fn query(deps: &impl Db, dir_key: DirKey) -> DbResult<Vec<Self>> {
         deps.query_filter_map(
             "SELECT id, label, policy_pc FROM policy WHERE dir_key = $1".into(),
-            params!(dir_key.as_param()),
+            params!(dir_key.0),
         )
         .await
     }
@@ -183,7 +182,7 @@ pub async fn list_namespace_properties(
                 "
             }
             .into(),
-            params!(dir_key.as_param(), ns_id.as_param()),
+            params!(dir_key.0, ns_id.to_blob()),
         )
         .await?;
 

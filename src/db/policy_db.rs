@@ -7,8 +7,9 @@ use authly_common::{
         engine::PolicyEngine,
     },
 };
-use authly_db::{literal::Literal, param::AsParam, Db, DbResult, FromRow, Row, TryFromRow};
-use hiqlite::{params, Param};
+use authly_db::{
+    params, literal::Literal, param::ToBlob, Db, DbResult, FromRow, Row, TryFromRow,
+};
 use indoc::indoc;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -135,7 +136,7 @@ async fn list_svc_implied_policy_bindings(
             "
         }
         .into(),
-        params!(svc_id.as_param()),
+        params!(svc_id.to_blob()),
     )
     .await
 }

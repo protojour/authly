@@ -1,8 +1,9 @@
 use anyhow::Context;
+use authly_domain::ctx::GetDb;
 use tracing::info;
 
 use crate::{
-    ctx::{ClusterBus, GetDb, GetDecryptedDeks, RedistributeCertificates, ServiceBus, SetInstance},
+    ctx::{ClusterBus, GetDecryptedDeks, RedistributeCertificates, ServiceBus, SetInstance},
     db::{
         cryptography_db::load_authly_instance,
         directory_db::{self, query_dir_key},

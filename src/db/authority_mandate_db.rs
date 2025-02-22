@@ -1,6 +1,5 @@
 use authly_common::id::ServiceId;
-use authly_db::{param::AsParam, Db, DbError, Row, TryFromRow};
-use hiqlite::{params, Param};
+use authly_db::{params, param::ToBlob, Db, DbError, Row, TryFromRow};
 use indoc::indoc;
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -24,7 +23,7 @@ pub async fn insert_mandate_submission_code(
 ) -> Result<(), AmDbError> {
     deps.execute(
         "INSERT INTO am_mandate_submission_code (code_fingerprint, created_at, created_by_eid) VALUES ($1, $2, $3)".into(),
-        params!(code_fingerprint, time::OffsetDateTime::now_utc().unix_timestamp(), created_by.0.as_param()),
+        params!(code_fingerprint, time::OffsetDateTime::now_utc().unix_timestamp(), created_by.0.to_blob()),
     )
     .await?;
     Ok(())
@@ -95,8 +94,8 @@ pub async fn insert_authority_mandate(
         }
         .into(),
         params!(
-            mandate_eid.as_param(),
-            granted_by.0.as_param(),
+            mandate_eid.to_blob(),
+            granted_by.0.to_blob(),
             public_key,
             now.unix_timestamp(),
             mandate_type,

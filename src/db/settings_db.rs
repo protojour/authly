@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
-use authly_db::{Db, DbResult, Row, TryFromRow};
-use hiqlite::params;
+use authly_db::{params, Db, DbResult, Row, TryFromRow};
 
 use crate::{
     directory::DirKey,

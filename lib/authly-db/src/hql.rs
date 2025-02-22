@@ -6,6 +6,8 @@ use hiqlite::Params;
 use crate::{Db, DbError, FromRow, Row, TryFromRow};
 
 impl Db for hiqlite::Client {
+    type Param = hiqlite::Param;
+
     async fn query_map<T>(&self, stmt: Cow<'static, str>, params: Params) -> Result<Vec<T>, DbError>
     where
         T: crate::FromRow + Send + 'static,

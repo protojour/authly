@@ -3,7 +3,7 @@
 use std::{future::Future, sync::Arc};
 
 use authly_common::id::ServiceId;
-use authly_db::Db;
+use authly_domain::ctx::GetDb;
 use indexmap::IndexMap;
 
 use crate::{
@@ -19,15 +19,6 @@ use crate::{
     platform::CertificateDistributionPlatform,
     AuthlyCtx,
 };
-
-/// Trait for getting the "database".
-///
-/// This trait can be used with in "entrait-pattern" style dependency injection.
-pub trait GetDb {
-    type Db: Db;
-
-    fn get_db(&self) -> &Self::Db;
-}
 
 pub trait GetBuiltins {
     fn get_builtins(&self) -> &Builtins;

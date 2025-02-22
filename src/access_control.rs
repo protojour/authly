@@ -1,8 +1,9 @@
 use authly_common::id::{AttrId, ServiceId};
 use authly_db::DbError;
+use authly_domain::{ctx::GetDb, id::BuiltinAttr};
 use fnv::FnvHashSet;
 
-use crate::{ctx::GetDb, db::entity_db, id::BuiltinAttr};
+use crate::db::entity_db;
 
 pub enum SvcAccessControlError {
     Denied,
@@ -22,7 +23,7 @@ pub trait AuthlyRole {
 
 /// Typed roles
 pub mod role {
-    use crate::id::BuiltinAttr;
+    use authly_domain::id::BuiltinAttr;
 
     use super::AuthlyRole;
 

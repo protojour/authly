@@ -1,6 +1,5 @@
 use authly_common::id::{AnyId, PropId};
-use authly_db::{param::AsParam, Db, DbResult, FromRow};
-use hiqlite::{params, Param};
+use authly_db::{params, param::ToBlob, Db, DbResult, FromRow};
 use indoc::indoc;
 
 pub async fn find_obj_id_by_ident_fingerprint(
@@ -25,7 +24,7 @@ pub async fn find_obj_id_by_ident_fingerprint(
                 ",
             }
             .into(),
-            params!(ident_prop_id.as_param(), ident_fingerprint),
+            params!(ident_prop_id.to_blob(), ident_fingerprint.to_blob()),
         )
         .await?
         .map(|row| row.0))

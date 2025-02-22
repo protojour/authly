@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use anyhow::{anyhow, Context};
+use authly_domain::ctx::GetDb;
 use axum::{
     extract::{FromRef, Path, Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +13,7 @@ use reqwest::Url;
 use tracing::warn;
 
 use crate::{
-    ctx::{Directories, GetDb, GetDecryptedDeks, GetHttpClient},
+    ctx::{Directories, GetDecryptedDeks, GetHttpClient},
     directory::{OAuthDirectory, PersonaDirectory},
     persona_directory::{self, ForeignPersona},
     session::init_session,

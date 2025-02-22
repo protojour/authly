@@ -6,6 +6,7 @@ use authly_common::{
     id::{kind::Kind, AttrId, PropId, ServiceId},
     policy::code::OpCode,
 };
+use authly_domain::id::BuiltinProp;
 
 use crate::{
     db::service_db::PropertyKind,
@@ -13,7 +14,6 @@ use crate::{
         compiled_document::{CompiledAttribute, CompiledDocumentData, CompiledProperty},
         doc_compiler::{NamespaceEntry, NamespaceKind, Namespaces},
     },
-    id::BuiltinProp,
 };
 
 const SVC: ServiceId = ServiceId::from_uint(42);

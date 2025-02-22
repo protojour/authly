@@ -3,17 +3,14 @@
 use std::{borrow::Cow, collections::HashMap, time::Duration};
 
 use authly_common::id::{AttrId, DirectoryId, Id128DynamicArrayConv, PropId, ServiceId};
-use authly_db::{param::AsParam, Db, DbError, DbResult, FromRow};
+use authly_db::{param::ToBlob, params, Db, DbError, DbResult, FromRow};
+use authly_domain::id::{BuiltinAttr, BuiltinProp};
 use fnv::FnvHashMap;
-use hiqlite::{params, Param, Params, StmtIndex};
+use hiqlite::StmtIndex;
 use indoc::indoc;
 use tracing::info;
 
-use crate::{
-    directory::DirKey,
-    id::{BuiltinAttr, BuiltinProp},
-    IsLeaderDb,
-};
+use crate::{directory::DirKey, IsLeaderDb};
 
 pub struct Builtins {
     pub authly_dir_key: DirKey,
@@ -88,22 +85,23 @@ pub async fn load_authly_builtins(deps: &impl Db, is_leader: IsLeaderDb) -> DbRe
     }
 }
 
-async fn write_builtins(deps: &impl Db, missing: Vec<Missing>) -> DbResult<()> {
+async fn write_builtins<D: Db>(deps: &D, missing: Vec<Missing>) -> DbResult<()> {
     info!("writing builtins: {missing:?}");
 
-    let mut stmts: Vec<(Cow<'static, str>, Params)> = Vec::with_capacity(missing.len());
+    let mut stmts: Vec<(Cow<'static, str>, Vec<<D as Db>::Param>)> =
+        Vec::with_capacity(missing.len());
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let dir_stmt = StmtIndex(0);
     let ns_stmt = StmtIndex(1);
 
     stmts.push((
         "INSERT INTO directory (id, kind, label) VALUES ($1, 'authly', 'authly') ON CONFLICT DO NOTHING RETURNING key".into(),
-        params!(DirectoryId::from_uint(0).as_param()),
+        params!(DirectoryId::from_uint(0).to_blob()),
     ));
     stmts.push((
         "INSERT INTO namespace (dir_key, id, upd, label) VALUES ($1, $2, $3, 'authly') ON CONFLICT DO NOTHING RETURNING key"
             .into(),
-        params!(dir_stmt.column(0), ServiceId::from_uint(0).as_param(), now),
+        params!(dir_stmt.column(0), ServiceId::from_uint(0).to_blob(), now),
     ));
 
     for m in missing {
@@ -112,7 +110,7 @@ async fn write_builtins(deps: &impl Db, missing: Vec<Missing>) -> DbResult<()> {
             Missing::Prop(builtin_prop) => {
                 stmts.push((
                     "INSERT INTO prop (dir_key, ns_key, id, kind, upd, label) VALUES ($1, $2, $3, 'ent', $4, $5) ON CONFLICT DO NOTHING RETURNING key".into(),
-                    params!(dir_stmt.column(0), ns_stmt.column(0), PropId::from(builtin_prop).as_param(), now, builtin_prop.label())
+                    params!(dir_stmt.column(0), ns_stmt.column(0), PropId::from(builtin_prop).to_blob(), now, builtin_prop.label())
                 ));
             }
             Missing::Attr(builtin_attr) => {
@@ -129,8 +127,8 @@ async fn write_builtins(deps: &impl Db, missing: Vec<Missing>) -> DbResult<()> {
                     .into(),
                     params!(
                         dir_stmt.column(0),
-                        PropId::from(BuiltinProp::AuthlyRole).as_param(),
-                        AttrId::from(builtin_attr).as_param(),
+                        PropId::from(BuiltinProp::AuthlyRole).to_blob(),
+                        AttrId::from(builtin_attr).to_blob(),
                         now,
                         builtin_attr.label()
                     ),

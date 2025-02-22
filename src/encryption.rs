@@ -7,6 +7,7 @@ use aes_gcm_siv::{
 use anyhow::anyhow;
 use authly_common::id::PropId;
 use authly_db::Db;
+use authly_domain::id::BuiltinProp;
 use authly_secrets::AuthlySecrets;
 use rand::{rngs::OsRng, RngCore};
 use secrecy::ExposeSecret;
@@ -14,7 +15,7 @@ use time::OffsetDateTime;
 use tracing::info;
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::{db::cryptography_db, id::BuiltinProp, IsLeaderDb};
+use crate::{db::cryptography_db, IsLeaderDb};
 
 /// The set of Data Encryption Keys used by authly
 #[derive(Default, Debug)]

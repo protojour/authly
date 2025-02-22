@@ -1,6 +1,7 @@
 //! Submission, authority side
 
 use authly_common::id::ServiceId;
+use authly_domain::ctx::GetDb;
 use rand::{rngs::OsRng, Rng};
 use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
@@ -8,7 +9,7 @@ use tracing::warn;
 use crate::{
     audit::Actor,
     cert::authly_ca,
-    ctx::{GetDb, GetInstance},
+    ctx::GetInstance,
     db::authority_mandate_db::{self, AmDbError},
     tls::{AuthlyCert, AuthlyCertKind},
     util::serde::UrlSafeBase64,

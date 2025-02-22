@@ -1,11 +1,11 @@
 use argon2::{password_hash::SaltString, Argon2};
 use authly_common::id::{AttrId, EntityId, PersonaId, PropId};
-use authly_db::{param::AsParam, Db, DbResult, DidInsert, FromRow, Row};
+use authly_db::{param::ToBlob, params, Db, DbResult, DidInsert, FromRow, Row};
+use authly_domain::id::BuiltinProp;
 use fnv::FnvHashSet;
-use hiqlite::{params, Param};
 use indoc::indoc;
 
-use crate::{directory::DirKey, id::BuiltinProp};
+use crate::directory::DirKey;
 
 use super::init_db::Builtins;
 
@@ -35,7 +35,7 @@ pub async fn list_entity_attrs(deps: &impl Db, eid: EntityId) -> DbResult<FnvHas
                 WHERE ent_attr.eid = $1"
             }
             .into(),
-            params!(eid.as_param()),
+            params!(eid.to_blob()),
         )
         .await?
         .into_iter()
@@ -70,8 +70,8 @@ pub async fn find_local_directory_entity_password_hash_by_entity_ident(
         }
         .into(),
         params!(
-            ident_prop_id.as_param(),
-            ident_fingerprint,
+            ident_prop_id.to_blob(),
+            ident_fingerprint.to_blob(),
             builtins.prop_key(BuiltinProp::PasswordHash)
         ),
     )
@@ -99,7 +99,7 @@ pub async fn try_insert_entity_credentials(
     deps
         .execute(
             "INSERT INTO entity_password (dir_key, eid, hash) VALUES ($1, $2, $3) ON CONFLICT DO UPDATE SET hash = $3".into(),
-            params!(dir_key.0, eid.as_param(), secret_hash),
+            params!(dir_key.0, eid.to_blob(), secret_hash),
         )
         .await?;
 
@@ -157,7 +157,7 @@ pub async fn upsert_link_foreign_persona(
                 now.unix_timestamp(),
                 0,
                 foreign_id,
-                persona_id.as_param()
+                persona_id.to_blob()
             ),
         )
         .await?

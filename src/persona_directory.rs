@@ -1,16 +1,16 @@
 use authly_common::id::PersonaId;
-use authly_db::{param::AsParam, DbError, DidInsert};
+use authly_db::{DbError, DidInsert};
+use authly_domain::{ctx::GetDb, id::BuiltinProp};
 use tracing::info;
 
 use crate::{
-    ctx::{GetDb, GetDecryptedDeks},
+    ctx::GetDecryptedDeks,
     db::{
         cryptography_db::EncryptedObjIdent,
         entity_db::{self, OverwritePersonaId},
         object_db,
     },
     directory::DirKey,
-    id::BuiltinProp,
 };
 
 // A persona whose source is a 3rd-party directory (OAuth/LDAP/etc)
@@ -67,7 +67,7 @@ pub async fn link_foreign_persona(
         .clone()
         .insert(
             deps.get_db(),
-            persona_dir_key.as_param(),
+            persona_dir_key.0,
             persona_id.upcast(),
             now.unix_timestamp(),
         )
@@ -113,7 +113,7 @@ pub async fn link_foreign_persona(
                     .clone()
                     .upsert(
                         deps.get_db(),
-                        persona_dir_key.as_param(),
+                        persona_dir_key.0,
                         persona_id.upcast(),
                         now.unix_timestamp(),
                     )

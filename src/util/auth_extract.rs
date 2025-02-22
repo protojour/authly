@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use anyhow::anyhow;
 use authly_common::{access_token::AuthlyAccessTokenClaims, mtls_server::PeerServiceEntity};
+use authly_domain::ctx::GetDb;
 use axum::{extract::FromRequestParts, response::IntoResponse, Extension, RequestPartsExt};
 use http::{
     header::{self, LOCATION},
@@ -13,7 +14,6 @@ use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use crate::{
     access_control::{authorize_peer_service, VerifyAuthlyRole},
     access_token::{create_access_token_claims, VerifiedAccessToken},
-    ctx::GetDb,
     db::entity_db,
     session::authenticate_session_cookie,
     AuthlyCtx,

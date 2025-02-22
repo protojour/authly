@@ -46,6 +46,8 @@ impl SqlitePool {
 }
 
 impl Db for SqlitePool {
+    type Param = hiqlite::Param;
+
     async fn query_map<T>(&self, stmt: Cow<'static, str>, params: Params) -> Result<Vec<T>, DbError>
     where
         T: FromRow + Send + 'static,

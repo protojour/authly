@@ -37,7 +37,6 @@ pub enum BuiltinProp {
     OAuthClientSecret = 10,
 }
 
-#[expect(clippy::enum_variant_names)]
 #[derive(Clone, Copy, Eq, PartialEq, Hash, IntEnum, Debug)]
 #[repr(u32)]
 pub enum BuiltinAttr {

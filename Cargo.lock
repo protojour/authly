@@ -328,6 +328,7 @@ dependencies = [
  "authly-common",
  "authly-connect",
  "authly-db",
+ "authly-domain",
  "authly-secrets",
  "authly-test-grpc",
  "authly-webstatic",
@@ -488,6 +489,22 @@ dependencies = [
  "hiqlite",
  "itertools 0.14.0",
  "rusqlite",
+ "thiserror 2.0.11",
+ "time",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "authly-domain"
+version = "0.0.0"
+dependencies = [
+ "authly-common",
+ "authly-db",
+ "fnv",
+ "hexhex",
+ "int-enum",
+ "itertools 0.14.0",
  "thiserror 2.0.11",
  "time",
  "tokio",

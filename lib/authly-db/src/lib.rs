@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Debug, future::Future, marker::PhantomData};
 
 use authly_common::id::Id128DynamicArrayConv;
-use hiqlite::Params;
+use hiqlite::StmtColumn;
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -49,11 +49,18 @@ pub struct DidInsert(pub bool);
 
 /// Db abstraction around SQLite that works with both rusqlite and hiqlite.
 pub trait Db: Send + Sync + 'static {
+    type Param: From<i64>
+        + From<String>
+        + From<Vec<u8>>
+        + From<StmtColumn<usize>>
+        + for<'a> From<&'a str>
+        + for<'a> From<Option<&'a str>>;
+
     /// Query for a Vec of values implementing [FromRow].
     fn query_map<T>(
         &self,
         stmt: Cow<'static, str>,
-        params: Params,
+        params: Vec<Self::Param>,
     ) -> impl Future<Output = Result<Vec<T>, DbError>> + Send
     where
         T: FromRow + Send + 'static;
@@ -62,7 +69,7 @@ pub trait Db: Send + Sync + 'static {
     fn query_map_opt<T>(
         &self,
         stmt: Cow<'static, str>,
-        params: Params,
+        params: Vec<Self::Param>,
     ) -> impl Future<Output = Result<Option<T>, DbError>> + Send
     where
         T: FromRow + Send + 'static;
@@ -71,7 +78,7 @@ pub trait Db: Send + Sync + 'static {
     fn query_try_map_opt<T>(
         &self,
         stmt: Cow<'static, str>,
-        params: Params,
+        params: Vec<Self::Param>,
     ) -> impl Future<Output = Result<Option<Result<T, T::Error>>, DbError>> + Send
     where
         T: TryFromRow + Send + 'static;
@@ -80,7 +87,7 @@ pub trait Db: Send + Sync + 'static {
     fn query_filter_map<T>(
         &self,
         stmt: Cow<'static, str>,
-        params: Params,
+        params: Vec<Self::Param>,
     ) -> impl Future<Output = Result<Vec<T>, DbError>> + Send
     where
         T: TryFromRow + Send + 'static,
@@ -89,13 +96,13 @@ pub trait Db: Send + Sync + 'static {
     fn execute(
         &self,
         sql: Cow<'static, str>,
-        params: Params,
+        params: Vec<Self::Param>,
     ) -> impl Future<Output = Result<usize, DbError>> + Send;
 
     fn execute_map<T>(
         &self,
         sql: Cow<'static, str>,
-        params: Params,
+        params: Vec<Self::Param>,
     ) -> impl Future<Output = Result<Vec<Result<T, DbError>>, DbError>> + Send
     where
         T: FromRow + Send + 'static;
@@ -103,7 +110,7 @@ pub trait Db: Send + Sync + 'static {
     /// Execute multiple statements in a transaction
     fn transact(
         &self,
-        sql: Vec<(Cow<'static, str>, Params)>,
+        sql: Vec<(Cow<'static, str>, Vec<Self::Param>)>,
     ) -> impl Future<Output = Result<Vec<Result<usize, DbError>>, DbError>> + Send;
 }
 
@@ -167,4 +174,18 @@ pub trait TryFromRow: Sized {
     type Error: Send + 'static;
 
     fn try_from_row(row: &mut impl Row) -> Result<Self, Self::Error>;
+}
+
+#[macro_export]
+macro_rules! params {
+    ( $( $param:expr ),* ) => {
+        {
+            #[allow(unused_mut)]
+            let mut params = Vec::with_capacity(2);
+            $(
+                params.push($param.into());
+            )*
+            params
+        }
+    };
 }

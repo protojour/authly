@@ -2,8 +2,7 @@ use authly_common::{
     id::{AttrId, EntityId, PropId},
     policy::code::OpCode,
 };
-
-use crate::id::BuiltinProp;
+use authly_domain::id::BuiltinProp;
 
 use super::expr::{Expr, Global, Term};
 

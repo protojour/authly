@@ -5,11 +5,11 @@ use authly_common::{
         engine::{AccessControlParams, NoOpPolicyTracer},
     },
 };
+use authly_domain::ctx::GetDb;
 use hexhex::hex_literal;
 use indoc::indoc;
 
 use crate::{
-    ctx::GetDb,
     db::policy_db::{self, load_svc_policies_with_bindings},
     test_support::TestCtx,
     tests::{compile_and_apply_doc, ServiceProperties},

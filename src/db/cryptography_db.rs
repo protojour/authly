@@ -13,8 +13,8 @@ use aes_gcm_siv::{
 };
 use anyhow::{anyhow, Context};
 use authly_common::id::{AnyId, PropId, ServiceId};
-use authly_db::{param::AsParam, Db, DbError, DbResult, FromRow, Row, TryFromRow};
-use hiqlite::{params, Param, Params};
+use authly_db::{params, param::ToBlob, Db, DbError, DbResult, FromRow, Row, TryFromRow};
+use authly_domain::{ctx::GetDb, id::BuiltinProp};
 use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -23,9 +23,8 @@ use tracing::{debug, info};
 
 use crate::{
     cert::{authly_ca, client_cert, key_pair},
-    ctx::{GetDb, GetDecryptedDeks},
+    ctx::GetDecryptedDeks,
     encryption::{random_nonce, DecryptedDeks, EncryptedDek, MasterVersion},
-    id::BuiltinProp,
     instance::AuthlyId,
     tls::{AuthlyCert, AuthlyCertKind},
     AuthlyInstance, IsLeaderDb,
@@ -119,7 +118,7 @@ pub async fn insert_cr_prop_deks(
             "INSERT INTO cr_prop_dek (prop_key, nonce, ciph, created_at) VALUES ((SELECT key FROM prop WHERE id = $1), $2, $3, $4)"
                 .into(),
             params!(
-                id.as_param(),
+                id.to_blob(),
                 dek.nonce.to_vec(),
                 dek.ciph,
                 dek.created_at.unix_timestamp()
@@ -298,7 +297,7 @@ pub async fn save_instance(
             "
         }
         .into(),
-        params!(eid.as_param(), nonce.to_vec(), key_ciph),
+        params!(eid.to_blob(), nonce.to_vec(), key_ciph),
     )
     .await?;
 
@@ -353,14 +352,14 @@ fn check_missing_certs(authly_id: &AuthlyId, certs: &[AuthlyCert]) -> Vec<Authly
     missing
 }
 
-async fn save_tls_cert(cert: &AuthlyCert, db: &impl Db) -> Result<(), CrDbError> {
-    let (sql, params) = save_tls_cert_sql(cert);
+async fn save_tls_cert<D: Db>(cert: &AuthlyCert, db: &D) -> Result<(), CrDbError> {
+    let (sql, params) = save_tls_cert_sql::<D>(cert);
     db.execute(sql, params).await?;
 
     Ok(())
 }
 
-pub fn save_tls_cert_sql(cert: &AuthlyCert) -> (Cow<'static, str>, Params) {
+pub fn save_tls_cert_sql<D: Db>(cert: &AuthlyCert) -> (Cow<'static, str>, Vec<<D as Db>::Param>) {
     let cert_der = cert.der.to_vec();
     let now = time::OffsetDateTime::now_utc();
     let expires = cert.params.not_after;
@@ -374,8 +373,8 @@ pub fn save_tls_cert_sql(cert: &AuthlyCert) -> (Cow<'static, str>, Params) {
         .into(),
         params!(
             cert.kind.to_string(),
-            cert.certifies.as_param(),
-            cert.signed_by.as_param(),
+            cert.certifies.to_blob(),
+            cert.signed_by.to_blob(),
             now.unix_timestamp(),
             expires.unix_timestamp(),
             cert_der
@@ -409,24 +408,24 @@ impl EncryptedObjIdent {
         })
     }
 
-    pub async fn insert(
+    pub async fn insert<D: Db>(
         self,
-        deps: &impl Db,
-        dir_key: Param,
+        deps: &D,
+        dir_key: impl Into<<D as Db>::Param>,
         obj_id: AnyId,
         now: i64,
     ) -> DbResult<()> {
-        let (stmt, params) = self.insert_stmt(dir_key, obj_id, now);
+        let (stmt, params) = self.insert_stmt::<D>(dir_key, obj_id, now);
         deps.execute(stmt, params).await?;
         Ok(())
     }
 
-    pub fn insert_stmt(
+    pub fn insert_stmt<D: Db>(
         self,
-        dir_key: Param,
+        dir_key: impl Into<<D as Db>::Param>,
         obj_id: AnyId,
         now: i64,
-    ) -> (Cow<'static, str>, Params) {
+    ) -> (Cow<'static, str>, Vec<<D as Db>::Param>) {
         (
             indoc! {
                 "
@@ -437,8 +436,8 @@ impl EncryptedObjIdent {
             .into(),
             params!(
                 dir_key,
-                obj_id.as_param(),
-                self.prop_id.as_param(),
+                obj_id.to_blob(),
+                self.prop_id.to_blob(),
                 now,
                 self.fingerprint.to_vec(),
                 self.nonce.to_vec(),
@@ -447,24 +446,24 @@ impl EncryptedObjIdent {
         )
     }
 
-    pub async fn upsert(
+    pub async fn upsert<D: Db>(
         self,
-        deps: &impl Db,
-        dir_key: Param,
+        deps: &D,
+        dir_key: impl Into<<D as Db>::Param>,
         obj_id: AnyId,
         now: i64,
     ) -> DbResult<()> {
-        let (stmt, params) = self.upsert_stmt(dir_key, obj_id, now);
+        let (stmt, params) = self.upsert_stmt::<D>(dir_key, obj_id, now);
         deps.execute(stmt, params).await?;
         Ok(())
     }
 
-    pub fn upsert_stmt(
+    pub fn upsert_stmt<D: Db>(
         self,
-        dir_key: Param,
+        dir_key: impl Into<<D as Db>::Param>,
         obj_id: AnyId,
         now: i64,
-    ) -> (Cow<'static, str>, Params) {
+    ) -> (Cow<'static, str>, Vec<<D as Db>::Param>) {
         (
             indoc! {
                 "
@@ -480,8 +479,8 @@ impl EncryptedObjIdent {
             .into(),
             params!(
                 dir_key,
-                obj_id.as_param(),
-                self.prop_id.as_param(),
+                obj_id.to_blob(),
+                self.prop_id.to_blob(),
                 now,
                 self.fingerprint.to_vec(),
                 self.nonce.to_vec(),
@@ -520,7 +519,7 @@ pub async fn lookup_obj_ident(
                 ",
             }
             .into(),
-            params!(prop_id.as_param(), ident_fingerprint.as_slice()),
+            params!(prop_id.to_blob(), ident_fingerprint.as_slice().to_blob()),
         )
         .await?
     else {
@@ -553,7 +552,7 @@ pub async fn load_decrypt_obj_ident(
     let Some(row) = deps
         .query_map_opt::<TypedRow>(
             "SELECT nonce, ciph FROM obj_ident WHERE obj_id = $1 AND prop_key = (SELECT key FROM prop WHERE id = $2)".into(),
-            params!(obj_id.as_param(), prop_id.as_param()),
+            params!(obj_id.to_blob(), prop_id.to_blob()),
         )
         .await?
     else {

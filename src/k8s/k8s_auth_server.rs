@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::anyhow;
 use authly_common::id::ServiceId;
+use authly_domain::ctx::GetDb;
 use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post, Extension};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -21,7 +22,7 @@ use tracing::{error, info};
 
 use crate::{
     cert::{client_cert, server_cert, Cert, CertificateParamsExt},
-    ctx::{GetBuiltins, GetDb, GetInstance},
+    ctx::{GetBuiltins, GetInstance},
     db::service_db,
     instance::AuthlyInstance,
     util::remote_addr::{remote_addr_middleware, RemoteAddr},

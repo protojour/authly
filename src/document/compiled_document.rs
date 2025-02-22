@@ -3,10 +3,10 @@ use std::{collections::BTreeMap, ops::Range};
 use authly_common::id::{
     AnyId, AttrId, DirectoryId, DomainId, EntityId, PersonaId, PolicyId, PropId, ServiceId,
 };
+use authly_domain::id::BuiltinProp;
 
 use crate::{
     db::{policy_db, service_db::PropertyKind, Identified},
-    id::BuiltinProp,
     settings::Setting,
 };
 

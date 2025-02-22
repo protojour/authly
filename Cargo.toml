@@ -28,6 +28,7 @@ authly-common = { workspace = true, features = [
 ] }
 authly-connect = { path = "lib/authly-connect" }
 authly-db = { path = "lib/authly-db" }
+authly-domain = { path = "lib/authly-domain" }
 authly-secrets = { path = "lib/authly-secrets" }
 authly-webstatic = { path = "lib/authly-webstatic" }
 
@@ -126,6 +127,7 @@ members = [
     "crates/authly-testservice",
     "lib/authly-connect",
     "lib/authly-db",
+    "lib/authly-domain",
     "lib/authly-secrets",
     "lib/authly-test-grpc",
     "lib/authly-webstatic",

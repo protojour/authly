@@ -1,6 +1,5 @@
 use authly_common::id::EntityId;
-use authly_db::{param::AsParam, Db, DbError, DbResult, Row, TryFromRow};
-use hiqlite::{params, Param};
+use authly_db::{params, param::ToBlob, Db, DbError, DbResult, Row, TryFromRow};
 use time::OffsetDateTime;
 
 use crate::session::{Session, SessionToken};
@@ -10,7 +9,7 @@ pub async fn store_session(deps: &impl Db, session: &Session) -> DbResult<()> {
         "INSERT INTO session (token, eid, expires_at) VALUES ($1, $2, $3)".into(),
         params!(
             session.token.0.clone(),
-            session.eid.as_param(),
+            session.eid.to_blob(),
             session.expires_at.unix_timestamp()
         ),
     )

@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 
 use authly_common::id::DirectoryId;
-use authly_db::{param::AsParam, Db, DbResult, FromRow};
-use hiqlite::{params, Param, Params};
+use authly_db::{param::ToBlob, params, Db, DbResult, FromRow};
+use authly_domain::id::BuiltinProp;
+use hiqlite::Params;
 use indoc::indoc;
 
 use crate::{
     directory::{DirKey, OAuthDirectory},
     encryption::DecryptedDeks,
-    id::BuiltinProp,
 };
 
 use super::cryptography_db::{CrDbError, EncryptedObjIdent};
@@ -29,8 +29,8 @@ pub fn upsert_oauth_directory_stmt(
         }
         .into(),
         params!(
-            parent_key.as_param(),
-            dir_id.as_param(),
+            parent_key.map(|key| key.0),
+            dir_id.to_blob(),
             "",
             vec![0u8; 32],
             label
@@ -106,7 +106,7 @@ impl OAuthDirectory {
 
     pub fn upsert_params(self, now: i64) -> Params {
         params!(
-            self.dir_key.as_param(),
+            self.dir_key.0,
             now,
             self.client_id,
             self.auth_url,
@@ -126,18 +126,18 @@ impl OAuthDirectory {
         )
     }
 
-    pub fn upsert_secret_stmt(
+    pub fn upsert_secret_stmt<D: Db>(
         &self,
         parent_dir_key: DirKey,
         now: i64,
         deks: &DecryptedDeks,
-    ) -> Result<(Cow<'static, str>, Params), CrDbError> {
+    ) -> Result<(Cow<'static, str>, Vec<<D as Db>::Param>), CrDbError> {
         Ok(EncryptedObjIdent::encrypt(
             BuiltinProp::OAuthClientSecret.into(),
             &self.client_secret,
             deks,
         )
         .map_err(CrDbError::Crypto)?
-        .upsert_stmt(parent_dir_key.0.into(), self.dir_id.upcast(), now))
+        .upsert_stmt::<D>(parent_dir_key.0, self.dir_id.upcast(), now))
     }
 }

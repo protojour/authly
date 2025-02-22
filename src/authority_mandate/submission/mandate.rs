@@ -12,9 +12,9 @@ use authly_connect::{
     client::new_authly_connect_grpc_client_service, no_trust_verifier::NoTrustVerifier,
     TunnelSecurity,
 };
-use authly_db::{param::AsParam, Db};
+use authly_db::{params, param::ToBlob, Db};
+use authly_domain::ctx::GetDb;
 use axum::body::Bytes;
-use hiqlite::{params, Param, Params};
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 use rustls::ClientConfig;
 use tracing::error;
@@ -22,7 +22,7 @@ use tracing::error;
 use crate::{
     bus::{message::ClusterMessage, BusError},
     cert::client_cert_csr,
-    ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance, SetInstance},
+    ctx::{ClusterBus, GetDecryptedDeks, GetInstance, SetInstance},
     db::cryptography_db,
 };
 
@@ -101,7 +101,7 @@ pub async fn mandate_execute_submission(
 
     let mandate_submission_data =
         MandateSubmissionData::try_from(response).map_err(MandateSubmissionError::Protobuf)?;
-    let stmts = mandate_fulfill_submission_txn_statements(mandate_submission_data);
+    let stmts = mandate_fulfill_submission_txn_statements(deps.get_db(), mandate_submission_data);
     deps.get_db().transact(stmts).await.map_err(|err| {
         error!(?err, "submission transaction error");
         MandateSubmissionError::Db
@@ -160,14 +160,15 @@ pub fn mandate_identity_signing_request(
     Ok(params.serialize_request(deps.get_instance().private_key())?)
 }
 
-pub fn mandate_fulfill_submission_txn_statements(
+pub fn mandate_fulfill_submission_txn_statements<D: Db>(
+    _db: &D,
     data: MandateSubmissionData,
-) -> Vec<(Cow<'static, str>, Params)> {
-    let mut stmts: Vec<(Cow<'static, str>, Params)> = vec![];
+) -> Vec<(Cow<'static, str>, Vec<<D as Db>::Param>)> {
+    let mut stmts: Vec<(Cow<'static, str>, Vec<<D as Db>::Param>)> = vec![];
 
     stmts.push((
         "UPDATE authly_instance SET eid = $1".into(),
-        params!(data.certified_mandate.mandate_eid.as_param()),
+        params!(data.certified_mandate.mandate_eid.to_blob()),
     ));
 
     // Remove all TLS certs
@@ -178,7 +179,7 @@ pub fn mandate_fulfill_submission_txn_statements(
         .into_iter()
         .chain(data.upstream_ca_chain)
     {
-        stmts.push(cryptography_db::save_tls_cert_sql(&authly_cert));
+        stmts.push(cryptography_db::save_tls_cert_sql::<D>(&authly_cert));
     }
 
     stmts
