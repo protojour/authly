@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
-use authly_db::{params, param::ToBlob, Db, DbResult, FromRow, Row, TryFromRow};
+use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Row, TryFromRow};
 use indoc::indoc;
 use serde::{de::value::StringDeserializer, Deserialize};
 

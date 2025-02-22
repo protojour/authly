@@ -12,7 +12,7 @@ use authly_connect::{
     client::new_authly_connect_grpc_client_service, no_trust_verifier::NoTrustVerifier,
     TunnelSecurity,
 };
-use authly_db::{params, param::ToBlob, Db};
+use authly_db::{param::ToBlob, params, Db};
 use authly_domain::ctx::GetDb;
 use axum::body::Bytes;
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};

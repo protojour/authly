@@ -1,5 +1,5 @@
 use authly_common::id::EntityId;
-use authly_db::{params, param::ToBlob, Db, DbError, DbResult, Row, TryFromRow};
+use authly_db::{param::ToBlob, params, Db, DbError, DbResult, Row, TryFromRow};
 use time::OffsetDateTime;
 
 use crate::session::{Session, SessionToken};

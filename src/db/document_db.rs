@@ -1,7 +1,7 @@
 use std::{borrow::Cow, ops::Range};
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
-use authly_db::{params, literal::Literal, param::ToBlob, Db, DbError};
+use authly_db::{literal::Literal, param::ToBlob, params, Db, DbError};
 use hiqlite::{StmtColumn, StmtIndex};
 use indoc::indoc;
 use itertools::Itertools;

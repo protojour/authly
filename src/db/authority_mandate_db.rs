@@ -1,5 +1,5 @@
 use authly_common::id::ServiceId;
-use authly_db::{params, param::ToBlob, Db, DbError, Row, TryFromRow};
+use authly_db::{param::ToBlob, params, Db, DbError, Row, TryFromRow};
 use indoc::indoc;
 use thiserror::Error;
 use time::OffsetDateTime;

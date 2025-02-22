@@ -13,7 +13,7 @@ use aes_gcm_siv::{
 };
 use anyhow::{anyhow, Context};
 use authly_common::id::{AnyId, PropId, ServiceId};
-use authly_db::{params, param::ToBlob, Db, DbError, DbResult, FromRow, Row, TryFromRow};
+use authly_db::{param::ToBlob, params, Db, DbError, DbResult, FromRow, Row, TryFromRow};
 use authly_domain::{ctx::GetDb, id::BuiltinProp};
 use indoc::indoc;
 use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};

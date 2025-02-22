@@ -1,5 +1,5 @@
 use authly_common::id::{AnyId, PropId};
-use authly_db::{params, param::ToBlob, Db, DbResult, FromRow};
+use authly_db::{param::ToBlob, params, Db, DbResult, FromRow};
 use indoc::indoc;
 
 pub async fn find_obj_id_by_ident_fingerprint(

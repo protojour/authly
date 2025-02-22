@@ -7,9 +7,7 @@ use authly_common::{
         engine::PolicyEngine,
     },
 };
-use authly_db::{
-    params, literal::Literal, param::ToBlob, Db, DbResult, FromRow, Row, TryFromRow,
-};
+use authly_db::{literal::Literal, param::ToBlob, params, Db, DbResult, FromRow, Row, TryFromRow};
 use indoc::indoc;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};

@@ -4,7 +4,7 @@ use authly_common::{
     id::{AnyId, AttrId, PropId, ServiceId},
     service::NamespacePropertyMapping,
 };
-use authly_db::{params, param::ToBlob, Db, DbResult, FromRow, Row, TryFromRow};
+use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Row, TryFromRow};
 use authly_domain::id::BuiltinProp;
 use indoc::{formatdoc, indoc};
 use serde::{Deserialize, Serialize};
