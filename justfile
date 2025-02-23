@@ -16,7 +16,7 @@ rundev: dev-environment generate-testdata
     AUTHLY_ETC_DIR=.local/etc \
     AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
     AUTHLY_BAO_URL=http://localhost:8200 \
-        cargo run -p authly --features dev serve
+        cargo run -p authly serve
 
 # run release version on localhost
 runrelease: dev-environment generate-testdata

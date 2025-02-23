@@ -16,7 +16,6 @@ doctest = false
 authly-connect = { path = "../authly-connect" }
 authly-db = { path = "../authly-db" }
 authly-domain = { path = "../authly-domain" }
-authly-service = { path = "../authly-service" }
 authly-sqlite = { path = "../authly-sqlite" }
 authly-common = { workspace = true, features = [
     "access_token",
@@ -42,6 +41,7 @@ tower-server.workspace = true
 tracing = "0.1"
 
 [dev-dependencies]
+authly-service = { path = "../authly-service" }
 authly-test-grpc = { path = "../authly-test-grpc" }
 authly-client.workspace = true
 async-stream = "0.3"
