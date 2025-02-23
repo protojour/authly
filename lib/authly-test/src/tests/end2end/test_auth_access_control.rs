@@ -6,7 +6,7 @@ use authly_client::AccessControl;
 use authly_common::id::{PersonaId, ServiceId};
 use cookie::Cookie;
 use hexhex::hex_literal;
-use hyper::header::SET_COOKIE;
+use http::header::SET_COOKIE;
 use reqwest::Identity;
 use serde_json::{json, Value};
 use tracing::info;

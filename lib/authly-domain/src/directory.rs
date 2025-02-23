@@ -6,13 +6,16 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    bus::BusError,
+    audit::Actor,
+    bus::{BusError, ClusterMessage},
+    ctx::{ClusterBus, Directories, GetDb, GetDecryptedDeks},
+    document::compiled_document::CompiledDocument,
     encryption::{CryptoError, DecryptedDeks},
     id::BuiltinProp,
     repo::{
         crypto_repo,
         directory_repo::DbDirectory,
-        document_repo::DocumentDbTxnError,
+        document_repo::{DocumentDbTxnError, DocumentTransaction},
         oauth_repo::{self, OAuthRow},
     },
 };
@@ -95,6 +98,30 @@ pub enum DirectoryError {
 
     #[error("missing secret")]
     MissingSecret,
+}
+
+/// Apply (write or overwrite) a document directory, publish change message
+pub async fn apply_document(
+    deps: &(impl GetDb + GetDecryptedDeks + ClusterBus + Directories),
+    compiled_doc: CompiledDocument,
+    actor: Actor,
+) -> Result<(), DirectoryError> {
+    let dir_id = compiled_doc.dir_id;
+
+    let service_ids: Vec<_> = compiled_doc.data.services.keys().copied().collect();
+
+    let deks = deps.load_decrypted_deks();
+
+    DocumentTransaction::new(compiled_doc, actor)
+        .execute(deps.get_db(), &deks)
+        .await?;
+
+    deps.handle_service_tls_reexport_to_file(service_ids);
+
+    deps.broadcast_to_cluster(ClusterMessage::DirectoryChanged { dir_id })
+        .await?;
+
+    Ok(())
 }
 
 pub async fn load_persona_directories(

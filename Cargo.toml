@@ -84,23 +84,6 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 ] }
 webpki-roots = "0.26"
 
-[dev-dependencies]
-authly-client.workspace = true
-authly-test = { path = "lib/authly-test" }
-authly-test-grpc = { path = "lib/authly-test-grpc" }
-async-stream = "0.3"
-criterion = { version = "0.5", default-features = false }
-fnv = "1"
-hyper-util = { version = "0.1", features = ["tokio", "server", "http2"] }
-itertools = "0.14"
-serde_spanned = "0.6"
-test-log = { version = "0.2", features = ["trace"] }
-wiremock = "0.6.2"
-
-[[bench]]
-name = "authly_benches"
-harness = false
-
 [workspace]
 members = [
     "crates/authly-testservice",

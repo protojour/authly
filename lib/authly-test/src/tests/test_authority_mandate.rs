@@ -22,7 +22,10 @@ use rcgen::CertificateSigningRequestParams;
 use test_log::test;
 use tracing::info;
 
-use crate::tests::{rustls_server_config_no_client_auth, spawn_test_connect_server, TestCtx};
+use crate::{
+    test_ctx::TestCtx,
+    util::{rustls_server_config_no_client_auth, spawn_test_connect_server},
+};
 
 #[test(tokio::test)]
 async fn test_mandate_registration_failure() {

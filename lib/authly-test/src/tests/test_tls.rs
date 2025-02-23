@@ -10,7 +10,7 @@ use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
 use time::Duration;
 use tokio_util::sync::{CancellationToken, DropGuard};
 
-use crate::tests::{rustls_server_config_mtls, rustls_server_config_no_client_auth};
+use crate::util::{rustls_server_config_mtls, rustls_server_config_no_client_auth};
 
 fn localhost() -> Vec<String> {
     vec!["localhost".to_string()]

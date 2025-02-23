@@ -33,3 +33,10 @@ serde_urlencoded = "0.7"
 tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
 url = "2.5"
+
+[dev-dependencies]
+authly-db = { path = "../authly-db" }
+authly-test = { path = "../authly-test" }
+test-log = { version = "0.2", features = ["trace"] }
+time = "0.3"
+wiremock = "0.6.2"

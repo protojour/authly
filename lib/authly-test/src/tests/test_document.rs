@@ -4,11 +4,13 @@ use authly_domain::{
     document::error::DocError,
     repo::{entity_repo, service_repo},
 };
-use authly_test::test_ctx::TestCtx;
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::tests::{compile_and_apply_doc, TestDocError};
+use crate::{
+    test_ctx::TestCtx,
+    util::{compile_and_apply_doc, TestDocError},
+};
 
 #[test_log::test(tokio::test)]
 async fn test_store_doc_trivial() {

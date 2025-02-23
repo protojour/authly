@@ -16,7 +16,6 @@ use authly_domain::{
     },
 };
 use authly_test::{test_ctx::TestCtx, SqlitePool};
-use authly_web::auth::oauth::OAuthState;
 use axum::extract::{Path, Query, State};
 use itertools::Itertools;
 use rand::{rngs::OsRng, Rng};
@@ -25,6 +24,8 @@ use wiremock::{
     matchers::{header, method, path, query_param},
     Mock, ResponseTemplate,
 };
+
+use crate::auth::oauth::OAuthState;
 
 fn random_oauth(dir_id: DirectoryId, dir_key: DirKey) -> OAuthDirectory {
     fn rnd() -> String {
@@ -328,7 +329,7 @@ async fn test_callback_github_like() {
         .mount(&hubmock)
         .await;
 
-    let _result = authly_web::auth::oauth::oauth_callback(
+    let _result = crate::auth::oauth::oauth_callback(
         State(OAuthState(ctx)),
         ProxiedBaseUri("http://localhost".parse().unwrap()),
         Path("buksehub".to_string()),

@@ -74,6 +74,9 @@ pub trait GetDecryptedDeks {
 
 pub trait Directories {
     fn load_persona_directories(&self) -> Arc<IndexMap<String, PersonaDirectory>>;
+
+    /// Optionally handle service TLS export to file when the service IDs have changed
+    fn handle_service_tls_reexport_to_file(&self, _service_ids: Vec<ServiceId>) {}
 }
 
 pub trait RedistributeCertificates {

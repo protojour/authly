@@ -1,11 +1,12 @@
 //! trait implementations for AuthlyCtx
 
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
 use authly_common::id::ServiceId;
 use authly_domain::{
     builtins::Builtins,
     bus::{BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection},
+    cert::{client_cert, CertificateParamsExt},
     ctx::{
         ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
         HostsConfig, KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus,
@@ -17,6 +18,7 @@ use authly_domain::{
 };
 use authly_hiqlite::HiqliteClient;
 use indexmap::IndexMap;
+use tracing::error;
 
 use crate::{platform::CertificateDistributionPlatform, AuthlyCtx};
 
@@ -111,6 +113,16 @@ impl Directories for AuthlyCtx {
     fn load_persona_directories(&self) -> Arc<IndexMap<String, PersonaDirectory>> {
         self.persona_directories.load_full()
     }
+
+    fn handle_service_tls_reexport_to_file(&self, service_ids: Vec<ServiceId>) {
+        if self.export_tls_to_etc {
+            for svc_eid in service_ids {
+                if let Err(err) = export_service_identity(svc_eid, self) {
+                    error!(?err, ?svc_eid, "unable to export identity");
+                }
+            }
+        }
+    }
 }
 
 impl HostsConfig for AuthlyCtx {
@@ -130,4 +142,20 @@ impl KubernetesConfig for AuthlyCtx {
     fn authly_local_k8s_namespace(&self) -> &str {
         &self.state.k8s_local_namespace
     }
+}
+
+fn export_service_identity(svc_eid: ServiceId, ctx: &AuthlyCtx) -> anyhow::Result<()> {
+    let pem = ctx
+        .get_instance()
+        .sign_with_local_ca(
+            client_cert("service", svc_eid, time::Duration::days(7)).with_new_key_pair(),
+        )
+        .certificate_and_key_pem();
+
+    let path = ctx.etc_dir.join(format!("service/{svc_eid}/identity.pem"));
+    fs::create_dir_all(path.parent().unwrap())?;
+
+    std::fs::write(path, pem)?;
+
+    Ok(())
 }

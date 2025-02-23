@@ -8,16 +8,13 @@ use authly_common::{
 use authly_domain::{
     audit::Actor,
     ctx::GetDb,
-    directory::DirectoryKind,
+    directory::{self, DirectoryKind},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     repo::directory_repo::DbDirectory,
 };
 use tracing::info;
 
-use crate::{
-    directory::{self},
-    AuthlyCtx, EnvConfig,
-};
+use crate::{AuthlyCtx, EnvConfig};
 
 /// Load documents from file
 pub(crate) async fn load_cfg_documents(

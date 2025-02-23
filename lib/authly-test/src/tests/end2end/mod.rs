@@ -10,9 +10,9 @@ impl ConnectionBuilder {
         Ok(Self(
             authly_client::Client::builder()
                 .with_url("https://localhost:1443")
-                .with_authly_local_ca_pem(std::fs::read(".local/etc/certs/local.crt")?)?
+                .with_authly_local_ca_pem(std::fs::read("../../.local/etc/certs/local.crt")?)?
                 .with_identity(authly_client::identity::Identity::from_pem(std::fs::read(
-                    ".local/etc/service/s.f3e799137c034e1eb4cd3e4f65705932/identity.pem",
+                    "../../.local/etc/service/s.f3e799137c034e1eb4cd3e4f65705932/identity.pem",
                 )?)?),
         ))
     }

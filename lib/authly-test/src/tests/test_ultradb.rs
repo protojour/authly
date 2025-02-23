@@ -5,10 +5,12 @@ use authly_common::{
     proto::service::{self as proto, authly_service_client::AuthlyServiceClient},
 };
 use authly_service::proto::service_server::AuthlyServiceServerImpl;
-use authly_test::test_ctx::TestCtx;
 use hexhex::hex_literal;
 
-use super::{compile_and_apply_doc_dir, tonic_request};
+use crate::{
+    test_ctx::TestCtx,
+    util::{compile_and_apply_doc_dir, tonic_request},
+};
 
 const ULTRADB: ServiceId =
     ServiceId::from_raw_array(hex_literal!("ec29ba1d23cb43f89b7c73db6f177a1d"));
@@ -16,7 +18,7 @@ const ULTRADB: ServiceId =
 #[test_log::test(tokio::test)]
 async fn test_ultradb() {
     let ctx = TestCtx::new().inmemory_db().await;
-    compile_and_apply_doc_dir("examples/ultradb".into(), &ctx)
+    compile_and_apply_doc_dir("../../examples/ultradb".into(), &ctx)
         .await
         .unwrap();
 

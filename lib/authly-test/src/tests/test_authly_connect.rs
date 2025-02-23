@@ -25,7 +25,7 @@ use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::tests::{rustls_server_config_mtls, spawn_test_connect_server};
+use crate::util::{rustls_server_config_mtls, spawn_test_connect_server};
 
 #[test(tokio::test)]
 async fn test_connect_grpc() {

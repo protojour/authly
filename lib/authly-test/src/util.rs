@@ -14,7 +14,7 @@ use authly_connect::{
 use authly_domain::{
     audit::Actor,
     cert::Cert,
-    directory::DirectoryError,
+    directory::{self, DirectoryError},
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc, error::DocError},
     remote_addr::RemoteAddr,
     repo::{
@@ -22,7 +22,7 @@ use authly_domain::{
         service_repo::{self, PropertyKind},
     },
 };
-use authly_test::{test_ctx::TestCtx, SqlitePool};
+use authly_sqlite::SqlitePool;
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -33,27 +33,15 @@ use serde_spanned::Spanned;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{info_span, Instrument};
 
-mod end2end;
-mod test_access_control;
-mod test_authly_connect;
-mod test_authority_mandate;
-mod test_demo;
-mod test_docs_clause_examples;
-mod test_docs_full_example;
-mod test_document;
-mod test_metadata;
-mod test_oauth;
-mod test_tls;
-mod test_ultradb;
+use crate::test_ctx::TestCtx;
 
 #[derive(Debug)]
 pub enum TestDocError {
     Doc(Vec<Spanned<DocError>>),
-    #[expect(unused)]
     Other(anyhow::Error),
 }
 
-async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> Result<(), TestDocError> {
+pub async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> Result<(), TestDocError> {
     let mut doc_files: Vec<_> = std::fs::read_dir(dir)
         .unwrap()
         .map(|result| {
@@ -71,7 +59,7 @@ async fn compile_and_apply_doc_dir(dir: PathBuf, ctx: &TestCtx) -> Result<(), Te
     Ok(())
 }
 
-async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> Result<(), TestDocError> {
+pub async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> Result<(), TestDocError> {
     // For testing purposes, do this twice for each document, the second time will be a "no-op" re-application:
 
     compile_and_apply_doc_only_once(toml, ctx)
@@ -86,13 +74,16 @@ async fn compile_and_apply_doc(toml: &str, ctx: &TestCtx) -> Result<(), TestDocE
 }
 
 /// "only once" version, don't use this directly unless testing event propagation
-async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> Result<(), TestDocError> {
+pub async fn compile_and_apply_doc_only_once(
+    toml: &str,
+    ctx: &TestCtx,
+) -> Result<(), TestDocError> {
     let doc = Document::from_toml(toml).map_err(TestDocError::Other)?;
     let compiled_doc = compile_doc(ctx, doc, DocumentMeta::default())
         .await
         .map_err(TestDocError::Doc)?;
 
-    crate::directory::apply_document(ctx, compiled_doc, Actor(PersonaId::random().upcast()))
+    directory::apply_document(ctx, compiled_doc, Actor(PersonaId::random().upcast()))
         .await
         .map_err(|err| {
             if let DirectoryError::DocumentDbTxn(DocumentDbTxnError::Transaction(doc_errors)) = err
@@ -106,7 +97,7 @@ async fn compile_and_apply_doc_only_once(toml: &str, ctx: &TestCtx) -> Result<()
     Ok(())
 }
 
-fn tonic_request<T>(msg: T, eid: ServiceId) -> tonic::Request<T> {
+pub fn tonic_request<T>(msg: T, eid: ServiceId) -> tonic::Request<T> {
     let mut req = tonic::Request::new(msg);
     req.extensions_mut().insert(PeerServiceEntity(eid));
     req.extensions_mut()
@@ -114,7 +105,7 @@ fn tonic_request<T>(msg: T, eid: ServiceId) -> tonic::Request<T> {
     req
 }
 
-fn rustls_server_config_no_client_auth(
+pub fn rustls_server_config_no_client_auth(
     server_cert_chain: &[&Cert<KeyPair>],
 ) -> anyhow::Result<Arc<rustls::ServerConfig>> {
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -136,7 +127,7 @@ fn rustls_server_config_no_client_auth(
     Ok(Arc::new(config))
 }
 
-fn rustls_server_config_mtls(
+pub fn rustls_server_config_mtls(
     server_cert_chain: &[&Cert<KeyPair>],
     root_ca: &CertificateDer,
 ) -> anyhow::Result<Arc<rustls::ServerConfig>> {
@@ -171,7 +162,7 @@ async fn spawn_test_server(service: axum::Router) -> (String, DropGuard) {
 }
 
 // Spawn a server with Authly Connect service
-async fn spawn_test_connect_server(
+pub async fn spawn_test_connect_server(
     tls_config: Arc<ServerConfig>,
     security: TunnelSecurity,
     service: axum::Router,
@@ -210,13 +201,13 @@ async fn spawn_test_server_cancellable(service: axum::Router, cancel: Cancellati
     format!("http://localhost:{port}")
 }
 
-struct ServiceProperties {
-    resource: NamespacePropertyMapping,
-    entity: NamespacePropertyMapping,
+pub struct ServiceProperties {
+    pub resource: NamespacePropertyMapping,
+    pub entity: NamespacePropertyMapping,
 }
 
 impl ServiceProperties {
-    async fn load(svc_eid: ServiceId, conn: &SqlitePool) -> Self {
+    pub async fn load(svc_eid: ServiceId, conn: &SqlitePool) -> Self {
         let resource =
             service_repo::get_service_property_mapping(conn, svc_eid, PropertyKind::Resource)
                 .await

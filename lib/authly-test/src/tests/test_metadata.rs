@@ -6,7 +6,6 @@ use authly_common::{
     },
 };
 use authly_service::proto::service_server::AuthlyServiceServerImpl;
-use authly_test::test_ctx::TestCtx;
 use futures_util::StreamExt;
 use hexhex::hex_literal;
 use indoc::indoc;
@@ -14,9 +13,10 @@ use itertools::Itertools;
 use serde_json::json;
 use tracing::info;
 
-use crate::tests::{compile_and_apply_doc, compile_and_apply_doc_only_once};
-
-use super::tonic_request;
+use crate::{
+    test_ctx::TestCtx,
+    util::{compile_and_apply_doc, compile_and_apply_doc_only_once, tonic_request},
+};
 
 const SVC: ServiceId = ServiceId::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
 

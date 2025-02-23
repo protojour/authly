@@ -7,6 +7,9 @@ use axum::routing::{get, post};
 pub mod app;
 pub mod auth;
 
+#[cfg(test)]
+mod tests;
+
 pub fn router<Ctx>() -> axum::Router<Ctx>
 where
     Ctx: GetDb

@@ -9,11 +9,13 @@ use authly_domain::{
     ctx::GetDb,
     repo::policy_repo::{self, load_svc_policies_with_bindings},
 };
-use authly_test::test_ctx::TestCtx;
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::tests::{compile_and_apply_doc, ServiceProperties};
+use crate::{
+    test_ctx::TestCtx,
+    util::{compile_and_apply_doc, ServiceProperties},
+};
 
 const SVC_A: ServiceId =
     ServiceId::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));

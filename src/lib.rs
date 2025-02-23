@@ -46,16 +46,10 @@ pub mod grpc;
 pub mod platform;
 pub mod tls;
 
-mod directory;
 mod k8s;
 mod load_docs;
 mod openapi;
 mod util;
-
-/// The tests are currently part of `authly` src/ as this is a binary crate.
-/// Rust "integration" tests outside the src tree are more fitted for libraries.
-#[cfg(test)]
-mod tests;
 
 const HIQLITE_API_PORT: u16 = 7855;
 const HIQLITE_RAFT_PORT: u16 = 7856;

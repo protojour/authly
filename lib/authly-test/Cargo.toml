@@ -13,6 +13,7 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
+authly-connect = { path = "../authly-connect" }
 authly-db = { path = "../authly-db" }
 authly-domain = { path = "../authly-domain" }
 authly-service = { path = "../authly-service" }
@@ -22,12 +23,41 @@ authly-common = { workspace = true, features = [
     "document",
     "mtls_server",
 ] }
+anyhow = "1"
 arc-swap = "1.7"
+axum = { version = "0.7", features = ["macros"] }
 indexmap = "2.7"
+rcgen.workspace = true
 reqwest.workspace = true
 rust-embed = { version = "8", features = ["debug-embed"] }
 rusqlite = "0.33"
+rustls = { version = "0.23", default-features = false }
+serde_spanned = "0.6"
 time = "0.3"
 tokio = { version = "1", features = ["macros"] }
 tokio-util = { version = "0.7" }
+tonic = { version = "0.12", default-features = false }
+tower-server.workspace = true
 tracing = "0.1"
+
+[dev-dependencies]
+authly-test-grpc = { path = "../authly-test-grpc" }
+authly-client.workspace = true
+async-stream = "0.3"
+cookie = "0.18"
+criterion = { version = "0.5", default-features = false }
+fnv = "1"
+futures-util = "0.3"
+hexhex = "1"
+http = "1"
+hyper-util = { version = "0.1", features = ["tokio", "server", "http2"] }
+indoc = "2"
+itertools = "0.14"
+serde_json = "1"
+test-log = { version = "0.2", features = ["trace"] }
+tokio-rustls = "0.26"
+wiremock = "0.6.2"
+
+[[bench]]
+name = "authly_benches"
+harness = false
