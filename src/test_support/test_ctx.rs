@@ -6,7 +6,6 @@ use std::{
 
 use arc_swap::ArcSwap;
 use authly_common::id::ServiceId;
-use authly_db::sqlite_pool::{SqlitePool, Storage};
 use authly_domain::{
     builtins::Builtins,
     bus::{BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection},
@@ -21,6 +20,7 @@ use authly_domain::{
     instance::{AuthlyId, AuthlyInstance},
     tls::{AuthlyCert, AuthlyCertKind},
 };
+use authly_sqlite::{SqlitePool, Storage};
 use indexmap::IndexMap;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;

@@ -189,7 +189,7 @@ unsafe impl<T> TransparentWrapper<T> for HiqliteTryWrapper<T> {}
 
 fn hql_err(err: hiqlite::Error) -> DbError {
     match err {
-        hiqlite::Error::Sqlite(msg) => DbError::Sqlite(msg),
+        hiqlite::Error::Sqlite(msg) => DbError::Sql(msg),
         err => DbError::Other(format!("{err:?}").into()),
     }
 }

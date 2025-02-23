@@ -497,7 +497,7 @@ fn gc<D: Db>(
 fn txn_error_to_doc_error(stmt: Stmt, db_error: DbError) -> DocError {
     info!(?stmt, "doc transaction error");
     match db_error {
-        DbError::Sqlite(_) => DocError::ConstraintViolation,
+        DbError::Sql(_) => DocError::ConstraintViolation,
         err => DocError::Db(format!("{err:?}")),
     }
 }

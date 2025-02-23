@@ -6,14 +6,11 @@ use thiserror::Error;
 
 pub mod literal;
 pub mod param;
-pub mod sqlite_pool;
-
-mod sqlite;
 
 #[derive(Error, Debug)]
 pub enum DbError {
-    #[error("sqlite: {0}")]
-    Sqlite(Cow<'static, str>),
+    #[error("sql: {0}")]
+    Sql(Cow<'static, str>),
 
     #[error("too many rows")]
     TooManyRows,

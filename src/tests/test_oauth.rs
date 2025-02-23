@@ -1,10 +1,11 @@
 use authly_common::id::DirectoryId;
-use authly_db::{sqlite_pool::SqlitePool, Db};
+use authly_db::Db;
 use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks},
     directory::{DirKey, OAuthDirectory, PersonaDirectory},
     id::BuiltinProp,
 };
+use authly_sqlite::SqlitePool;
 use axum::extract::{Path, Query, State};
 use itertools::Itertools;
 use rand::{rngs::OsRng, Rng};

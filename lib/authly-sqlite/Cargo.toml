@@ -1,6 +1,6 @@
 [package]
-name = "authly-db"
-description = "Authly database abstraction library, traits working for hiqlite and sqlite"
+name = "authly-sqlite"
+description = "SQLite (rusqlite) implementation of authly-db"
 edition = "2021"
 publish = false
 version.workspace = true
@@ -13,10 +13,8 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-authly-common.workspace = true
-hexhex = "1"
-itertools = "0.14"
-thiserror = "2"
-time = "0.3"
+authly-db = { path = "../authly-db" }
+deadpool = "0.12"
+rusqlite = "0.33"
 tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"

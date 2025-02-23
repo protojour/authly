@@ -31,6 +31,7 @@ authly-db = { path = "lib/authly-db" }
 authly-domain = { path = "lib/authly-domain" }
 authly-hiqlite = { path = "lib/authly-hiqlite" }
 authly-secrets = { path = "lib/authly-secrets" }
+authly-sqlite = { path = "lib/authly-sqlite" }
 authly-webstatic = { path = "lib/authly-webstatic" }
 
 aes-gcm-siv = "0.11"
@@ -131,6 +132,7 @@ members = [
     "lib/authly-domain",
     "lib/authly-hiqlite",
     "lib/authly-secrets",
+    "lib/authly-sqlite",
     "lib/authly-test-grpc",
     "lib/authly-webstatic",
 ]

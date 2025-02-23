@@ -1,19 +1,16 @@
-use std::{
-    borrow::Cow,
-    fmt::Debug,
-    ops::{Deref, DerefMut},
-    path::PathBuf,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{borrow::Cow, fmt::Debug, path::PathBuf};
 
-use deadpool::managed::{Metrics, Object, Pool, PoolConfig, RecycleError, RecycleResult};
-use rusqlite::{types::Value, Connection};
+use authly_db::{Db, DbError, FromRow, TryFromRow};
+use deadpool::managed::{Object, Pool, PoolConfig};
+use manager::SqlitePoolManager;
+use param::{rusqlite_params, RusqliteParam};
+use row::RusqliteRowBorrowed;
+use rusqlite::types::Value;
 use tracing::warn;
 
-use crate::{
-    sqlite::{rusqlite_params, RusqliteParam, RusqliteRowBorrowed},
-    Db, DbError, FromRow, TryFromRow,
-};
+mod manager;
+mod param;
+mod row;
 
 #[derive(Clone)]
 pub enum Storage {
@@ -58,12 +55,12 @@ impl Db for SqlitePool {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            let mut stmt = conn.prepare_cached(&stmt)?;
-            let mut rows = stmt.query(rusqlite_params(params))?;
+            let mut stmt = conn.prepare_cached(&stmt).map_err(e)?;
+            let mut rows = stmt.query(rusqlite_params(params)).map_err(e)?;
 
             let mut output = vec![];
 
-            while let Some(row) = rows.next()? {
+            while let Some(row) = rows.next().map_err(e)? {
                 output.push(T::from_row(&mut RusqliteRowBorrowed { row }));
             }
 
@@ -83,15 +80,15 @@ impl Db for SqlitePool {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            let mut stmt = conn.prepare_cached(&stmt)?;
-            let mut rows = stmt.query(rusqlite_params(params))?;
+            let mut stmt = conn.prepare_cached(&stmt).map_err(e)?;
+            let mut rows = stmt.query(rusqlite_params(params)).map_err(e)?;
 
             let mut output = None;
 
-            if let Some(row) = rows.next()? {
+            if let Some(row) = rows.next().map_err(e)? {
                 output = Some(T::from_row(&mut RusqliteRowBorrowed { row }));
 
-                if rows.next()?.is_some() {
+                if rows.next().map_err(e)?.is_some() {
                     return Err(DbError::TooManyRows);
                 }
             }
@@ -112,15 +109,15 @@ impl Db for SqlitePool {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            let mut stmt = conn.prepare_cached(&stmt)?;
-            let mut rows = stmt.query(rusqlite_params(params))?;
+            let mut stmt = conn.prepare_cached(&stmt).map_err(e)?;
+            let mut rows = stmt.query(rusqlite_params(params)).map_err(e)?;
 
             let mut output = None;
 
-            if let Some(row) = rows.next()? {
+            if let Some(row) = rows.next().map_err(e)? {
                 output = Some(T::try_from_row(&mut RusqliteRowBorrowed { row }));
 
-                if rows.next()?.is_some() {
+                if rows.next().map_err(e)?.is_some() {
                     return Err(DbError::TooManyRows);
                 }
             }
@@ -142,12 +139,12 @@ impl Db for SqlitePool {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            let mut stmt = conn.prepare_cached(&stmt)?;
-            let mut rows = stmt.query(rusqlite_params(params))?;
+            let mut stmt = conn.prepare_cached(&stmt).map_err(e)?;
+            let mut rows = stmt.query(rusqlite_params(params)).map_err(e)?;
 
             let mut output = vec![];
 
-            while let Some(row) = rows.next()? {
+            while let Some(row) = rows.next().map_err(e)? {
                 match T::try_from_row(&mut RusqliteRowBorrowed { row }) {
                     Ok(value) => output.push(value),
                     Err(err) => {
@@ -169,11 +166,7 @@ impl Db for SqlitePool {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            Ok(rusqlite::Connection::execute(
-                &conn,
-                &stmt,
-                rusqlite_params(params),
-            )?)
+            Ok(rusqlite::Connection::execute(&conn, &stmt, rusqlite_params(params)).map_err(e)?)
         })
         .await?
     }
@@ -189,12 +182,12 @@ impl Db for SqlitePool {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            let mut stmt = conn.prepare_cached(&sql)?;
-            let mut rows = stmt.query(rusqlite_params(params))?;
+            let mut stmt = conn.prepare_cached(&sql).map_err(e)?;
+            let mut rows = stmt.query(rusqlite_params(params)).map_err(e)?;
 
             let mut output = vec![];
 
-            while let Some(row) = rows.next()? {
+            while let Some(row) = rows.next().map_err(e)? {
                 output.push(Ok(T::from_row(&mut RusqliteRowBorrowed { row })));
             }
 
@@ -214,7 +207,7 @@ impl Db for SqlitePool {
         let mut conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            let txn = conn.transaction()?;
+            let txn = conn.transaction().map_err(e)?;
 
             let mut output = vec![];
 
@@ -222,7 +215,7 @@ impl Db for SqlitePool {
             let mut executed_rows: Vec<Vec<Value>> = Vec::with_capacity(sql.len());
 
             for (sql, params) in sql {
-                let mut stmt = txn.prepare_cached(&sql).map_err(rusqlite_err)?;
+                let mut stmt = txn.prepare_cached(&sql).map_err(e)?;
                 for (idx, param) in params.into_iter().enumerate() {
                     let rparam = match param {
                         RusqliteParam::Value(value) => value,
@@ -231,8 +224,7 @@ impl Db for SqlitePool {
                         }
                     };
 
-                    stmt.raw_bind_parameter(idx + 1, rparam)
-                        .map_err(rusqlite_err)?;
+                    stmt.raw_bind_parameter(idx + 1, rparam).map_err(e)?;
                 }
 
                 let column_count = stmt.column_count();
@@ -258,14 +250,14 @@ impl Db for SqlitePool {
                             }
                             Err(err) => {
                                 warn!("    error: {err:?}");
-                                break Err(rusqlite_err(err));
+                                break Err(e(err));
                             }
                         };
                     };
 
                     (result, first_row)
                 } else {
-                    (stmt.raw_execute().map_err(rusqlite_err), vec![])
+                    (stmt.raw_execute().map_err(e), vec![])
                 };
 
                 executed_sql.push(sql);
@@ -274,9 +266,9 @@ impl Db for SqlitePool {
             }
 
             if output.iter().any(|result| result.is_err()) {
-                txn.rollback()?;
+                txn.rollback().map_err(e)?;
             } else {
-                txn.commit()?;
+                txn.commit().map_err(e)?;
             }
 
             Ok(output)
@@ -285,87 +277,6 @@ impl Db for SqlitePool {
     }
 }
 
-pub struct ConnectionWrapper {
-    conn: Option<Connection>,
-}
-
-impl Deref for ConnectionWrapper {
-    type Target = Connection;
-
-    fn deref(&self) -> &Self::Target {
-        self.conn.as_ref().unwrap()
-    }
-}
-
-impl DerefMut for ConnectionWrapper {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.conn.as_mut().unwrap()
-    }
-}
-
-pub struct SqlitePoolManager {
-    storage: Storage,
-    recycle_count: AtomicUsize,
-}
-
-impl SqlitePoolManager {
-    pub fn new(storage: Storage) -> Self {
-        Self {
-            storage,
-            recycle_count: AtomicUsize::new(0),
-        }
-    }
-}
-
-impl deadpool::managed::Manager for SqlitePoolManager {
-    type Type = ConnectionWrapper;
-    type Error = rusqlite::Error;
-
-    async fn create(&self) -> Result<Self::Type, Self::Error> {
-        let conn = match &self.storage {
-            Storage::File(path) => {
-                let path = path.clone();
-                rusqlite::Connection::open(path)?
-            }
-            Storage::Memory => rusqlite::Connection::open_in_memory()?,
-        };
-
-        Ok(ConnectionWrapper { conn: Some(conn) })
-    }
-
-    async fn recycle(
-        &self,
-        wrapper_mut: &mut Self::Type,
-        _: &Metrics,
-    ) -> RecycleResult<Self::Error> {
-        let recycle_count = self.recycle_count.fetch_add(1, Ordering::Relaxed);
-
-        let conn = wrapper_mut.conn.take().unwrap();
-
-        let (n, conn): (usize, Connection) = tokio::task::spawn_blocking(move || {
-            match conn.query_row("SELECT $1", [recycle_count], |row| row.get(0)) {
-                Ok(n) => Ok((n, conn)),
-                Err(e) => Err(RecycleError::message(format!("{}", e))),
-            }
-        })
-        .await
-        .map_err(|_| RecycleError::message("blocking when recycling"))??;
-
-        if n == recycle_count {
-            wrapper_mut.conn = Some(conn);
-            Ok(())
-        } else {
-            Err(RecycleError::message("Recycle count mismatch"))
-        }
-    }
-}
-
-fn rusqlite_err(err: rusqlite::Error) -> DbError {
-    DbError::Sqlite(format!("{err:?}").into())
-}
-
-impl From<rusqlite::Error> for DbError {
-    fn from(err: rusqlite::Error) -> Self {
-        Self::Sqlite(format!("{err:?}").into())
-    }
+fn e(err: rusqlite::Error) -> DbError {
+    DbError::Sql(format!("{err:?}").into())
 }

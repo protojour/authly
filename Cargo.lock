@@ -331,6 +331,7 @@ dependencies = [
  "authly-domain",
  "authly-hiqlite",
  "authly-secrets",
+ "authly-sqlite",
  "authly-test-grpc",
  "authly-webstatic",
  "axum 0.7.9",
@@ -484,10 +485,8 @@ name = "authly-db"
 version = "0.0.0"
 dependencies = [
  "authly-common",
- "deadpool 0.12.2",
  "hexhex",
  "itertools 0.14.0",
- "rusqlite",
  "thiserror 2.0.11",
  "time",
  "tokio",
@@ -527,17 +526,9 @@ dependencies = [
 name = "authly-hiqlite"
 version = "0.0.0"
 dependencies = [
- "authly-common",
  "authly-db",
  "bytemuck",
- "deadpool 0.12.2",
- "hexhex",
  "hiqlite",
- "itertools 0.14.0",
- "rusqlite",
- "thiserror 2.0.11",
- "time",
- "tokio",
  "tracing",
 ]
 
@@ -557,6 +548,17 @@ dependencies = [
  "tokio",
  "tracing",
  "zeroize",
+]
+
+[[package]]
+name = "authly-sqlite"
+version = "0.0.0"
+dependencies = [
+ "authly-db",
+ "deadpool 0.12.2",
+ "rusqlite",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

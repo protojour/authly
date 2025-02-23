@@ -11,8 +11,8 @@ use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
-use authly_db::sqlite_pool::SqlitePool;
 use authly_domain::cert::Cert;
+use authly_sqlite::SqlitePool;
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},

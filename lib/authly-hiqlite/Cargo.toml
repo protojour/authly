@@ -14,14 +14,6 @@ doctest = false
 
 [dependencies]
 authly-db = { path = "../authly-db" }
-authly-common.workspace = true
 bytemuck = { version = "1.21", features = ["extern_crate_alloc"] }
-deadpool = "0.12"
-hexhex = "1"
-itertools = "0.14"
 hiqlite.workspace = true
-rusqlite = "0.33"
-thiserror = "2"
-time = "0.3"
-tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
