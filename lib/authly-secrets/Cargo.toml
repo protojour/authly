@@ -8,6 +8,10 @@ repository.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[lib]
+test = false
+doctest = false
+
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"

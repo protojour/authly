@@ -37,7 +37,7 @@ pub fn static_folder() -> axum::Router {
 #[test]
 fn check_file_contents() {
     let data = Static::get("style.css").unwrap();
-    assert!(data.data.starts_with(b"@import"))
+    assert!(data.data.starts_with(b"/* Common styling"))
 }
 
 #[test]

@@ -68,9 +68,13 @@ cleanlocal:
 cleandocs:
     -rm -r docs/book
 
+# run unit tests for all crates that enable them
+test:
+    cargo test --all
+
 # run end2end tests, these are dependent on `rundev` running in the background
 end2end:
-    cargo test -- --include-ignored
+    cargo test --all -- --include-ignored
 
 # build musl binaries
 musl *flags:

@@ -8,9 +8,16 @@ repository.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[lib]
+test = false
+doctest = false
+
 [dependencies]
 prost = "0.13"
-tonic = { version = "0.12", default-features = false, features = ["prost", "codegen"] }
+tonic = { version = "0.12", default-features = false, features = [
+    "prost",
+    "codegen",
+] }
 
 [build-dependencies]
 tonic-build = "0.12"
