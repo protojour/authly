@@ -1,6 +1,7 @@
 use authly_common::id::PersonaId;
 use authly_connect::TunnelSecurity;
 use authly_domain::{
+    audit::Actor,
     cert::{server_cert, CertificateParamsExt},
     ctx::GetInstance,
 };
@@ -10,7 +11,6 @@ use test_log::test;
 use tracing::info;
 
 use crate::{
-    audit::Actor,
     authority_mandate::submission::{
         authority::{
             authority_fulfill_submission, authority_generate_submission_token, PreissuedCode,

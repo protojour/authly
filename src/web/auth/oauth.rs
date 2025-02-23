@@ -4,6 +4,8 @@ use anyhow::{anyhow, Context};
 use authly_domain::{
     ctx::{Directories, GetDb, GetDecryptedDeks, GetHttpClient},
     directory::{OAuthDirectory, PersonaDirectory},
+    extract::base_uri::ProxiedBaseUri,
+    session::init_session,
 };
 use axum::{
     extract::{FromRef, Path, Query, State},
@@ -15,11 +17,7 @@ use rand::{rngs::OsRng, Rng};
 use reqwest::Url;
 use tracing::warn;
 
-use crate::{
-    persona_directory::{self, ForeignPersona},
-    session::init_session,
-    util::base_uri::ProxiedBaseUri,
-};
+use crate::persona_directory::{self, ForeignPersona};
 
 pub struct OAuthState<Ctx>(pub Ctx);
 

@@ -1,4 +1,9 @@
 use authly_common::mtls_server::PeerServiceEntity;
+use authly_domain::{
+    dev::IsDev,
+    extract::base_uri::ForwardedPrefix,
+    login::{try_username_password_login, LoginError, LoginOptions},
+};
 use axum::{
     extract::{Query, State},
     response::{IntoResponse, Response},
@@ -11,11 +16,7 @@ use tracing::{info, warn};
 
 pub mod oauth;
 
-use crate::{
-    login::{try_username_password_login, LoginError, LoginOptions},
-    util::{base_uri::ForwardedPrefix, dev::IsDev},
-    AuthlyCtx,
-};
+use crate::AuthlyCtx;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryParams {

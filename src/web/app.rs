@@ -1,7 +1,6 @@
+use authly_domain::extract::{auth::WebAuth, base_uri::ForwardedPrefix};
 use axum::response::IntoResponse;
 use maud::{html, Markup, DOCTYPE};
-
-use crate::util::{auth_extract::WebAuth, base_uri::ForwardedPrefix};
 
 pub mod persona;
 

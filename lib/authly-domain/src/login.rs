@@ -3,17 +3,15 @@
 use argon2::Argon2;
 use authly_common::{id::PersonaId, mtls_server::PeerServiceEntity};
 use authly_db::DbError;
-use authly_domain::{
-    ctx::{GetBuiltins, GetDb, GetDecryptedDeks},
-    id::{BuiltinAttr, BuiltinProp},
-};
 use tracing::warn;
 
 use crate::{
     access_control::{authorize_peer_service, SvcAccessControlError},
-    db::entity_db::{self, EntityPasswordHash},
+    ctx::{GetBuiltins, GetDb, GetDecryptedDeks},
+    dev::IsDev,
+    id::{BuiltinAttr, BuiltinProp},
+    repo::entity_repo::{self, EntityPasswordHash},
     session::{init_session, Session},
-    util::dev::IsDev,
 };
 
 pub enum LoginError {
@@ -69,7 +67,7 @@ pub async fn try_username_password_login(
         dek.fingerprint(username.as_bytes())
     };
 
-    let ehash = entity_db::find_local_directory_entity_password_hash_by_entity_ident(
+    let ehash = entity_repo::find_local_directory_entity_password_hash_by_entity_ident(
         deps.get_db(),
         BuiltinProp::Username.into(),
         &ident_fingerprint,

@@ -1,9 +1,8 @@
 use authly_common::id::{AttrId, ServiceId};
 use authly_db::DbError;
-use authly_domain::{ctx::GetDb, id::BuiltinAttr};
 use fnv::FnvHashSet;
 
-use crate::db::entity_db;
+use crate::{ctx::GetDb, id::BuiltinAttr, repo::entity_repo};
 
 pub enum SvcAccessControlError {
     Denied,
@@ -13,7 +12,6 @@ pub enum SvcAccessControlError {
 pub struct AuthorizedPeerService {
     pub eid: ServiceId,
 
-    #[expect(unused)]
     pub attributes: FnvHashSet<AttrId>,
 }
 
@@ -23,7 +21,7 @@ pub trait AuthlyRole {
 
 /// Typed roles
 pub mod role {
-    use authly_domain::id::BuiltinAttr;
+    use crate::id::BuiltinAttr;
 
     use super::AuthlyRole;
 
@@ -68,7 +66,7 @@ pub async fn authorize_peer_service(
     svc_eid: ServiceId,
     required_authly_roles: &[BuiltinAttr],
 ) -> Result<AuthorizedPeerService, SvcAccessControlError> {
-    let attributes = entity_db::list_entity_attrs(deps.get_db(), svc_eid.upcast())
+    let attributes = entity_repo::list_entity_attrs(deps.get_db(), svc_eid.upcast())
         .await
         .map_err(SvcAccessControlError::Db)?;
 

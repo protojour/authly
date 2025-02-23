@@ -1,10 +1,11 @@
 use authly_common::id::ServiceId;
 use authly_db::{param::ToBlob, params, Db, DbError, Row, TryFromRow};
+use authly_domain::audit::Actor;
 use indoc::indoc;
 use thiserror::Error;
 use time::OffsetDateTime;
 
-use crate::{audit::Actor, authority_mandate::submission::SUBMISSION_CODE_EXPIRATION};
+use crate::authority_mandate::submission::SUBMISSION_CODE_EXPIRATION;
 
 #[derive(Error, Debug)]
 pub enum AmDbError {

@@ -14,9 +14,13 @@ use authly_common::{
     },
 };
 use authly_domain::{
+    access_control::{self, AuthorizedPeerService},
+    access_token,
     bus::{ServiceMessage, ServiceMessageConnection},
     ctx::{GetBuiltins, GetDb, GetInstance, HostsConfig, ServiceBus},
     id::{BuiltinAttr, BuiltinProp},
+    repo::entity_repo,
+    session::{authenticate_session_cookie, find_session_cookie, Session},
 };
 use futures_util::{stream::BoxStream, StreamExt};
 use http::header::{AUTHORIZATION, COOKIE};
@@ -29,15 +33,12 @@ use tonic::{
 use tracing::{info, warn};
 
 use crate::{
-    access_control::{self, AuthorizedPeerService},
-    access_token,
     db::{
-        entity_db, policy_db,
+        policy_db,
         service_db::{self, find_service_label_by_eid, PropertyKind, SvcNamespaceWithMetadata},
     },
     proto::grpc_db_err,
     service,
-    session::{authenticate_session_cookie, find_session_cookie, Session},
     util::remote_addr::RemoteAddr,
 };
 
@@ -148,7 +149,7 @@ where
                     .await
                     .map_err(tonic::Status::unauthenticated)?;
 
-                let user_attrs = entity_db::list_entity_attrs(self.ctx.get_db(), session.eid)
+                let user_attrs = entity_repo::list_entity_attrs(self.ctx.get_db(), session.eid)
                     .await
                     .map_err(grpc_db_err)?;
 

@@ -1,13 +1,11 @@
 use authly_common::{id::PersonaId, mtls_server::PeerServiceEntity};
+use authly_domain::login::{try_username_password_login, LoginError};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::{
-    login::{try_username_password_login, LoginError},
-    AuthlyCtx,
-};
+use crate::AuthlyCtx;
 
 pub struct AuthError(LoginError);
 

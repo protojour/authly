@@ -16,16 +16,25 @@ doctest = false
 authly-db = { path = "../authly-db" }
 authly-common.workspace = true
 aes-gcm-siv = "0.11"
+async-trait = "0.1"
+axum = { version = "0.7", features = ["macros"] }
+axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
 anyhow = "1"
+argon2 = "0.5"
 arc-swap = "1.7"
 blake3 = "1.5"
+cookie = "0.18"
 fnv = "1"
 hexhex = "1"
+http = "1"
 indexmap = "2.7"
+indoc = "2"
 int-enum = "1"
 jsonwebtoken = "9"
 itertools = "0.14"
 pem = "3"
+percent-encoding = "2.3"
+rand = "0.8"
 rcgen = { git = "https://github.com/rustls/rcgen.git" }
 reqwest = { version = "0.12", default-features = false, features = [
     "http2",

@@ -3,6 +3,7 @@ use std::{any::Any, collections::HashMap, fmt::Display, fs};
 use authly_common::id::ServiceId;
 use authly_db::{Db, DbError};
 use authly_domain::{
+    audit::Actor,
     bus::{BusError, ClusterMessage},
     cert::{client_cert, CertificateParamsExt},
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance},
@@ -15,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{
-    audit::Actor,
     db::{
         cryptography_db::{self, CrDbError},
         directory_db::DbDirectory,

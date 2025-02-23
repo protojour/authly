@@ -1,10 +1,13 @@
 use authly_common::id::ServiceId;
-use authly_domain::ctx::{GetBuiltins, GetDb};
+use authly_domain::{
+    ctx::{GetBuiltins, GetDb},
+    repo::entity_repo,
+};
 use hexhex::hex_literal;
 use indoc::indoc;
 
 use crate::{
-    db::{entity_db, service_db},
+    db::service_db,
     document::error::DocError,
     test_support::TestCtx,
     tests::{compile_and_apply_doc, TestDocError},
@@ -33,7 +36,7 @@ async fn test_store_doc_trivial() {
     compile_and_apply_doc(doc, &ctx).await.unwrap();
 
     assert_eq!(
-        entity_db::list_entity_attrs(
+        entity_repo::list_entity_attrs(
             ctx.get_db(),
             ServiceId::from(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b")).upcast()
         )
@@ -44,7 +47,7 @@ async fn test_store_doc_trivial() {
     );
 
     assert_eq!(
-        entity_db::list_entity_attrs(
+        entity_repo::list_entity_attrs(
             ctx.get_db(),
             ServiceId::from(hex_literal!("015362d6655447c6b7f44865bd111c70")).upcast()
         )

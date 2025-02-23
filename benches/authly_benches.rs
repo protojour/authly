@@ -1,10 +1,10 @@
-use authly::{
-    access_token,
-    session::{Session, SessionToken},
-    test_support::TestCtx,
-};
+use authly::test_support::TestCtx;
 use authly_common::id::{AttrId, PersonaId};
-use authly_domain::ctx::LoadInstance;
+use authly_domain::{
+    access_token,
+    ctx::LoadInstance,
+    session::{Session, SessionToken},
+};
 use criterion::{criterion_group, criterion_main, Criterion};
 use fnv::FnvHashSet;
 use time::{Duration, OffsetDateTime};

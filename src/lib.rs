@@ -36,8 +36,6 @@ use tracing::info;
 use util::{protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
 
 // These are public for the integration test crate
-pub mod access_token;
-pub mod audit;
 pub mod authority_mandate;
 pub mod bus;
 pub mod ctx;
@@ -47,14 +45,11 @@ pub mod encryption;
 pub mod env_config;
 pub mod platform;
 pub mod proto;
-pub mod session;
 pub mod test_support;
 pub mod tls;
 
-mod access_control;
 mod directory;
 mod k8s;
-mod login;
 mod openapi;
 mod persona_directory;
 mod policy;
@@ -184,8 +179,8 @@ pub async fn serve() -> anyhow::Result<()> {
 
     #[cfg(feature = "dev")]
     if let Some(debug_web_port) = env_config.debug_web_port {
-        use crate::util::dev::IsDev;
         use authly_common::{id::ServiceId, mtls_server::PeerServiceEntity};
+        use authly_domain::dev::IsDev;
 
         tokio::spawn(
             tower_server::Builder::new(format!("0.0.0.0:{debug_web_port}").parse()?)

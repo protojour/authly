@@ -2,6 +2,7 @@
 
 use authly_common::id::ServiceId;
 use authly_domain::{
+    audit::Actor,
     cert::authly_ca,
     ctx::{GetDb, GetInstance},
     tls::{AuthlyCert, AuthlyCertKind},
@@ -11,7 +12,6 @@ use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
 
 use crate::{
-    audit::Actor,
     db::authority_mandate_db::{self, AmDbError},
     util::serde::UrlSafeBase64,
 };

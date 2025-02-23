@@ -3,6 +3,7 @@ use authly_db::Db;
 use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks},
     directory::{DirKey, OAuthDirectory, PersonaDirectory},
+    extract::base_uri::ProxiedBaseUri,
     id::BuiltinProp,
 };
 use authly_sqlite::SqlitePool;
@@ -27,7 +28,6 @@ use crate::{
     directory::load_persona_directories,
     persona_directory::{self, ForeignPersona},
     test_support::TestCtx,
-    util::base_uri::ProxiedBaseUri,
     web::auth::oauth::OAuthState,
 };
 

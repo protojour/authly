@@ -4,14 +4,11 @@ use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks},
     directory::DirKey,
     id::BuiltinProp,
+    repo::entity_repo::{self, OverwritePersonaId},
 };
 use tracing::info;
 
-use crate::db::{
-    cryptography_db::EncryptedObjIdent,
-    entity_db::{self, OverwritePersonaId},
-    object_db,
-};
+use crate::db::{cryptography_db::EncryptedObjIdent, object_db};
 
 // A persona whose source is a 3rd-party directory (OAuth/LDAP/etc)
 pub struct ForeignPersona {
@@ -53,7 +50,7 @@ pub async fn link_foreign_persona(
     // to register/link a persona but then the "set email" can fail.
 
     // allocate random mapped PersonaId or retrieve the previously mapped one
-    let (persona_id, did_insert) = entity_db::upsert_link_foreign_persona(
+    let (persona_id, did_insert) = entity_repo::upsert_link_foreign_persona(
         deps.get_db(),
         persona_dir_key,
         PersonaId::random(),
@@ -93,7 +90,7 @@ pub async fn link_foreign_persona(
                 info!("writing new persona link for {owner_id}");
 
                 // update the old link to the persona owning the email address
-                let (persona_id, _) = entity_db::upsert_link_foreign_persona(
+                let (persona_id, _) = entity_repo::upsert_link_foreign_persona(
                     deps.get_db(),
                     persona_dir_key,
                     owner_id,

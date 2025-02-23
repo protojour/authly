@@ -1,4 +1,9 @@
 use authly_common::document::Document;
+use authly_domain::{
+    access_control,
+    audit::Actor,
+    extract::{auth::ApiAuth, base_uri::ProxiedBaseUri},
+};
 use axum::{
     extract::State,
     response::{IntoResponse, Response},
@@ -7,12 +12,9 @@ use http::StatusCode;
 use tracing::warn;
 
 use crate::{
-    access_control,
-    audit::Actor,
     authority_mandate::submission,
     directory,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
-    util::{auth_extract::ApiAuth, base_uri::ProxiedBaseUri},
     AuthlyCtx,
 };
 

@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 
 use anyhow::anyhow;
 use authly_common::{access_token::AuthlyAccessTokenClaims, mtls_server::PeerServiceEntity};
-use authly_domain::ctx::GetDb;
 use axum::{extract::FromRequestParts, response::IntoResponse, Extension, RequestPartsExt};
 use http::{
     header::{self, LOCATION},
@@ -14,15 +13,13 @@ use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use crate::{
     access_control::{authorize_peer_service, VerifyAuthlyRole},
     access_token::{create_access_token_claims, VerifiedAccessToken},
-    db::entity_db,
+    ctx::{GetDb, GetInstance},
+    dev::IsDev,
+    repo::entity_repo,
     session::authenticate_session_cookie,
-    AuthlyCtx,
 };
 
-use super::{
-    base_uri::{ForwardedPrefix, ProxiedUri},
-    dev::IsDev,
-};
+use super::base_uri::{ForwardedPrefix, ProxiedUri};
 
 /// Auth handler for web APIs
 pub struct ApiAuth<R: VerifyAuthlyRole> {
@@ -39,13 +36,13 @@ pub struct WebAuth<R: VerifyAuthlyRole> {
 }
 
 #[axum::async_trait]
-impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for ApiAuth<R> {
+impl<Ctx, R: VerifyAuthlyRole> axum::extract::FromRequestParts<Ctx> for ApiAuth<R>
+where
+    Ctx: GetDb + GetInstance + Send + Sync,
+{
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        ctx: &AuthlyCtx,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, ctx: &Ctx) -> Result<Self, Self::Rejection> {
         verify::<R>(parts, ctx).await.map(|claims| Self {
             claims,
             _phantom: PhantomData,
@@ -54,13 +51,13 @@ impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for ApiAuth
 }
 
 #[axum::async_trait]
-impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for WebAuth<R> {
+impl<Ctx, R: VerifyAuthlyRole> axum::extract::FromRequestParts<Ctx> for WebAuth<R>
+where
+    Ctx: GetDb + GetInstance + Send + Sync,
+{
     type Rejection = axum::response::Response;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        ctx: &AuthlyCtx,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, ctx: &Ctx) -> Result<Self, Self::Rejection> {
         match verify::<R>(parts, ctx).await {
             Ok(claims) => Ok(Self {
                 claims,
@@ -82,7 +79,7 @@ impl<R: VerifyAuthlyRole> axum::extract::FromRequestParts<AuthlyCtx> for WebAuth
 
 async fn verify<R: VerifyAuthlyRole>(
     parts: &mut Parts,
-    ctx: &AuthlyCtx,
+    ctx: &(impl GetDb + GetInstance + Send + Sync),
 ) -> Result<AuthlyAccessTokenClaims, (StatusCode, &'static str)> {
     let Extension(peer_svc_eid) = parts
         .extract::<Extension<PeerServiceEntity>>()
@@ -99,7 +96,7 @@ async fn verify<R: VerifyAuthlyRole>(
         let session = authenticate_session_cookie(ctx, session_cookie)
             .await
             .map_err(|err| (StatusCode::UNAUTHORIZED, err))?;
-        let user_attributes = entity_db::list_entity_attrs(ctx.get_db(), session.eid)
+        let user_attributes = entity_repo::list_entity_attrs(ctx.get_db(), session.eid)
             .await
             .map_err(|_err| (StatusCode::UNAUTHORIZED, "db error"))?;
 

@@ -1,11 +1,13 @@
+use async_trait::async_trait;
+use axum::extract::FromRequestParts;
 use http::request::Parts;
 
 /// Extension and extractor for doing "lower security" versions of APIs in a dev setting
 #[derive(Clone, Copy)]
 pub struct IsDev(pub bool);
 
-#[axum::async_trait]
-impl<S> axum::extract::FromRequestParts<S> for IsDev {
+#[async_trait]
+impl<S> FromRequestParts<S> for IsDev {
     type Rejection = ();
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {

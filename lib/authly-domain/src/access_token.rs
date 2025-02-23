@@ -10,7 +10,6 @@ use authly_common::{
     access_token::{Authly, AuthlyAccessTokenClaims},
     id::AttrId,
 };
-use authly_domain::{ctx::GetInstance, instance::AuthlyInstance};
 use axum::RequestPartsExt;
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -19,7 +18,7 @@ use axum_extra::{
 use fnv::FnvHashSet;
 use http::{request::Parts, StatusCode};
 
-use crate::{session::Session, AuthlyCtx};
+use crate::{ctx::GetInstance, instance::AuthlyInstance, session::Session};
 
 const EXPIRATION: time::Duration = time::Duration::days(365);
 
@@ -84,14 +83,14 @@ pub struct VerifiedAccessToken {
 }
 
 #[axum::async_trait]
-impl axum::extract::FromRequestParts<AuthlyCtx> for VerifiedAccessToken {
+impl<Ctx> axum::extract::FromRequestParts<Ctx> for VerifiedAccessToken
+where
+    Ctx: GetInstance + Send + Sync,
+{
     type Rejection = (StatusCode, &'static str);
 
     /// Perform the extraction.
-    async fn from_request_parts(
-        parts: &mut Parts,
-        ctx: &AuthlyCtx,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, ctx: &Ctx) -> Result<Self, Self::Rejection> {
         let authorization = parts
             .extract::<TypedHeader<Authorization<Bearer>>>()
             .await

@@ -2,13 +2,12 @@ use std::time::Duration;
 
 use authly_common::id::EntityId;
 use authly_db::DbResult;
-use authly_domain::ctx::GetDb;
 use cookie::{Cookie, Expiration, SameSite};
 use rand::Rng;
 use time::OffsetDateTime;
 use tracing::warn;
 
-use crate::db::session_db;
+use crate::{ctx::GetDb, repo::session_repo};
 
 pub const TOKEN_WIDTH: usize = 20;
 pub const SESSION_TTL: Duration = Duration::from_secs(60 * 60);
@@ -36,7 +35,7 @@ impl Session {
     }
 }
 
-pub(crate) async fn authenticate_session_cookie(
+pub async fn authenticate_session_cookie(
     deps: &impl GetDb,
     session_cookie: &Cookie<'_>,
 ) -> Result<Session, &'static str> {
@@ -45,7 +44,7 @@ pub(crate) async fn authenticate_session_cookie(
     let token_hex = session_cookie.value();
     let token = SessionToken(hexhex::decode(token_hex).map_err(|_| "invalid session cookie")?);
 
-    let session = session_db::get_session(deps.get_db(), token)
+    let session = session_repo::get_session(deps.get_db(), token)
         .await
         .map_err(|err| {
             warn!(?err, "session lookup error");
@@ -75,7 +74,7 @@ pub async fn init_session(deps: &impl GetDb, eid: EntityId) -> DbResult<Session>
         expires_at: time::OffsetDateTime::now_utc() + SESSION_TTL,
     };
 
-    session_db::store_session(deps.get_db(), &session).await?;
+    session_repo::store_session(deps.get_db(), &session).await?;
 
     Ok(session)
 }

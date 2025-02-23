@@ -11,7 +11,7 @@ use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
-use authly_domain::cert::Cert;
+use authly_domain::{audit::Actor, cert::Cert};
 use authly_sqlite::SqlitePool;
 use rcgen::KeyPair;
 use rustls::{
@@ -24,7 +24,6 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{info_span, Instrument};
 
 use crate::{
-    audit::Actor,
     db::{
         document_db::DocumentDbTxnError,
         service_db::{self, PropertyKind},

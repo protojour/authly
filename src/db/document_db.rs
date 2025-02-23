@@ -2,14 +2,13 @@ use std::{borrow::Cow, ops::Range};
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
 use authly_db::{literal::Literal, param::ToBlob, params, Db, DbError};
-use authly_domain::encryption::DecryptedDeks;
+use authly_domain::{audit::Actor, encryption::DecryptedDeks};
 use indoc::indoc;
 use itertools::Itertools;
 use serde_spanned::Spanned;
 use tracing::info;
 
 use crate::{
-    audit::Actor,
     document::{
         compiled_document::{
             CompiledDocument, CompiledEntityAttributeAssignment, CompiledEntityRelation,
