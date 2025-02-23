@@ -157,25 +157,6 @@ pub async fn serve() -> anyhow::Result<()> {
         });
     }
 
-    #[cfg(feature = "dev")]
-    if let Some(debug_web_port) = env_config.debug_web_port {
-        use authly_common::{id::ServiceId, mtls_server::PeerServiceEntity};
-        use authly_domain::dev::IsDev;
-
-        tokio::spawn(
-            tower_server::Builder::new(format!("0.0.0.0:{debug_web_port}").parse()?)
-                .with_scheme(Scheme::Http)
-                .with_connection_middleware(|req, _| {
-                    req.extensions_mut()
-                        .insert(PeerServiceEntity(ServiceId::from_uint(1)));
-                    req.extensions_mut().insert(IsDev(true));
-                })
-                .bind()
-                .await?
-                .serve(authly_web::router().with_state(ctx.clone())),
-        );
-    }
-
     let shutdown = ctx.shutdown.clone();
 
     tokio::spawn(

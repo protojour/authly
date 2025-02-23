@@ -59,10 +59,6 @@ pub struct EnvConfig {
 
     /// Disable at-rest encryption by using a constant secret backend
     pub danger_disable_encryption: bool,
-
-    /// A plain http (no https) debug port for serving "/" HTML endpoints, intended for development.
-    #[cfg(feature = "dev")]
-    pub debug_web_port: Option<u16>,
 }
 
 const NULL_ID: [u8; 32] = [0; 32];
@@ -118,9 +114,6 @@ impl Default for EnvConfig {
 
             export_tls_to_etc: false,
             danger_disable_encryption: false,
-
-            #[cfg(feature = "dev")]
-            debug_web_port: None,
         }
     }
 }

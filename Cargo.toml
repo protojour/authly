@@ -2,6 +2,7 @@
 members = [
     "bin/authly",
     "bin/authly-testservice",
+    "bin/authly-webdev",
     "lib/authly-connect",
     "lib/authly-db",
     "lib/authly-domain",

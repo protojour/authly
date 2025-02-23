@@ -16,9 +16,6 @@ name = "authly"
 path = "src/main.rs"
 test = false
 
-[features]
-dev = []
-
 [dependencies]
 authly-common = { workspace = true, features = [
     "access_token",

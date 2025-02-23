@@ -1,0 +1,31 @@
+[package]
+name = "authly-webdev"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "authly-webdev"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+authly-common = { workspace = true, features = ["mtls_server"] }
+authly-domain = { path = "../../lib/authly-domain" }
+authly-test = { path = "../../lib/authly-test" }
+authly-web = { path = "../../lib/authly-web" }
+
+anyhow = "1"
+rusqlite = { version = "0.33", features = ["bundled"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tower-server = { workspace = true, features = ["signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "env-filter",
+    "fmt",
+    "ansi",
+] }

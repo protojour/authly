@@ -1,7 +1,6 @@
 import 'scripts/k3d-ops/justfile'
 
 authly_uid := "bf78d3c3bf94695c43b56540ffe23beace66ec53e35eee3f5be4c9a5cda70748"
-debug_web_port := "12345"
 
 # default target
 target := "x86_64-unknown-linux-musl"
@@ -17,7 +16,6 @@ rundev: dev-environment generate-testdata
     AUTHLY_ETC_DIR=.local/etc \
     AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
     AUTHLY_BAO_URL=http://localhost:8200 \
-    AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
         cargo run -p authly --features dev serve
 
 # run release version on localhost

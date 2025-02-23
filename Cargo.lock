@@ -683,6 +683,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "authly-webdev"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "authly-common",
+ "authly-domain",
+ "authly-test",
+ "authly-web",
+ "rusqlite",
+ "tokio",
+ "tower-server",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "authly-webstatic"
 version = "0.0.0"
 dependencies = [
