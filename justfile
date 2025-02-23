@@ -30,6 +30,10 @@ runrelease: dev-environment generate-testdata
     AUTHLY_BAO_URL=http://localhost:8200 \
         cargo run --release -p authly serve
 
+# run "webdev" with bacon
+webdev:
+    bacon webdev
+
 # setup docker dev environment
 dev-environment:
     docker-compose -f docker-compose.dev.yml up -d

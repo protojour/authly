@@ -7,6 +7,7 @@ use std::{
 
 use arc_swap::ArcSwap;
 use authly_common::id::ServiceId;
+use authly_db::{params, Db, FromRow};
 use authly_domain::{
     builtins::Builtins,
     bus::{
@@ -29,6 +30,7 @@ use authly_domain::{
 };
 use authly_sqlite::{SqlitePool, Storage};
 use indexmap::IndexMap;
+use indoc::indoc;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
 
@@ -72,7 +74,7 @@ impl TestCtx {
         let pool = SqlitePool::new(Storage::Memory, 1);
         {
             let mut conn = pool.get().await.unwrap();
-            sqlite_migrate::<Migrations>(&mut conn).await;
+            sqlite_migrate_naive::<Migrations>(&mut conn).await;
         }
 
         self.builtins = Some(Arc::new(
@@ -92,8 +94,25 @@ impl TestCtx {
         let pool = SqlitePool::new(Storage::File(path), 1);
         {
             let mut conn = pool.get().await.unwrap();
-            sqlite_migrate::<Migrations>(&mut conn).await;
+            sqlite_migrate_naive::<Migrations>(&mut conn).await;
         }
+
+        self.builtins = Some(Arc::new(
+            init_repo::load_authly_builtins(&pool, IsLeaderDb(true))
+                .await
+                .unwrap(),
+        ));
+
+        self.db = Some(pool);
+        self
+    }
+
+    /// Run with a persistent DB
+    pub async fn persistent_db(mut self, path: impl Into<PathBuf>) -> Self {
+        let path: PathBuf = path.into();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let pool = SqlitePool::new(Storage::File(path), 1);
+        sqlite_migrate_persistent::<Migrations>(&pool).await;
 
         self.builtins = Some(Arc::new(
             init_repo::load_authly_builtins(&pool, IsLeaderDb(true))
@@ -327,7 +346,7 @@ impl KubernetesConfig for TestCtx {
     }
 }
 
-async fn sqlite_migrate<T: rust_embed::RustEmbed>(conn: &mut rusqlite::Connection) {
+async fn sqlite_migrate_naive<T: rust_embed::RustEmbed>(conn: &mut rusqlite::Connection) {
     let mut files: Vec<_> = T::iter().collect();
     files.sort();
 
@@ -340,4 +359,78 @@ async fn sqlite_migrate<T: rust_embed::RustEmbed>(conn: &mut rusqlite::Connectio
     }
 
     txn.commit().unwrap();
+}
+
+async fn sqlite_migrate_persistent<T: rust_embed::RustEmbed>(pool: &SqlitePool) {
+    let mut files: Vec<_> = T::iter().collect();
+    files.sort();
+
+    pool.execute(
+        indoc! {
+            "
+            CREATE TABLE IF NOT EXISTS _migration (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                ts DATETIME NOT NULL,
+                hash TEXT NOT NULL
+            )
+            "
+        }
+        .into(),
+        params!(),
+    )
+    .await
+    .unwrap();
+
+    let applied = pool
+        .query_map::<AppliedMigration>("SELECT * FROM _migration ORDER BY id ASC".into(), params!())
+        .await
+        .unwrap();
+
+    let mut conn = pool.get().await.unwrap();
+    let txn = conn.transaction().unwrap();
+
+    for (index, file) in files.into_iter().enumerate() {
+        let migration = T::get(&file).unwrap();
+        let applied = applied.get(index);
+        let should_apply = applied.is_none();
+
+        // not checking hashes
+        if should_apply {
+            txn.execute_batch(std::str::from_utf8(&migration.data).unwrap())
+                .unwrap();
+
+            txn.execute(
+                "INSERT INTO _migration (name, ts, hash) VALUES ($1, $2, $3)",
+                (
+                    file.as_ref(),
+                    time::OffsetDateTime::now_utc().unix_timestamp(),
+                    "",
+                ),
+            )
+            .unwrap();
+        }
+    }
+
+    txn.commit().unwrap();
+}
+
+#[derive(Debug, Clone)]
+pub struct AppliedMigration {
+    pub id: u32,
+    pub name: String,
+    pub ts: i64,
+    /// sha256 hash as hex
+    pub hash: String,
+}
+
+impl FromRow for AppliedMigration {
+    fn from_row(row: &mut impl authly_db::Row) -> Self {
+        Self {
+            id: row.get_int("id") as u32,
+            name: row.get_text("name"),
+            ts: row.get_int("ts"),
+            hash: row.get_text("hash"),
+        }
+    }
 }

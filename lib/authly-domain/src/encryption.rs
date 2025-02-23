@@ -63,15 +63,10 @@ impl DecryptedMaster {
     pub fn fake_for_test() -> Self {
         Self {
             encrypted: MasterVersion {
-                version: vec![],
+                version: b"fake for test".to_vec(),
                 created_at: OffsetDateTime::now_utc(),
             },
-            key: {
-                let mut key = [0u8; 32];
-                OsRng.fill_bytes(key.as_mut_slice());
-
-                AesKey::new(key.into())
-            },
+            key: AesKey::new([42u8; 32].into()),
         }
     }
 }

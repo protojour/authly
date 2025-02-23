@@ -18,7 +18,11 @@ async fn main() -> anyhow::Result<()> {
     info!("serving on http://localhost:{PORT}");
 
     let shutdown = tower_server::signal::termination_signal();
-    let test_ctx = TestCtx::new().inmemory_db().await.supreme_instance().await;
+    let test_ctx = TestCtx::new()
+        .persistent_db("./.local/webdev/authly.db")
+        .await
+        .supreme_instance()
+        .await;
 
     compile_and_apply_doc_dir("examples/demo".into(), &test_ctx)
         .await
