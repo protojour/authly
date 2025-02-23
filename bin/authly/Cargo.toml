@@ -33,19 +33,16 @@ authly-hiqlite = { path = "../../lib/authly-hiqlite" }
 authly-service = { path = "../../lib/authly-service" }
 authly-secrets = { path = "../../lib/authly-secrets" }
 authly-web = { path = "../../lib/authly-web" }
-authly-webstatic = { path = "../../lib/authly-webstatic" }
 
 aes-gcm-siv = "0.11"
 anyhow = "1"
 arc-swap = "1.7"
 axum = { version = "0.7", features = ["macros"] }
-axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
 blake3 = "1.5"
 clap = { version = "4", features = ["derive"] }
-cookie = "0.18"
 figment = { version = "0.10", features = ["env"] }
 futures-util = "0.3"
-hex = { version = "0.4", features = ["serde"] }
 hexhex = "1"
 hiqlite.workspace = true
 http = "1"
@@ -82,4 +79,3 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
     "fmt",
     "ansi",
 ] }
-webpki-roots = "0.26"

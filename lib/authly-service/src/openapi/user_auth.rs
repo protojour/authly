@@ -1,11 +1,12 @@
 use authly_common::{id::PersonaId, mtls_server::PeerServiceEntity};
-use authly_domain::login::{try_username_password_login, LoginError};
+use authly_domain::{
+    ctx::{GetBuiltins, GetDb, GetDecryptedDeks},
+    login::{try_username_password_login, LoginError},
+};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
-
-use crate::AuthlyCtx;
 
 pub struct AuthError(LoginError);
 
@@ -50,11 +51,14 @@ pub struct AuthenticateResponse {
     expires: time::OffsetDateTime,
 }
 
-pub async fn authenticate(
-    State(ctx): State<AuthlyCtx>,
+pub async fn authenticate<Ctx>(
+    State(ctx): State<Ctx>,
     Extension(peer_svc): Extension<PeerServiceEntity>,
     Json(body): Json<AuthenticateRequest>,
-) -> Result<axum::response::Response, AuthError> {
+) -> Result<axum::response::Response, AuthError>
+where
+    Ctx: GetDb + GetBuiltins + GetDecryptedDeks,
+{
     // BUG: figure this out:
     let _mfa_needed = false;
     // TODO: directory selection?

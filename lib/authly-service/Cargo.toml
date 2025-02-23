@@ -23,6 +23,8 @@ authly-common = { workspace = true, features = [
 ] }
 
 anyhow = "1"
+axum = { version = "0.7", features = ["macros"] }
+axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
 blake3 = "1.5"
 bytes = "1"
 futures-util = "0.3"

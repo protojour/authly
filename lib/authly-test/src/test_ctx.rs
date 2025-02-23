@@ -1,5 +1,6 @@
 use std::{
     fs,
+    future::Future,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -256,18 +257,24 @@ impl GetDecryptedDeks for TestCtx {
 impl ClusterBus for TestCtx {
     /// There isn't actually any broadcasting being done for the TestCtx,
     /// it's all done "synchronously":
-    async fn broadcast_to_cluster(&self, message: ClusterMessage) -> Result<(), BusError> {
-        self.cluster_message_log
-            .lock()
-            .unwrap()
-            .push(message.clone());
+    fn broadcast_to_cluster(
+        &self,
+        message: ClusterMessage,
+    ) -> impl Future<Output = Result<(), BusError>> + Send {
+        Box::pin(async move {
+            self.cluster_message_log
+                .lock()
+                .unwrap()
+                .push(message.clone());
 
-        if let Err(err) = Box::pin(authly_node_handle_incoming_message(self, message.clone())).await
-        {
-            panic!("Failed to handle cluster-wide message {message:?}: {err:?}");
-        }
+            if let Err(err) =
+                Box::pin(authly_node_handle_incoming_message(self, message.clone())).await
+            {
+                panic!("Failed to handle cluster-wide message {message:?}: {err:?}");
+            }
 
-        Ok(())
+            Ok(())
+        })
     }
 
     async fn broadcast_to_cluster_if_leader(

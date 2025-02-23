@@ -45,13 +45,13 @@ pub trait ClusterBus {
     fn broadcast_to_cluster(
         &self,
         message: ClusterMessage,
-    ) -> impl Future<Output = Result<(), BusError>>;
+    ) -> impl Future<Output = Result<(), BusError>> + Send;
 
     /// Send broadcast message to the Authly cluster, if this node is the leader
     fn broadcast_to_cluster_if_leader(
         &self,
         message: ClusterMessage,
-    ) -> impl Future<Output = Result<(), BusError>>;
+    ) -> impl Future<Output = Result<(), BusError>> + Send;
 }
 
 pub trait ServiceBus {

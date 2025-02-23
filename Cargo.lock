@@ -330,15 +330,12 @@ dependencies = [
  "authly-secrets",
  "authly-service",
  "authly-web",
- "authly-webstatic",
  "axum 0.7.9",
  "axum-extra",
  "blake3",
  "clap",
- "cookie",
  "figment",
  "futures-util",
- "hex",
  "hexhex",
  "hiqlite",
  "hostname",
@@ -371,7 +368,6 @@ dependencies = [
  "tower-server",
  "tracing",
  "tracing-subscriber",
- "webpki-roots",
 ]
 
 [[package]]
@@ -550,6 +546,8 @@ dependencies = [
  "authly-connect",
  "authly-db",
  "authly-domain",
+ "axum 0.7.9",
+ "axum-extra",
  "blake3",
  "bytes",
  "futures-util",

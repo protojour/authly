@@ -38,7 +38,6 @@ use tracing::info;
 use util::protocol_router::ProtocolRouter;
 
 // These are public for the integration test crate
-pub mod bus;
 pub mod ctx;
 pub mod encryption;
 pub mod env_config;
@@ -46,9 +45,9 @@ pub mod grpc;
 pub mod platform;
 pub mod tls;
 
+mod cluster_bus;
 mod k8s;
 mod load_docs;
-mod openapi;
 mod util;
 
 const HIQLITE_API_PORT: u16 = 7855;
@@ -112,7 +111,7 @@ pub async fn serve() -> anyhow::Result<()> {
         ctx.instance.load().trust_root_ca().certificate_pem()
     );
 
-    bus::cluster::spawn_global_cluster_message_handler(&ctx);
+    cluster_bus::spawn_global_cluster_message_handler(&ctx);
 
     if env_config.k8s {
         k8s::k8s_auth_server::spawn_k8s_auth_server(&env_config, &ctx).await?;
@@ -199,7 +198,7 @@ pub async fn serve() -> anyhow::Result<()> {
 fn main_service_http_router(ctx: AuthlyCtx) -> axum::Router {
     axum::Router::new()
         .merge(authly_web::router())
-        .merge(openapi::router::router())
+        .merge(authly_service::openapi::router::router())
         .with_state(ctx.clone())
 }
 

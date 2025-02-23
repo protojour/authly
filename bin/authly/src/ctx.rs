@@ -72,7 +72,7 @@ impl GetDecryptedDeks for AuthlyCtx {
 
 impl ClusterBus for AuthlyCtx {
     async fn broadcast_to_cluster(&self, message: ClusterMessage) -> Result<(), BusError> {
-        crate::bus::cluster::authly_ctx_notify_cluster_wide(self, message).await
+        crate::cluster_bus::authly_ctx_notify_cluster_wide(self, message).await
     }
 
     async fn broadcast_to_cluster_if_leader(

@@ -2,11 +2,11 @@ use authly_common::document::Document;
 use authly_domain::{
     access_control,
     audit::Actor,
+    ctx::{ClusterBus, Directories, GetDb, GetDecryptedDeks, GetInstance, KubernetesConfig},
     directory,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     extract::{auth::ApiAuth, base_uri::ProxiedBaseUri},
 };
-use authly_service::authority_mandate::submission;
 use axum::{
     extract::State,
     response::{IntoResponse, Response},
@@ -14,15 +14,18 @@ use axum::{
 use http::StatusCode;
 use tracing::warn;
 
-use crate::AuthlyCtx;
+use crate::authority_mandate::submission;
 
 // FIXME: User-friendly document errors
 // TODO: Handle unchanged documents like in load.rs
-pub async fn post_document(
-    State(ctx): State<AuthlyCtx>,
+pub async fn post_document<Ctx>(
+    State(ctx): State<Ctx>,
     auth: ApiAuth<access_control::role::ApplyDocument>,
     body: String,
-) -> Result<Response, Response> {
+) -> Result<Response, Response>
+where
+    Ctx: GetDb + KubernetesConfig + GetDecryptedDeks + ClusterBus + Directories,
+{
     let doc = Document::from_toml(&body)
         .map_err(|_| (StatusCode::UNPROCESSABLE_ENTITY, "invalid toml").into_response())?;
 
@@ -34,7 +37,6 @@ pub async fn post_document(
             hasher.finalize().into()
         },
     };
-
     let compiled_doc = compile_doc(&ctx, doc, meta)
         .await
         .map_err(|_| (StatusCode::UNPROCESSABLE_ENTITY, "invalid document").into_response())?;
@@ -52,11 +54,14 @@ pub async fn post_document(
     Ok((StatusCode::OK, "document applied").into_response())
 }
 
-pub async fn post_authority_mandate_submission_token(
-    State(ctx): State<AuthlyCtx>,
+pub async fn post_authority_mandate_submission_token<Ctx>(
+    State(ctx): State<Ctx>,
     auth: ApiAuth<access_control::role::GrantMandate>,
     proxied_base_uri: ProxiedBaseUri,
-) -> Result<Response, Response> {
+) -> Result<Response, Response>
+where
+    Ctx: GetDb + GetInstance,
+{
     let token = submission::authority::authority_generate_submission_token(
         &ctx,
         proxied_base_uri.to_string(),
