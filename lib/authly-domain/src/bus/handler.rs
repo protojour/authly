@@ -1,14 +1,12 @@
 use anyhow::Context;
-use authly_domain::{
-    bus::{ClusterMessage, ServiceMessage},
-    ctx::{ClusterBus, GetDb, GetDecryptedDeks, RedistributeCertificates, ServiceBus, SetInstance},
-};
 use tracing::info;
 
 use crate::{
-    db::{
-        cryptography_db::load_authly_instance,
-        directory_db::{self, query_dir_key},
+    bus::{ClusterMessage, ServiceMessage},
+    ctx::{ClusterBus, GetDb, GetDecryptedDeks, RedistributeCertificates, ServiceBus, SetInstance},
+    repo::{
+        crypto_repo::load_authly_instance,
+        directory_repo::{query_dir_key, DbDirectoryService},
     },
     IsLeaderDb,
 };
@@ -48,7 +46,7 @@ pub async fn authly_node_handle_incoming_message(
                 .await?
                 .context("no such directory")?;
 
-            for service in directory_db::DbDirectoryService::query(deps.get_db(), dir_key).await? {
+            for service in DbDirectoryService::query(deps.get_db(), dir_key).await? {
                 deps.service_broadcast(service.svc_eid, ServiceMessage::ReloadCache);
             }
         }

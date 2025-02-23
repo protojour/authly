@@ -12,16 +12,18 @@ use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use authly_domain::{
     builtins::Builtins,
-    bus::ServiceMessage,
+    bus::{service_events::ServiceEventDispatcher, ServiceMessage},
     ctx::{GetDb, ServiceBus},
     directory::PersonaDirectory,
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
+    migration::Migrations,
+    repo::{crypto_repo, init_repo},
+    IsLeaderDb,
 };
 use authly_hiqlite::HiqliteClient;
 use axum::{response::IntoResponse, Json};
-use bus::service_events::ServiceEventDispatcher;
-use db::{cryptography_db, init_db, settings_db};
+use db::settings_db;
 use document::load::load_cfg_documents;
 pub use env_config::EnvConfig;
 use indexmap::IndexMap;
@@ -45,7 +47,6 @@ pub mod encryption;
 pub mod env_config;
 pub mod platform;
 pub mod proto;
-pub mod test_support;
 pub mod tls;
 
 mod directory;
@@ -61,15 +62,8 @@ mod util;
 #[cfg(test)]
 mod tests;
 
-#[derive(rust_embed::Embed)]
-#[folder = "migrations"]
-pub struct Migrations;
-
 const HIQLITE_API_PORT: u16 = 7855;
 const HIQLITE_RAFT_PORT: u16 = 7856;
-
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
-pub struct IsLeaderDb(pub bool);
 
 /// Common context for the whole application.
 ///
@@ -257,7 +251,7 @@ async fn initialize() -> anyhow::Result<Init> {
     })?;
 
     let builtins =
-        init_db::load_authly_builtins(&hql, IsLeaderDb(hql.is_leader_db().await)).await?;
+        init_repo::load_authly_builtins(&hql, IsLeaderDb(hql.is_leader_db().await)).await?;
 
     let deks = encryption::load_decrypted_deks(
         &hql,
@@ -266,7 +260,7 @@ async fn initialize() -> anyhow::Result<Init> {
     )
     .await?;
     let instance =
-        cryptography_db::load_authly_instance(IsLeaderDb(hql.is_leader_db().await), &hql, &deks)
+        crypto_repo::load_authly_instance(IsLeaderDb(hql.is_leader_db().await), &hql, &deks)
             .await?;
 
     let cert_distribution_platform = if env_config.k8s {

@@ -4,6 +4,18 @@ use authly_common::id::DirectoryId;
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
+pub mod handler;
+pub mod service_events;
+
+#[derive(thiserror::Error, Debug)]
+pub enum BusError {
+    #[error("notify error: {0}")]
+    Notify(anyhow::Error),
+
+    #[error("bus receive error: {0}")]
+    Receive(broadcast::error::RecvError),
+}
+
 /// Message type used by the Authly message bus (hiqlite notify mechanism).
 ///
 /// The message bus is a broadcast bus and every message will be sent to all nodes in the cluster.
@@ -52,13 +64,4 @@ pub enum ServiceMessage {
 pub struct ServiceMessageConnection {
     pub sender: tokio::sync::mpsc::Sender<ServiceMessage>,
     pub addr: SocketAddr,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum BusError {
-    #[error("notify error: {0}")]
-    Notify(anyhow::Error),
-
-    #[error("bus receive error: {0}")]
-    Receive(broadcast::error::RecvError),
 }

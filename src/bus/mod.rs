@@ -1,6 +1,4 @@
 pub mod cluster;
-pub mod handler;
-pub mod service_events;
 
 #[test]
 fn directory_changed_serde() {

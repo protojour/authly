@@ -1,0 +1,32 @@
+[package]
+name = "authly-test"
+description = "Authly test context and integration tests"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+authly-db = { path = "../authly-db" }
+authly-domain = { path = "../authly-domain" }
+authly-common = { workspace = true, features = [
+    "access_token",
+    "document",
+    "mtls_server",
+] }
+authly-sqlite = { path = "../authly-sqlite" }
+arc-swap = "1.7"
+indexmap = "2.7"
+reqwest.workspace = true
+rust-embed = { version = "8", features = ["debug-embed"] }
+rusqlite = "0.33"
+time = "0.3"
+tokio = { version = "1", features = ["macros"] }
+tokio-util = { version = "0.7" }
+tracing = "0.1"

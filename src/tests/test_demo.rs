@@ -1,7 +1,7 @@
-use authly_domain::ctx::GetDb;
+use authly_domain::{ctx::GetDb, repo::init_repo::load_authly_builtins, IsLeaderDb};
+use authly_test::test_ctx::TestCtx;
 
 use super::compile_and_apply_doc_dir;
-use crate::{db::init_db::load_authly_builtins, test_support::TestCtx, IsLeaderDb};
 
 #[test_log::test(tokio::test)]
 async fn smoketest_demo_documents() {

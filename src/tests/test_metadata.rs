@@ -5,6 +5,7 @@ use authly_common::{
         service_message::ServiceMessageKind,
     },
 };
+use authly_test::test_ctx::TestCtx;
 use futures_util::StreamExt;
 use hexhex::hex_literal;
 use indoc::indoc;
@@ -14,7 +15,6 @@ use tracing::info;
 
 use crate::{
     proto::service_server::AuthlyServiceServerImpl,
-    test_support::TestCtx,
     tests::{compile_and_apply_doc, compile_and_apply_doc_only_once},
 };
 

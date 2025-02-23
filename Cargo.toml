@@ -31,7 +31,6 @@ authly-db = { path = "lib/authly-db" }
 authly-domain = { path = "lib/authly-domain" }
 authly-hiqlite = { path = "lib/authly-hiqlite" }
 authly-secrets = { path = "lib/authly-secrets" }
-authly-sqlite = { path = "lib/authly-sqlite" }
 authly-web = { path = "lib/authly-web" }
 authly-webstatic = { path = "lib/authly-webstatic" }
 
@@ -107,6 +106,7 @@ zeroize = "1.8"
 
 [dev-dependencies]
 authly-client.workspace = true
+authly-test = { path = "lib/authly-test" }
 authly-test-grpc = { path = "lib/authly-test-grpc" }
 async-stream = "0.3"
 criterion = { version = "0.5", default-features = false }
@@ -126,6 +126,7 @@ members = [
     "lib/authly-hiqlite",
     "lib/authly-secrets",
     "lib/authly-sqlite",
+    "lib/authly-test",
     "lib/authly-test-grpc",
     "lib/authly-web",
     "lib/authly-webstatic",

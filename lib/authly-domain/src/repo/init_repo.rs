@@ -4,15 +4,16 @@ use std::{borrow::Cow, collections::HashMap, time::Duration};
 
 use authly_common::id::{AttrId, DirectoryId, Id128DynamicArrayConv, PropId, ServiceId};
 use authly_db::{param::ToBlob, params, Db, DbError, DbResult, FromRow};
-use authly_domain::{
+use fnv::FnvHashMap;
+use indoc::indoc;
+use tracing::info;
+
+use crate::{
     builtins::Builtins,
     directory::DirKey,
     id::{BuiltinAttr, BuiltinProp},
     IsLeaderDb,
 };
-use fnv::FnvHashMap;
-use indoc::indoc;
-use tracing::info;
 
 #[derive(Debug)]
 enum InitDbError {

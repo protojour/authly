@@ -5,10 +5,11 @@ use std::{
 };
 
 use authly_common::id::ServiceId;
-use authly_domain::bus::{ServiceMessage, ServiceMessageConnection};
 use fnv::FnvHashMap;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
+
+use crate::bus::{ServiceMessage, ServiceMessageConnection};
 
 type MsgSender = tokio::sync::mpsc::Sender<ServiceMessage>;
 

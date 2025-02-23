@@ -1,4 +1,4 @@
-use authly_domain::bus::{BusError, ClusterMessage};
+use authly_domain::bus::{handler::authly_node_handle_incoming_message, BusError, ClusterMessage};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
@@ -73,9 +73,7 @@ async fn handle_msg(
 ) {
     check_db_metrics(ctx, &message, &meta).await;
 
-    if let Err(err) =
-        super::handler::authly_node_handle_incoming_message(ctx, message.clone()).await
-    {
+    if let Err(err) = authly_node_handle_incoming_message(ctx, message.clone()).await {
         error!(?err, ?message, "Failed to handle broadcast message");
     }
 }

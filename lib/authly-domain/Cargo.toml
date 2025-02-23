@@ -41,11 +41,13 @@ percent-encoding = "2.3"
 rand = "0.8"
 rcgen.workspace = true
 reqwest.workspace = true
+rust-embed = { version = "8", features = ["debug-embed"] }
 rustls = { version = "0.23", default-features = false }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 time = "0.3"
 tokio = { version = "1", features = ["macros"] }
+tokio-util = { version = "0.7" }
 tracing = "0.1"
 x509-parser = "0.16"
 zeroize = "1.8"

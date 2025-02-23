@@ -1,5 +1,6 @@
+use authly_test::test_ctx::TestCtx;
+
 use super::compile_and_apply_doc_dir;
-use crate::test_support::TestCtx;
 
 #[test_log::test(tokio::test)]
 async fn smoketest_docs_full_example() {

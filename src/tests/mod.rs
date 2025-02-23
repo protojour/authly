@@ -12,7 +12,7 @@ use authly_connect::{
     TunnelSecurity,
 };
 use authly_domain::{audit::Actor, cert::Cert};
-use authly_sqlite::SqlitePool;
+use authly_test::{test_ctx::TestCtx, SqlitePool};
 use rcgen::KeyPair;
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -30,7 +30,6 @@ use crate::{
     },
     directory::DirectoryError,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc, error::DocError},
-    test_support::TestCtx,
     util::remote_addr::RemoteAddr,
 };
 

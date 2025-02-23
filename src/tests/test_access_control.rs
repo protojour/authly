@@ -6,12 +6,12 @@ use authly_common::{
     },
 };
 use authly_domain::ctx::GetDb;
+use authly_test::test_ctx::TestCtx;
 use hexhex::hex_literal;
 use indoc::indoc;
 
 use crate::{
     db::policy_db::{self, load_svc_policies_with_bindings},
-    test_support::TestCtx,
     tests::{compile_and_apply_doc, ServiceProperties},
 };
 

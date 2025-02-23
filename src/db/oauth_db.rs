@@ -4,12 +4,10 @@ use authly_common::id::DirectoryId;
 use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Params};
 use authly_domain::{
     directory::{DirKey, OAuthDirectory},
-    encryption::{DecryptedDeks, EncryptedObjIdent},
+    encryption::{CryptoError, DecryptedDeks, EncryptedObjIdent},
     id::BuiltinProp,
 };
 use indoc::indoc;
-
-use super::cryptography_db::CrDbError;
 
 pub fn upsert_oauth_directory_stmt<D: Db>(
     parent_key: Option<DirKey>,
@@ -130,12 +128,12 @@ pub fn oauth_upsert_secret_stmt<D: Db>(
     parent_dir_key: DirKey,
     now: i64,
     deks: &DecryptedDeks,
-) -> Result<(Cow<'static, str>, Vec<<D as Db>::Param>), CrDbError> {
+) -> Result<(Cow<'static, str>, Vec<<D as Db>::Param>), CryptoError> {
     Ok(EncryptedObjIdent::encrypt(
         BuiltinProp::OAuthClientSecret.into(),
         &dir.client_secret,
         deks,
     )
-    .map_err(CrDbError::Crypto)?
+    .map_err(CryptoError::Crypto)?
     .upsert_stmt::<D>(parent_dir_key.0, dir.dir_id.upcast(), now))
 }

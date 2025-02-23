@@ -17,13 +17,12 @@ use authly_domain::{
     bus::{BusError, ClusterMessage},
     cert::client_cert_csr,
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance, SetInstance},
+    repo::crypto_repo,
 };
 use axum::body::Bytes;
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 use rustls::ClientConfig;
 use tracing::error;
-
-use crate::db::cryptography_db;
 
 use super::{MandateSubmissionData, SubmissionClaims};
 
@@ -178,7 +177,7 @@ pub fn mandate_fulfill_submission_txn_statements<D: Db>(
         .into_iter()
         .chain(data.upstream_ca_chain)
     {
-        stmts.push(cryptography_db::save_tls_cert_sql::<D>(&authly_cert));
+        stmts.push(crypto_repo::save_tls_cert_sql::<D>(&authly_cert));
     }
 
     stmts

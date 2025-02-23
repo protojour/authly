@@ -6,10 +6,13 @@ use aes_gcm_siv::{
 };
 use anyhow::anyhow;
 use authly_common::id::PropId;
-use authly_db::DbError;
+use authly_db::{Db, DbError};
 use rand::{rngs::OsRng, RngCore};
 use thiserror::Error;
+use time::OffsetDateTime;
 use zeroize::{Zeroize, Zeroizing};
+
+use crate::{id::BuiltinProp, repo::crypto_repo, IsLeaderDb};
 
 #[derive(Error, Debug)]
 pub enum CryptoError {
@@ -18,6 +21,13 @@ pub enum CryptoError {
 
     #[error("crypto error: {0}")]
     Crypto(anyhow::Error),
+}
+
+#[derive(Clone)]
+pub struct EncryptedDek {
+    pub nonce: Nonce<Aes256GcmSiv>,
+    pub ciph: Vec<u8>,
+    pub created_at: time::OffsetDateTime,
 }
 
 /// The set of Data Encryption Keys used by authly
@@ -35,6 +45,34 @@ impl DecryptedDeks {
         self.deks
             .get(&id)
             .ok_or_else(|| anyhow!("no DEK present for {id}"))
+    }
+}
+
+#[derive(Clone)]
+pub struct MasterVersion {
+    pub version: Vec<u8>,
+    pub created_at: time::OffsetDateTime,
+}
+
+pub struct DecryptedMaster {
+    pub encrypted: MasterVersion,
+    pub key: AesKey,
+}
+
+impl DecryptedMaster {
+    pub fn fake_for_test() -> Self {
+        Self {
+            encrypted: MasterVersion {
+                version: vec![],
+                created_at: OffsetDateTime::now_utc(),
+            },
+            key: {
+                let mut key = [0u8; 32];
+                OsRng.fill_bytes(key.as_mut_slice());
+
+                AesKey::new(key.into())
+            },
+        }
     }
 }
 
@@ -80,6 +118,53 @@ impl Drop for AesKey {
     }
 }
 
+pub async fn gen_prop_deks(
+    deps: &impl Db,
+    decrypted_master: &DecryptedMaster,
+    is_leader: IsLeaderDb,
+) -> anyhow::Result<HashMap<PropId, AesKey>> {
+    let old_encrypted_deks = crypto_repo::list_all_cr_prop_deks(deps).await?;
+    let mut new_encrypted_deks: HashMap<PropId, EncryptedDek> = Default::default();
+    let mut decrypted_deks: HashMap<PropId, AesKey> = Default::default();
+
+    for id in all_encrypted_props() {
+        let decrypted_dek = if let Some(encrypted) = old_encrypted_deks.get(&id) {
+            let nonce = encrypted.nonce;
+            let decrypted_dek = decrypted_master
+                .key
+                .aes()
+                .decrypt(&nonce, encrypted.ciph.as_ref())?;
+
+            AesKey::load(Zeroizing::new(decrypted_dek))?
+        } else {
+            let nonce = random_nonce();
+            let mut dek = Aes256GcmSiv::generate_key(OsRng);
+            let ciph = decrypted_master.key.aes().encrypt(&nonce, dek.as_slice())?;
+
+            new_encrypted_deks.insert(
+                id.into(),
+                EncryptedDek {
+                    nonce,
+                    ciph,
+                    created_at: time::OffsetDateTime::now_utc(),
+                },
+            );
+
+            let key = AesKey::new(dek);
+            dek.zeroize();
+            key
+        };
+
+        decrypted_deks.insert(id.into(), decrypted_dek);
+    }
+
+    if is_leader.0 && !new_encrypted_deks.is_empty() {
+        crypto_repo::insert_cr_prop_deks(deps, new_encrypted_deks).await?;
+    }
+
+    Ok(decrypted_deks)
+}
+
 #[derive(Clone)]
 pub struct EncryptedObjIdent {
     pub prop_id: PropId,
@@ -105,6 +190,10 @@ impl EncryptedObjIdent {
             ciph,
         })
     }
+}
+
+fn all_encrypted_props() -> impl Iterator<Item = BuiltinProp> {
+    BuiltinProp::iter().filter(|id| id.is_encrypted())
 }
 
 pub fn random_nonce() -> Nonce<Aes256GcmSiv> {

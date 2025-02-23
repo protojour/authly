@@ -8,7 +8,10 @@ use arc_swap::ArcSwap;
 use authly_common::id::ServiceId;
 use authly_domain::{
     builtins::Builtins,
-    bus::{BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection},
+    bus::{
+        handler::authly_node_handle_incoming_message, service_events::ServiceEventDispatcher,
+        BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection,
+    },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
         ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
@@ -16,24 +19,17 @@ use authly_domain::{
         SetInstance,
     },
     directory::PersonaDirectory,
-    encryption::DecryptedDeks,
+    encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
     instance::{AuthlyId, AuthlyInstance},
+    migration::Migrations,
+    repo::{crypto_repo, init_repo},
     tls::{AuthlyCert, AuthlyCertKind},
+    IsLeaderDb,
 };
 use authly_sqlite::{SqlitePool, Storage};
 use indexmap::IndexMap;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
-
-use crate::{
-    bus::{handler::authly_node_handle_incoming_message, service_events::ServiceEventDispatcher},
-    db::{
-        cryptography_db,
-        init_db::{self},
-    },
-    encryption::{gen_prop_deks, DecryptedMaster},
-    IsLeaderDb, Migrations,
-};
 
 /// The TestCtx allows writing tests that don't require the whole app running.
 /// E.g. it supports an in-memory database.
@@ -79,7 +75,7 @@ impl TestCtx {
         }
 
         self.builtins = Some(Arc::new(
-            init_db::load_authly_builtins(&pool, IsLeaderDb(true))
+            init_repo::load_authly_builtins(&pool, IsLeaderDb(true))
                 .await
                 .unwrap(),
         ));
@@ -99,7 +95,7 @@ impl TestCtx {
         }
 
         self.builtins = Some(Arc::new(
-            init_db::load_authly_builtins(&pool, IsLeaderDb(true))
+            init_repo::load_authly_builtins(&pool, IsLeaderDb(true))
                 .await
                 .unwrap(),
         ));
@@ -156,10 +152,9 @@ impl TestCtx {
                 .unwrap(),
         );
 
-        let instance =
-            cryptography_db::load_authly_instance(IsLeaderDb(true), &db, &decrypted_deks)
-                .await
-                .unwrap();
+        let instance = crypto_repo::load_authly_instance(IsLeaderDb(true), &db, &decrypted_deks)
+            .await
+            .unwrap();
 
         self.db = Some(db);
         self.deks = Arc::new(ArcSwap::new(Arc::new(decrypted_deks)));

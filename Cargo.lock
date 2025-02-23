@@ -330,7 +330,7 @@ dependencies = [
  "authly-domain",
  "authly-hiqlite",
  "authly-secrets",
- "authly-sqlite",
+ "authly-test",
  "authly-test-grpc",
  "authly-web",
  "authly-webstatic",
@@ -520,11 +520,13 @@ dependencies = [
  "rand",
  "rcgen 0.13.2 (git+https://github.com/rustls/rcgen.git)",
  "reqwest",
+ "rust-embed",
  "rustls",
  "serde",
  "thiserror 2.0.11",
  "time",
  "tokio",
+ "tokio-util",
  "tracing",
  "x509-parser",
  "zeroize",
@@ -566,6 +568,25 @@ dependencies = [
  "deadpool 0.12.2",
  "rusqlite",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "authly-test"
+version = "0.0.0"
+dependencies = [
+ "arc-swap",
+ "authly-common",
+ "authly-db",
+ "authly-domain",
+ "authly-sqlite",
+ "indexmap 2.7.1",
+ "reqwest",
+ "rusqlite",
+ "rust-embed",
+ "time",
+ "tokio",
+ "tokio-util",
  "tracing",
 ]
 

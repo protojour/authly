@@ -9,7 +9,7 @@ use authly_domain::{
     persona_directory::{self, ForeignPersona},
     repo::object_repo,
 };
-use authly_sqlite::SqlitePool;
+use authly_test::{test_ctx::TestCtx, SqlitePool};
 use authly_web::auth::oauth::OAuthState;
 use axum::extract::{Path, Query, State};
 use itertools::Itertools;
@@ -26,7 +26,6 @@ use crate::{
         upsert_oauth_directory_stmt,
     },
     directory::load_persona_directories,
-    test_support::TestCtx,
 };
 
 fn random_oauth(dir_id: DirectoryId, dir_key: DirKey) -> OAuthDirectory {

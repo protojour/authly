@@ -3,13 +3,13 @@ use authly_domain::{
     ctx::{GetBuiltins, GetDb},
     repo::entity_repo,
 };
+use authly_test::test_ctx::TestCtx;
 use hexhex::hex_literal;
 use indoc::indoc;
 
 use crate::{
     db::service_db,
     document::error::DocError,
-    test_support::TestCtx,
     tests::{compile_and_apply_doc, TestDocError},
 };
 
