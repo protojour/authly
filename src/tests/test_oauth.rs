@@ -2,12 +2,18 @@ use authly_common::id::DirectoryId;
 use authly_db::Db;
 use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks},
-    directory::{DirKey, OAuthDirectory, PersonaDirectory},
+    directory::{load_persona_directories, DirKey, OAuthDirectory, PersonaDirectory},
     encryption::EncryptedObjIdent,
     extract::base_uri::ProxiedBaseUri,
     id::BuiltinProp,
     persona_directory::{self, ForeignPersona},
-    repo::object_repo,
+    repo::{
+        oauth_repo::{
+            oauth_upsert_params, oauth_upsert_secret_stmt, oauth_upsert_stmt,
+            upsert_oauth_directory_stmt,
+        },
+        object_repo,
+    },
 };
 use authly_test::{test_ctx::TestCtx, SqlitePool};
 use authly_web::auth::oauth::OAuthState;
@@ -18,14 +24,6 @@ use serde_json::json;
 use wiremock::{
     matchers::{header, method, path, query_param},
     Mock, ResponseTemplate,
-};
-
-use crate::{
-    db::oauth_db::{
-        oauth_upsert_params, oauth_upsert_secret_stmt, oauth_upsert_stmt,
-        upsert_oauth_directory_stmt,
-    },
-    directory::load_persona_directories,
 };
 
 fn random_oauth(dir_id: DirectoryId, dir_key: DirKey) -> OAuthDirectory {

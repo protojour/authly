@@ -14,24 +14,23 @@ use authly_domain::{
     builtins::Builtins,
     bus::{service_events::ServiceEventDispatcher, ServiceMessage},
     ctx::{GetDb, ServiceBus},
-    directory::PersonaDirectory,
+    directory::{load_persona_directories, PersonaDirectory},
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
     migration::Migrations,
-    repo::{crypto_repo, init_repo},
+    repo::{crypto_repo, init_repo, settings_repo},
+    settings::Settings,
     IsLeaderDb,
 };
 use authly_hiqlite::HiqliteClient;
 use axum::{response::IntoResponse, Json};
-use db::settings_db;
-use document::load::load_cfg_documents;
 pub use env_config::EnvConfig;
 use indexmap::IndexMap;
+use load_docs::load_cfg_documents;
 use openraft::RaftMetrics;
 use platform::CertificateDistributionPlatform;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use settings::Settings;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
 use tracing::info;
@@ -42,7 +41,6 @@ pub mod authority_mandate;
 pub mod bus;
 pub mod ctx;
 pub mod db;
-pub mod document;
 pub mod encryption;
 pub mod env_config;
 pub mod platform;
@@ -51,10 +49,9 @@ pub mod tls;
 
 mod directory;
 mod k8s;
+mod load_docs;
 mod openapi;
-mod policy;
 mod service;
-mod settings;
 mod util;
 
 /// The tests are currently part of `authly` src/ as this is a binary crate.
@@ -269,7 +266,7 @@ async fn initialize() -> anyhow::Result<Init> {
         CertificateDistributionPlatform::EtcDir
     };
 
-    let persona_directories = directory::load_persona_directories(&hql, &deks).await?;
+    let persona_directories = load_persona_directories(&hql, &deks).await?;
 
     let shutdown = tower_server::signal::termination_signal();
 
@@ -298,7 +295,7 @@ async fn initialize() -> anyhow::Result<Init> {
         load_cfg_documents(&env_config, &ctx).await?;
     }
 
-    let settings = settings_db::load_local_settings(ctx.get_db()).await?;
+    let settings = settings_repo::load_local_settings(ctx.get_db()).await?;
 
     info!("local settings: {settings:#?}");
 

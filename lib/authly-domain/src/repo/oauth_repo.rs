@@ -2,12 +2,13 @@ use std::borrow::Cow;
 
 use authly_common::id::DirectoryId;
 use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Params};
-use authly_domain::{
+use indoc::indoc;
+
+use crate::{
     directory::{DirKey, OAuthDirectory},
     encryption::{CryptoError, DecryptedDeks, EncryptedObjIdent},
     id::BuiltinProp,
 };
-use indoc::indoc;
 
 pub fn upsert_oauth_directory_stmt<D: Db>(
     parent_key: Option<DirKey>,

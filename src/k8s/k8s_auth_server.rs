@@ -9,6 +9,7 @@ use authly_domain::{
     cert::{client_cert, server_cert, Cert, CertificateParamsExt},
     ctx::{GetBuiltins, GetDb, GetInstance},
     instance::AuthlyInstance,
+    repo::service_repo,
 };
 use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post, Extension};
 use axum_extra::{
@@ -25,7 +26,6 @@ use rustls::{pki_types::PrivateKeyDer, ServerConfig};
 use tracing::{error, info};
 
 use crate::{
-    db::service_db,
     util::remote_addr::{remote_addr_middleware, RemoteAddr},
     AuthlyCtx, EnvConfig,
 };
@@ -118,7 +118,7 @@ async fn v0_authenticate_handler(
 
     let kubernetes_io = token_data.claims.kubernetes_io;
     let common_name = kubernetes_io.serviceaccount.name.clone();
-    let eid = service_db::find_service_eid_by_k8s_local_service_account_name(
+    let eid = service_repo::find_service_eid_by_k8s_local_service_account_name(
         state.ctx.get_db(),
         &kubernetes_io.namespace,
         &kubernetes_io.serviceaccount.name,

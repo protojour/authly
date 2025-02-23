@@ -11,7 +11,16 @@ use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
-use authly_domain::{audit::Actor, cert::Cert};
+use authly_domain::{
+    audit::Actor,
+    cert::Cert,
+    directory::DirectoryError,
+    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc, error::DocError},
+    repo::{
+        document_repo::DocumentDbTxnError,
+        service_repo::{self, PropertyKind},
+    },
+};
 use authly_test::{test_ctx::TestCtx, SqlitePool};
 use rcgen::KeyPair;
 use rustls::{
@@ -23,15 +32,7 @@ use serde_spanned::Spanned;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{info_span, Instrument};
 
-use crate::{
-    db::{
-        document_db::DocumentDbTxnError,
-        service_db::{self, PropertyKind},
-    },
-    directory::DirectoryError,
-    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc, error::DocError},
-    util::remote_addr::RemoteAddr,
-};
+use crate::util::remote_addr::RemoteAddr;
 
 mod end2end;
 mod test_access_control;
@@ -218,12 +219,13 @@ struct ServiceProperties {
 impl ServiceProperties {
     async fn load(svc_eid: ServiceId, conn: &SqlitePool) -> Self {
         let resource =
-            service_db::get_service_property_mapping(conn, svc_eid, PropertyKind::Resource)
+            service_repo::get_service_property_mapping(conn, svc_eid, PropertyKind::Resource)
                 .await
                 .unwrap();
-        let entity = service_db::get_service_property_mapping(conn, svc_eid, PropertyKind::Entity)
-            .await
-            .unwrap();
+        let entity =
+            service_repo::get_service_property_mapping(conn, svc_eid, PropertyKind::Entity)
+                .await
+                .unwrap();
 
         Self { resource, entity }
     }

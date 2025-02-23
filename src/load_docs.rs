@@ -5,13 +5,17 @@ use authly_common::{
     document::Document,
     id::{DirectoryId, ServiceId},
 };
-use authly_domain::{audit::Actor, ctx::GetDb};
+use authly_domain::{
+    audit::Actor,
+    ctx::GetDb,
+    directory::DirectoryKind,
+    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
+    repo::directory_repo::DbDirectory,
+};
 use tracing::info;
 
 use crate::{
-    db::directory_db::DbDirectory,
-    directory::{self, DirectoryKind},
-    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
+    directory::{self},
     AuthlyCtx, EnvConfig,
 };
 

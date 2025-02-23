@@ -131,6 +131,3 @@ impl KubernetesConfig for AuthlyCtx {
         &self.state.k8s_local_namespace
     }
 }
-
-/// test context
-pub mod test {}

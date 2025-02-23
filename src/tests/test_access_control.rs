@@ -5,15 +5,15 @@ use authly_common::{
         engine::{AccessControlParams, NoOpPolicyTracer},
     },
 };
-use authly_domain::ctx::GetDb;
+use authly_domain::{
+    ctx::GetDb,
+    repo::policy_repo::{self, load_svc_policies_with_bindings},
+};
 use authly_test::test_ctx::TestCtx;
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::{
-    db::policy_db::{self, load_svc_policies_with_bindings},
-    tests::{compile_and_apply_doc, ServiceProperties},
-};
+use crate::tests::{compile_and_apply_doc, ServiceProperties};
 
 const SVC_A: ServiceId =
     ServiceId::from_raw_array(hex_literal!("e5462a0d22b54d9f9ca37bd96e9b9d8b"));
@@ -64,7 +64,7 @@ async fn test_access_control_basic() {
     compile_and_apply_doc(doc, &ctx).await.unwrap();
 
     {
-        let engine = policy_db::load_svc_policy_engine(ctx.get_db(), SVC_A)
+        let engine = policy_repo::load_svc_policy_engine(ctx.get_db(), SVC_A)
             .await
             .unwrap();
         let props = ServiceProperties::load(SVC_A, ctx.get_db()).await;
@@ -151,7 +151,7 @@ async fn test_access_control_basic() {
     }
 
     {
-        let svc_b_policy_engine = policy_db::load_svc_policy_engine(ctx.get_db(), SVC_B)
+        let svc_b_policy_engine = policy_repo::load_svc_policy_engine(ctx.get_db(), SVC_B)
             .await
             .unwrap();
         assert_eq!(0, svc_b_policy_engine.get_policy_count());

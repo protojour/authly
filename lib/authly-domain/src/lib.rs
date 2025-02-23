@@ -9,15 +9,19 @@ pub mod cert;
 pub mod ctx;
 pub mod dev;
 pub mod directory;
+pub mod document;
 pub mod encryption;
+pub mod error;
 pub mod extract;
 pub mod id;
 pub mod instance;
 pub mod login;
 pub mod migration;
 pub mod persona_directory;
+pub mod policy;
 pub mod repo;
 pub mod session;
+pub mod settings;
 pub mod tls;
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]

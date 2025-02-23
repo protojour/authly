@@ -2,6 +2,7 @@ use authly_common::document::Document;
 use authly_domain::{
     access_control,
     audit::Actor,
+    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
     extract::{auth::ApiAuth, base_uri::ProxiedBaseUri},
 };
 use axum::{
@@ -11,12 +12,7 @@ use axum::{
 use http::StatusCode;
 use tracing::warn;
 
-use crate::{
-    authority_mandate::submission,
-    directory,
-    document::{compiled_document::DocumentMeta, doc_compiler::compile_doc},
-    AuthlyCtx,
-};
+use crate::{authority_mandate::submission, directory, AuthlyCtx};
 
 // FIXME: User-friendly document errors
 // TODO: Handle unchanged documents like in load.rs

@@ -19,7 +19,10 @@ use authly_domain::{
     bus::{ServiceMessage, ServiceMessageConnection},
     ctx::{GetBuiltins, GetDb, GetInstance, HostsConfig, ServiceBus},
     id::{BuiltinAttr, BuiltinProp},
-    repo::entity_repo,
+    repo::{
+        entity_repo, policy_repo,
+        service_repo::{self, find_service_label_by_eid, PropertyKind},
+    },
     session::{authenticate_session_cookie, find_session_cookie, Session},
 };
 use futures_util::{stream::BoxStream, StreamExt};
@@ -32,15 +35,7 @@ use tonic::{
 };
 use tracing::{info, warn};
 
-use crate::{
-    db::{
-        policy_db,
-        service_db::{self, find_service_label_by_eid, PropertyKind, SvcNamespaceWithMetadata},
-    },
-    proto::grpc_db_err,
-    service,
-    util::remote_addr::RemoteAddr,
-};
+use crate::{proto::grpc_db_err, service, util::remote_addr::RemoteAddr};
 
 pub struct AuthlyServiceServerImpl<Ctx> {
     ctx: Ctx,
@@ -70,7 +65,7 @@ where
             .map_err(grpc_db_err)?;
 
         let property_mapping_namespaces = {
-            let resource_property_mapping = service_db::get_service_property_mapping(
+            let resource_property_mapping = service_repo::get_service_property_mapping(
                 self.ctx.get_db(),
                 peer_svc.eid,
                 PropertyKind::Resource,
@@ -115,7 +110,7 @@ where
             .map_err(grpc_db_err)?
             .ok_or_else(|| tonic::Status::internal("no service label"))?;
 
-        let namespaces = service_db::list_service_namespace_with_metadata(
+        let namespaces = service_repo::list_service_namespace_with_metadata(
             self.ctx.get_db(),
             peer_svc.eid,
             self.ctx.get_builtins(),
@@ -181,7 +176,7 @@ where
     ) -> tonic::Result<Response<proto::PropertyMappingsResponse>> {
         let peer_svc_eid = svc_mtls_auth_trivial(request.extensions())?;
 
-        let resource_property_mapping = service_db::get_service_property_mapping(
+        let resource_property_mapping = service_repo::get_service_property_mapping(
             self.ctx.get_db(),
             peer_svc_eid,
             PropertyKind::Resource,
@@ -251,7 +246,7 @@ where
         for subject_entity_id in request.peer_entity_ids {
             let subject_entity_id: ServiceId = id_from_proto(&subject_entity_id)?;
 
-            let subject_entity_property_mapping = service_db::get_service_property_mapping(
+            let subject_entity_property_mapping = service_repo::get_service_property_mapping(
                 self.ctx.get_db(),
                 subject_entity_id,
                 PropertyKind::Entity,
@@ -269,7 +264,7 @@ where
         }
 
         // TODO: Should definitely cache service policy engine in memory
-        let policy_engine = policy_db::load_svc_policy_engine(self.ctx.get_db(), peer_svc_eid)
+        let policy_engine = policy_repo::load_svc_policy_engine(self.ctx.get_db(), peer_svc_eid)
             .await
             .map_err(grpc_db_err)?;
 
@@ -501,6 +496,7 @@ fn id_from_proto<T: Id128DynamicArrayConv>(bytes: &[u8]) -> tonic::Result<T> {
 }
 
 mod metadata {
+    use authly_domain::repo::service_repo::SvcNamespaceWithMetadata;
     use prost_types::{value::Kind, ListValue, Struct, Value as PValue};
     use serde_json::Value as JValue;
 

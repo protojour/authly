@@ -1,17 +1,14 @@
 use authly_common::id::ServiceId;
 use authly_domain::{
     ctx::{GetBuiltins, GetDb},
-    repo::entity_repo,
+    document::error::DocError,
+    repo::{entity_repo, service_repo},
 };
 use authly_test::test_ctx::TestCtx;
 use hexhex::hex_literal;
 use indoc::indoc;
 
-use crate::{
-    db::service_db,
-    document::error::DocError,
-    tests::{compile_and_apply_doc, TestDocError},
-};
+use crate::tests::{compile_and_apply_doc, TestDocError};
 
 #[test_log::test(tokio::test)]
 async fn test_store_doc_trivial() {
@@ -57,7 +54,7 @@ async fn test_store_doc_trivial() {
         0,
     );
 
-    let eid = service_db::find_service_eid_by_k8s_local_service_account_name(
+    let eid = service_repo::find_service_eid_by_k8s_local_service_account_name(
         ctx.get_db(),
         "default",
         "testservice",

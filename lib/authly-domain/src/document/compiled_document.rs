@@ -3,10 +3,10 @@ use std::{collections::BTreeMap, ops::Range};
 use authly_common::id::{
     AnyId, AttrId, DirectoryId, DomainId, EntityId, PersonaId, PolicyId, PropId, ServiceId,
 };
-use authly_domain::id::BuiltinProp;
 
 use crate::{
-    db::{policy_db, service_db::PropertyKind, Identified},
+    id::BuiltinProp,
+    repo::{policy_repo, service_repo::PropertyKind, Identified},
     settings::Setting,
 };
 
@@ -44,8 +44,8 @@ pub struct CompiledDocumentData {
 
     pub domain_props: Vec<CompiledProperty>,
 
-    pub policies: Vec<Identified<PolicyId, policy_db::DbPolicy>>,
-    pub policy_bindings: Vec<policy_db::DbPolicyBinding>,
+    pub policies: Vec<Identified<PolicyId, policy_repo::DbPolicy>>,
+    pub policy_bindings: Vec<policy_repo::DbPolicyBinding>,
 }
 
 #[derive(Debug)]

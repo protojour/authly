@@ -1,63 +1,18 @@
-use std::{any::Any, collections::HashMap, fmt::Display, fs};
+use std::{any::Any, fs};
 
 use authly_common::id::ServiceId;
-use authly_db::{Db, DbError};
 use authly_domain::{
     audit::Actor,
-    bus::{BusError, ClusterMessage},
+    bus::ClusterMessage,
     cert::{client_cert, CertificateParamsExt},
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance},
-    directory::{DirKey, OAuthDirectory, PersonaDirectory},
-    encryption::{CryptoError, DecryptedDeks},
-    id::BuiltinProp,
-    repo::crypto_repo,
+    directory::DirectoryError,
+    document::compiled_document::CompiledDocument,
+    repo::document_repo::DocumentTransaction,
 };
-use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::{
-    db::{
-        directory_db::DbDirectory,
-        document_db::{DocumentDbTxnError, DocumentTransaction},
-        oauth_db::{self, OAuthRow},
-    },
-    document::compiled_document::CompiledDocument,
-    AuthlyCtx,
-};
-
-#[derive(thiserror::Error, Debug)]
-pub enum DirectoryError {
-    // #[error("db error: {0}")]
-    // Db(#[from] DbError),
-    #[error("bus error: {0}")]
-    Bus(#[from] BusError),
-
-    #[error("db error: {0}")]
-    Db(#[from] DbError),
-
-    #[error("cryptography error: {0}")]
-    Crypto(#[from] CryptoError),
-
-    #[error("document txn error: {0}")]
-    DocumentDbTxn(#[from] DocumentDbTxnError),
-
-    #[error("missing secret")]
-    MissingSecret,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum DirectoryKind {
-    Document,
-    Persona,
-}
-
-impl Display for DirectoryKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.serialize(f)
-    }
-}
+use crate::AuthlyCtx;
 
 /// Apply (write or overwrite) a document directory, publish change message
 pub async fn apply_document(
@@ -89,48 +44,6 @@ pub async fn apply_document(
         .await?;
 
     Ok(())
-}
-
-pub async fn load_persona_directories(
-    db: &impl Db,
-    deks: &DecryptedDeks,
-) -> Result<IndexMap<String, PersonaDirectory>, DirectoryError> {
-    let directories = DbDirectory::query_by_kind(db, DirectoryKind::Persona).await?;
-    let mut oauth_dirs: HashMap<DirKey, OAuthDirectory> = oauth_db::oauth_query(db)
-        .await?
-        .into_iter()
-        .map(|OAuthRow(dir)| (dir.dir_key, dir))
-        .collect();
-
-    let mut persona_dirs: Vec<(String, PersonaDirectory)> = vec![];
-
-    for dir in directories {
-        let Some(label) = dir.label else {
-            continue;
-        };
-
-        if let Some(mut oauth) = oauth_dirs.remove(&dir.key) {
-            let Some(client_secret) = crypto_repo::load_decrypt_obj_ident(
-                db,
-                dir.id.upcast(),
-                BuiltinProp::OAuthClientSecret.into(),
-                deks,
-            )
-            .await
-            .map_err(DirectoryError::Crypto)?
-            else {
-                return Err(DirectoryError::MissingSecret);
-            };
-
-            oauth.client_secret = client_secret;
-
-            persona_dirs.push((label, PersonaDirectory::OAuth(oauth)));
-        }
-    }
-
-    persona_dirs.sort_by_key(|(label, _)| label.clone());
-
-    Ok(persona_dirs.into_iter().collect())
 }
 
 fn export_service_identity(svc_eid: ServiceId, ctx: &AuthlyCtx) -> anyhow::Result<()> {

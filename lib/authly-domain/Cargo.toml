@@ -31,6 +31,7 @@ cookie = "0.18"
 fnv = "1"
 hexhex = "1"
 http = "1"
+humantime = "2"
 indexmap = "2.7"
 indoc = "2"
 int-enum = "1"
@@ -38,12 +39,17 @@ jsonwebtoken = "9"
 itertools = "0.14"
 pem = "3"
 percent-encoding = "2.3"
+pest = "2"
+pest_derive = "2"
+postcard = { version = "1", default-features = false, features = ["alloc"] }
 rand = "0.8"
 rcgen.workspace = true
 reqwest.workspace = true
 rust-embed = { version = "8", features = ["debug-embed"] }
 rustls = { version = "0.23", default-features = false }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_spanned = "0.6"
 thiserror = "2"
 time = "0.3"
 tokio = { version = "1", features = ["macros"] }

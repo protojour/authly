@@ -11,23 +11,25 @@ use authly_common::{
     property::QualifiedAttributeName,
 };
 use authly_db::{Db, DbError};
-use authly_domain::ctx::KubernetesConfig;
-use authly_domain::repo::directory_repo::query_dir_key;
-use authly_domain::{ctx::GetDb, directory::DirKey, id::BuiltinProp};
 use serde::de::value::StrDeserializer;
 use serde::Deserialize;
 use serde_spanned::Spanned;
 use tracing::debug;
 
-use crate::db::directory_db::{DbDirectoryNamespaceLabel, DbDirectoryPolicy};
-use crate::db::policy_db::DbPolicy;
-use crate::db::{directory_db, policy_db, service_db, Identified};
+use crate::ctx::{GetDb, KubernetesConfig};
+use crate::directory::DirKey;
 use crate::document::compiled_document::{
     CompiledEntityAttributeAssignment, CompiledService, ObjectIdent, ObjectTextAttr,
 };
+use crate::error::{HandleError, ResultExt};
+use crate::id::BuiltinProp;
 use crate::policy::compiler::PolicyCompiler;
+use crate::repo::directory_repo::{
+    self, query_dir_key, DbDirectoryNamespaceLabel, DbDirectoryPolicy,
+};
+use crate::repo::policy_repo::{self, DbPolicy};
+use crate::repo::{service_repo, Identified};
 use crate::settings::{Setting, Settings};
-use crate::util::error::{HandleError, ResultExt};
 
 use super::compiled_document::{
     CompiledAttribute, CompiledDocument, CompiledDocumentData, CompiledEntityRelation,
@@ -92,7 +94,7 @@ struct CompileCtx {
 
     namespaces: Namespaces,
 
-    prop_cache: HashMap<AnyId, Vec<service_db::NamespaceProperty>>,
+    prop_cache: HashMap<AnyId, Vec<service_repo::NamespaceProperty>>,
     policy_cache: HashMap<DirectoryId, Vec<DbDirectoryPolicy>>,
     label_cache: Option<HashMap<String, AnyId>>,
 
@@ -464,7 +466,7 @@ async fn process_service_properties(
         if let Some(compiled_property) = compile_ns_property(
             &doc_eprop.namespace,
             ns_id,
-            service_db::PropertyKind::Entity,
+            service_repo::PropertyKind::Entity,
             &doc_eprop.label,
             doc_eprop.attributes,
             comp,
@@ -484,7 +486,7 @@ async fn process_service_properties(
         if let Some(compiled_property) = compile_ns_property(
             &doc_rprop.namespace,
             ns_id,
-            service_db::PropertyKind::Resource,
+            service_repo::PropertyKind::Resource,
             &doc_rprop.label,
             doc_rprop.attributes,
             comp,
@@ -500,7 +502,7 @@ async fn process_service_properties(
 async fn compile_ns_property(
     namespace: &Spanned<String>,
     ns_id: AnyId,
-    property_kind: service_db::PropertyKind,
+    property_kind: service_repo::PropertyKind,
     doc_property_label: &Spanned<String>,
     doc_attributes: Vec<Spanned<String>>,
     comp: &mut CompileCtx,
@@ -638,7 +640,7 @@ async fn process_policies(
             .flat_map(|c| c.iter())
             .find(|db_policy| &db_policy.policy.label == policy.label.as_ref());
 
-        let policy_postcard = policy_db::PolicyPostcard { class, expr };
+        let policy_postcard = policy_repo::PolicyPostcard { class, expr };
 
         let namespace_label = policy.label.as_ref().to_string();
         let label_span = policy.label.span();
@@ -647,7 +649,7 @@ async fn process_policies(
             if let Some(cached_policy) = cached_policy {
                 Identified(
                     cached_policy.id,
-                    policy_db::DbPolicy {
+                    policy_repo::DbPolicy {
                         label: policy.label.into_inner(),
                         policy: policy_postcard,
                     },
@@ -655,7 +657,7 @@ async fn process_policies(
             } else {
                 Identified(
                     PolicyId::random(),
-                    policy_db::DbPolicy {
+                    policy_repo::DbPolicy {
                         label: policy.label.into_inner(),
                         policy: policy_postcard,
                     },
@@ -683,7 +685,7 @@ fn process_policy_bindings(
     comp: &mut CompileCtx,
 ) {
     for binding in policy_bindings {
-        let mut policy_binding = policy_db::DbPolicyBinding {
+        let mut policy_binding = policy_repo::DbPolicyBinding {
             attr_matcher: Default::default(),
             policies: Default::default(),
         };
@@ -874,11 +876,11 @@ impl CompileCtx {
         &'s mut self,
         ns_id: AnyId,
         db: &impl Db,
-    ) -> Option<&'s Vec<service_db::NamespaceProperty>> {
+    ) -> Option<&'s Vec<service_repo::NamespaceProperty>> {
         match self.prop_cache.entry(ns_id) {
             Entry::Occupied(occupied) => Some(occupied.into_mut()),
             Entry::Vacant(vacant) => {
-                let db_props = directory_db::list_namespace_properties(db, self.dir_key, ns_id)
+                let db_props = directory_repo::list_namespace_properties(db, self.dir_key, ns_id)
                     .await
                     .handle_err(&mut self.errors)?;
                 Some(vacant.insert(db_props))
