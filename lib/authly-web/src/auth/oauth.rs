@@ -5,6 +5,7 @@ use authly_domain::{
     ctx::{Directories, GetDb, GetDecryptedDeks, GetHttpClient},
     directory::{OAuthDirectory, PersonaDirectory},
     extract::base_uri::ProxiedBaseUri,
+    persona_directory::{self, ForeignPersona},
     session::init_session,
 };
 use axum::{
@@ -16,8 +17,6 @@ use http::StatusCode;
 use rand::{rngs::OsRng, Rng};
 use reqwest::Url;
 use tracing::warn;
-
-use crate::persona_directory::{self, ForeignPersona};
 
 pub struct OAuthState<Ctx>(pub Ctx);
 
@@ -31,7 +30,6 @@ where
 }
 
 #[derive(Debug)]
-#[expect(unused)]
 pub enum OAuthError {
     PersonaDirectoryNotFound,
     MissingCode,
@@ -145,7 +143,6 @@ pub async fn oauth_callback(
 }
 
 /// Build the URL to the external OAuth login website
-#[expect(unused)]
 pub fn build_oauth_web_authorize_url(
     oauth: &OAuthDirectory,
     label: &str,

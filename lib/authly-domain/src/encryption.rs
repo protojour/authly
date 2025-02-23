@@ -1,9 +1,24 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use aes_gcm_siv::{Aes256GcmSiv, Key, KeyInit};
+use aes_gcm_siv::{
+    aead::{Aead, Nonce},
+    Aes256GcmSiv, Key, KeyInit,
+};
 use anyhow::anyhow;
 use authly_common::id::PropId;
+use authly_db::DbError;
+use rand::{rngs::OsRng, RngCore};
+use thiserror::Error;
 use zeroize::{Zeroize, Zeroizing};
+
+#[derive(Error, Debug)]
+pub enum CryptoError {
+    #[error("db error: {0}")]
+    Db(#[from] DbError),
+
+    #[error("crypto error: {0}")]
+    Crypto(anyhow::Error),
+}
 
 /// The set of Data Encryption Keys used by authly
 #[derive(Default, Debug)]
@@ -63,4 +78,37 @@ impl Drop for AesKey {
     fn drop(&mut self) {
         self.key.zeroize();
     }
+}
+
+#[derive(Clone)]
+pub struct EncryptedObjIdent {
+    pub prop_id: PropId,
+    pub fingerprint: [u8; 32],
+    pub nonce: Nonce<Aes256GcmSiv>,
+    pub ciph: Vec<u8>,
+}
+
+impl EncryptedObjIdent {
+    pub fn encrypt(prop_id: PropId, value: &str, deks: &DecryptedDeks) -> anyhow::Result<Self> {
+        let dek = deks.get(prop_id).map_err(CryptoError::Crypto)?;
+        let fingerprint = dek.fingerprint(value.as_bytes());
+        let nonce = random_nonce();
+        let ciph = dek
+            .aes()
+            .encrypt(&nonce, value.as_bytes())
+            .map_err(|err| CryptoError::Crypto(err.into()))?;
+
+        Ok(Self {
+            prop_id,
+            fingerprint,
+            nonce,
+            ciph,
+        })
+    }
+}
+
+pub fn random_nonce() -> Nonce<Aes256GcmSiv> {
+    let mut nonce = *Nonce::<Aes256GcmSiv>::from_slice(&[0; 12]); // 96-bits; unique per message
+    OsRng.fill_bytes(nonce.as_mut_slice());
+    nonce
 }

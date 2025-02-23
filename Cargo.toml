@@ -32,6 +32,7 @@ authly-domain = { path = "lib/authly-domain" }
 authly-hiqlite = { path = "lib/authly-hiqlite" }
 authly-secrets = { path = "lib/authly-secrets" }
 authly-sqlite = { path = "lib/authly-sqlite" }
+authly-web = { path = "lib/authly-web" }
 authly-webstatic = { path = "lib/authly-webstatic" }
 
 aes-gcm-siv = "0.11"
@@ -72,14 +73,8 @@ pest_derive = "2"
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 prost-types = "0.13"
 rand = "0.8"
-rcgen = { git = "https://github.com/rustls/rcgen.git", features = [
-    "x509-parser",
-] }
-reqwest = { version = "0.12", default-features = false, features = [
-    "http2",
-    "json",
-    "rustls-tls",
-] }
+rcgen.workspace = true
+reqwest.workspace = true
 rusqlite = "0.33"
 rust-embed = { version = "8", features = ["debug-embed"] }
 rustls = { version = "0.23", default-features = false }
@@ -132,6 +127,7 @@ members = [
     "lib/authly-secrets",
     "lib/authly-sqlite",
     "lib/authly-test-grpc",
+    "lib/authly-web",
     "lib/authly-webstatic",
 ]
 resolver = "2"
@@ -152,5 +148,13 @@ hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = f
     "auto-heal",
     "listen_notify_local",
     "sqlite",
+] }
+rcgen = { git = "https://github.com/rustls/rcgen.git", features = [
+    "x509-parser",
+] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "http2",
+    "json",
+    "rustls-tls",
 ] }
 tower-server = "0.3.1"

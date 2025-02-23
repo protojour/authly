@@ -332,6 +332,7 @@ dependencies = [
  "authly-secrets",
  "authly-sqlite",
  "authly-test-grpc",
+ "authly-web",
  "authly-webstatic",
  "axum 0.7.9",
  "axum-extra",
@@ -593,6 +594,32 @@ dependencies = [
  "tower-server",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "authly-web"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "authly-common",
+ "authly-domain",
+ "authly-webstatic",
+ "axum 0.7.9",
+ "axum-extra",
+ "fnv",
+ "hexhex",
+ "http",
+ "indexmap 2.7.1",
+ "itertools 0.14.0",
+ "maud",
+ "rand",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

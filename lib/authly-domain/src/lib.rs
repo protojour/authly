@@ -12,6 +12,7 @@ pub mod extract;
 pub mod id;
 pub mod instance;
 pub mod login;
+pub mod persona_directory;
 pub mod repo;
 pub mod session;
 pub mod tls;

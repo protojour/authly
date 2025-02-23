@@ -3,10 +3,14 @@ use authly_db::Db;
 use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks},
     directory::{DirKey, OAuthDirectory, PersonaDirectory},
+    encryption::EncryptedObjIdent,
     extract::base_uri::ProxiedBaseUri,
     id::BuiltinProp,
+    persona_directory::{self, ForeignPersona},
+    repo::object_repo,
 };
 use authly_sqlite::SqlitePool;
+use authly_web::auth::oauth::OAuthState;
 use axum::extract::{Path, Query, State};
 use itertools::Itertools;
 use rand::{rngs::OsRng, Rng};
@@ -17,18 +21,12 @@ use wiremock::{
 };
 
 use crate::{
-    db::{
-        cryptography_db::EncryptedObjIdent,
-        oauth_db::{
-            oauth_upsert_params, oauth_upsert_secret_stmt, oauth_upsert_stmt,
-            upsert_oauth_directory_stmt,
-        },
-        object_db,
+    db::oauth_db::{
+        oauth_upsert_params, oauth_upsert_secret_stmt, oauth_upsert_stmt,
+        upsert_oauth_directory_stmt,
     },
     directory::load_persona_directories,
-    persona_directory::{self, ForeignPersona},
     test_support::TestCtx,
-    web::auth::oauth::OAuthState,
 };
 
 fn random_oauth(dir_id: DirectoryId, dir_key: DirKey) -> OAuthDirectory {
@@ -216,7 +214,7 @@ async fn test_upsert_persona_link() {
             &ctx.get_decrypted_deks(),
         )
         .unwrap();
-        let entity_id = object_db::find_obj_id_by_ident_fingerprint(
+        let entity_id = object_repo::find_obj_id_by_ident_fingerprint(
             ctx.get_db(),
             BuiltinProp::Email.into(),
             &email.fingerprint,
@@ -333,7 +331,7 @@ async fn test_callback_github_like() {
         .mount(&hubmock)
         .await;
 
-    let _result = crate::web::auth::oauth::oauth_callback(
+    let _result = authly_web::auth::oauth::oauth_callback(
         State(OAuthState(ctx)),
         ProxiedBaseUri("http://localhost".parse().unwrap()),
         Path("buksehub".to_string()),

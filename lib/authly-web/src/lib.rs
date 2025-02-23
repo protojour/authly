@@ -1,20 +1,30 @@
+use authly_domain::ctx::{
+    Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
+};
 use authly_webstatic::static_folder;
 use axum::routing::{get, post};
-
-use crate::AuthlyCtx;
 
 pub mod app;
 pub mod auth;
 
-pub fn router() -> axum::Router<AuthlyCtx> {
+pub fn router<Ctx>() -> axum::Router<Ctx>
+where
+    Ctx: GetDb
+        + GetInstance
+        + GetBuiltins
+        + GetDecryptedDeks
+        + Directories
+        + GetHttpClient
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
     axum::Router::new()
-        // Currently a quirk in the gateway requires this route to be added twice
-        // (`/` is appended by the gateway because "" is a matcher, => /)
-        // .route("", get(app::index))
         .route("/", get(app::index))
         .route("/tab/persona", get(app::persona::persona))
         .route("/auth", get(auth::index))
-        .route("/auth/login", post(auth::login))
+        .route("/auth/login", post(auth::login::<Ctx>))
         .route(
             "/auth/oauth/:label/callback",
             post(auth::oauth::oauth_callback),

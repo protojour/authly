@@ -1,7 +1,7 @@
 use authly_domain::extract::{auth::WebAuth, base_uri::ForwardedPrefix};
 use maud::{html, Markup};
 
-use crate::web::app::tabs::{render_nav_tab_list, Tab};
+use crate::app::tabs::{render_nav_tab_list, Tab};
 
 use super::AppError;
 

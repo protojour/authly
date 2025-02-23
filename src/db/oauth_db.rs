@@ -4,12 +4,12 @@ use authly_common::id::DirectoryId;
 use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Params};
 use authly_domain::{
     directory::{DirKey, OAuthDirectory},
-    encryption::DecryptedDeks,
+    encryption::{DecryptedDeks, EncryptedObjIdent},
     id::BuiltinProp,
 };
 use indoc::indoc;
 
-use super::cryptography_db::{CrDbError, EncryptedObjIdent};
+use super::cryptography_db::CrDbError;
 
 pub fn upsert_oauth_directory_stmt<D: Db>(
     parent_key: Option<DirKey>,

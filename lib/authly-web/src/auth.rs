@@ -1,5 +1,6 @@
 use authly_common::mtls_server::PeerServiceEntity;
 use authly_domain::{
+    ctx::{GetBuiltins, GetDb, GetDecryptedDeks},
     dev::IsDev,
     extract::base_uri::ForwardedPrefix,
     login::{try_username_password_login, LoginError, LoginOptions},
@@ -15,8 +16,6 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 pub mod oauth;
-
-use crate::AuthlyCtx;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryParams {
@@ -96,14 +95,17 @@ pub struct LoginBody {
 }
 
 // NOTE: Uses response header `HX-redirect` (https://htmx.org/headers/hx-redirect/)
-pub async fn login(
-    State(ctx): State<AuthlyCtx>,
+pub async fn login<Ctx>(
+    State(ctx): State<Ctx>,
     Extension(peer_svc): Extension<PeerServiceEntity>,
     is_dev: IsDev,
     ForwardedPrefix(prefix): ForwardedPrefix,
     Query(params): Query<QueryParams>,
     Form(LoginBody { username, password }): Form<LoginBody>,
-) -> Response {
+) -> Response
+where
+    Ctx: GetDb + GetBuiltins + GetDecryptedDeks,
+{
     let login_options = LoginOptions::default().dev(is_dev);
 
     match try_username_password_login(&ctx, peer_svc, username, password, login_options).await {

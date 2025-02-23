@@ -1,6 +1,6 @@
 [package]
-name = "authly-domain"
-description = "Authly central domain"
+name = "authly-web"
+description = "Authly web apps"
 edition = "2021"
 publish = false
 version.workspace = true
@@ -13,39 +13,23 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-authly-db = { path = "../authly-db" }
-authly-common = { workspace = true, features = [
-    "access_token",
-    "document",
-    "mtls_server",
-] }
-aes-gcm-siv = { version = "0.11", features = ["std"] }
-async-trait = "0.1"
+authly-domain = { path = "../authly-domain" }
+authly-webstatic = { path = "../authly-webstatic" }
+authly-common.workspace = true
 axum = { version = "0.7", features = ["macros"] }
 axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
 anyhow = "1"
-argon2 = "0.5"
-arc-swap = "1.7"
-blake3 = "1.5"
-cookie = "0.18"
 fnv = "1"
 hexhex = "1"
 http = "1"
 indexmap = "2.7"
-indoc = "2"
-int-enum = "1"
-jsonwebtoken = "9"
 itertools = "0.14"
-pem = "3"
-percent-encoding = "2.3"
+maud = { version = "0.26", features = ["axum"] }
 rand = "0.8"
-rcgen.workspace = true
 reqwest.workspace = true
-rustls = { version = "0.23", default-features = false }
 serde = { version = "1", features = ["derive"] }
-thiserror = "2"
-time = "0.3"
+serde_json = "1"
+serde_urlencoded = "0.7"
 tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
-x509-parser = "0.16"
-zeroize = "1.8"
+url = "2.5"

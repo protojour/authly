@@ -166,7 +166,7 @@ impl Db for SqlitePool {
         let conn = self.get().await?;
 
         tokio::task::spawn_blocking(move || {
-            Ok(rusqlite::Connection::execute(&conn, &stmt, rusqlite_params(params)).map_err(e)?)
+            rusqlite::Connection::execute(&conn, &stmt, rusqlite_params(params)).map_err(e)
         })
         .await?
     }

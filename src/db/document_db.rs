@@ -2,7 +2,10 @@ use std::{borrow::Cow, ops::Range};
 
 use authly_common::id::{AnyId, AttrId, DirectoryId, PolicyId, PropId, ServiceId};
 use authly_db::{literal::Literal, param::ToBlob, params, Db, DbError};
-use authly_domain::{audit::Actor, encryption::DecryptedDeks};
+use authly_domain::{
+    audit::Actor,
+    encryption::{DecryptedDeks, EncryptedObjIdent},
+};
 use indoc::indoc;
 use itertools::Itertools;
 use serde_spanned::Spanned;
@@ -19,7 +22,7 @@ use crate::{
     settings::Setting,
 };
 
-use super::{cryptography_db::EncryptedObjIdent, service_db::PropertyKind, Identified};
+use super::{service_db::PropertyKind, Identified};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DocumentDbTxnError {

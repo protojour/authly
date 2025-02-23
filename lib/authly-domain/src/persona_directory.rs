@@ -1,14 +1,17 @@
 use authly_common::id::PersonaId;
 use authly_db::{DbError, DidInsert};
-use authly_domain::{
-    ctx::{GetDb, GetDecryptedDeks},
-    directory::DirKey,
-    id::BuiltinProp,
-    repo::entity_repo::{self, OverwritePersonaId},
-};
 use tracing::info;
 
-use crate::db::{cryptography_db::EncryptedObjIdent, object_db};
+use crate::{
+    ctx::{GetDb, GetDecryptedDeks},
+    directory::DirKey,
+    encryption::EncryptedObjIdent,
+    id::BuiltinProp,
+    repo::{
+        entity_repo::{self, OverwritePersonaId},
+        object_repo,
+    },
+};
 
 // A persona whose source is a 3rd-party directory (OAuth/LDAP/etc)
 pub struct ForeignPersona {
@@ -75,7 +78,7 @@ pub async fn link_foreign_persona(
             info!(?db_err, "email constraint violation");
 
             // two scenarios
-            if let Some(obj_id) = object_db::find_obj_id_by_ident_fingerprint(
+            if let Some(obj_id) = object_repo::find_obj_id_by_ident_fingerprint(
                 deps.get_db(),
                 BuiltinProp::Email.into(),
                 &email.fingerprint,

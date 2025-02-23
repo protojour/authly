@@ -8,8 +8,9 @@ use authly_domain::{
     cert::{client_cert, CertificateParamsExt},
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance},
     directory::{DirKey, OAuthDirectory, PersonaDirectory},
-    encryption::DecryptedDeks,
+    encryption::{CryptoError, DecryptedDeks},
     id::BuiltinProp,
+    repo::crypto_repo,
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,6 @@ use tracing::error;
 
 use crate::{
     db::{
-        cryptography_db::{self, CrDbError},
         directory_db::DbDirectory,
         document_db::{DocumentDbTxnError, DocumentTransaction},
         oauth_db::{self, OAuthRow},
@@ -37,7 +37,7 @@ pub enum DirectoryError {
     Db(#[from] DbError),
 
     #[error("cryptography error: {0}")]
-    Crypto(#[from] CrDbError),
+    Crypto(#[from] CryptoError),
 
     #[error("document txn error: {0}")]
     DocumentDbTxn(#[from] DocumentDbTxnError),
@@ -110,7 +110,7 @@ pub async fn load_persona_directories(
         };
 
         if let Some(mut oauth) = oauth_dirs.remove(&dir.key) {
-            let Some(client_secret) = cryptography_db::load_decrypt_obj_ident(
+            let Some(client_secret) = crypto_repo::load_decrypt_obj_ident(
                 db,
                 dir.id.upcast(),
                 BuiltinProp::OAuthClientSecret.into(),

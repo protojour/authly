@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use authly_common::id::PropId;
 use authly_db::Db;
 use authly_domain::{
-    encryption::{AesKey, DecryptedDeks},
+    encryption::{random_nonce, AesKey, DecryptedDeks},
     id::BuiltinProp,
 };
 use authly_secrets::AuthlySecrets;
@@ -180,12 +180,6 @@ pub async fn gen_prop_deks(
 
 fn all_encrypted_props() -> impl Iterator<Item = BuiltinProp> {
     BuiltinProp::iter().filter(|id| id.is_encrypted())
-}
-
-pub fn random_nonce() -> Nonce<Aes256GcmSiv> {
-    let mut nonce = *Nonce::<Aes256GcmSiv>::from_slice(&[0; 12]); // 96-bits; unique per message
-    OsRng.fill_bytes(nonce.as_mut_slice());
-    nonce
 }
 
 pub fn nonce_from_slice(slice: &[u8]) -> anyhow::Result<Nonce<Aes256GcmSiv>> {

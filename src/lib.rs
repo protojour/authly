@@ -51,12 +51,10 @@ pub mod tls;
 mod directory;
 mod k8s;
 mod openapi;
-mod persona_directory;
 mod policy;
 mod service;
 mod settings;
 mod util;
-mod web;
 
 /// The tests are currently part of `authly` src/ as this is a binary crate.
 /// Rust "integration" tests outside the src tree are more fitted for libraries.
@@ -192,7 +190,7 @@ pub async fn serve() -> anyhow::Result<()> {
                 })
                 .bind()
                 .await?
-                .serve(web::router().with_state(ctx.clone())),
+                .serve(authly_web::router().with_state(ctx.clone())),
         );
     }
 
@@ -217,7 +215,7 @@ pub async fn serve() -> anyhow::Result<()> {
 
 fn main_service_http_router(ctx: AuthlyCtx) -> axum::Router {
     axum::Router::new()
-        .merge(web::router())
+        .merge(authly_web::router())
         .merge(openapi::router::router())
         .with_state(ctx.clone())
 }
