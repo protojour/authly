@@ -1,12 +1,11 @@
 use std::{net::SocketAddr, path::PathBuf};
 
+use authly_domain::serde_util::Hex;
 use figment::{
     providers::{Env, Serialized},
     Figment,
 };
 use serde::{Deserialize, Serialize};
-
-use crate::util::serde::Hex;
 
 /// Configuration values always read from the environment.
 ///

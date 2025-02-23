@@ -5,12 +5,7 @@ use authly_domain::{
     cert::{server_cert, CertificateParamsExt},
     ctx::GetInstance,
 };
-use itertools::Itertools;
-use rcgen::CertificateSigningRequestParams;
-use test_log::test;
-use tracing::info;
-
-use crate::{
+use authly_service::{
     authority_mandate::submission::{
         authority::{
             authority_fulfill_submission, authority_generate_submission_token, PreissuedCode,
@@ -21,8 +16,13 @@ use crate::{
         },
     },
     proto::mandate_submission::AuthlyMandateSubmissionServerImpl,
-    tests::{rustls_server_config_no_client_auth, spawn_test_connect_server, TestCtx},
 };
+use itertools::Itertools;
+use rcgen::CertificateSigningRequestParams;
+use test_log::test;
+use tracing::info;
+
+use crate::tests::{rustls_server_config_no_client_auth, spawn_test_connect_server, TestCtx};
 
 #[test(tokio::test)]
 async fn test_mandate_registration_failure() {

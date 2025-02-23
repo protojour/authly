@@ -3,12 +3,13 @@ use authly_common::{
     id::{Id128DynamicArrayConv, ServiceId},
     proto::mandate_submission::{self as proto},
 };
-use authly_domain::tls::{AuthlyCert, AuthlyCertKind};
+use authly_domain::{
+    serde_util::UrlSafeBase64,
+    tls::{AuthlyCert, AuthlyCertKind},
+};
 use rcgen::CertificateParams;
 use rustls::pki_types::CertificateDer;
 use serde::{Deserialize, Serialize};
-
-use crate::util::serde::UrlSafeBase64;
 
 pub mod authority;
 pub mod mandate;

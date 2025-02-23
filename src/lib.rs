@@ -18,6 +18,7 @@ use authly_domain::{
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
     migration::Migrations,
+    remote_addr::remote_addr_middleware,
     repo::{crypto_repo, init_repo, settings_repo},
     settings::Settings,
     IsLeaderDb,
@@ -34,24 +35,21 @@ use serde_json::json;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
 use tracing::info;
-use util::{protocol_router::ProtocolRouter, remote_addr::remote_addr_middleware};
+use util::protocol_router::ProtocolRouter;
 
 // These are public for the integration test crate
-pub mod authority_mandate;
 pub mod bus;
 pub mod ctx;
-pub mod db;
 pub mod encryption;
 pub mod env_config;
+pub mod grpc;
 pub mod platform;
-pub mod proto;
 pub mod tls;
 
 mod directory;
 mod k8s;
 mod load_docs;
 mod openapi;
-mod service;
 mod util;
 
 /// The tests are currently part of `authly` src/ as this is a binary crate.
@@ -143,7 +141,7 @@ pub async fn serve() -> anyhow::Result<()> {
     tokio::spawn(
         main_server.serve(
             ProtocolRouter::default()
-                .with_grpc(proto::main_service_grpc_router(ctx.clone())?)
+                .with_grpc(grpc::main_service_grpc_router(ctx.clone())?)
                 .or_default(main_service_http_router(ctx.clone()))
                 .into_service(),
         ),

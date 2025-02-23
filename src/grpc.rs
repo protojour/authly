@@ -5,22 +5,17 @@ use authly_connect::{
     server::{AuthlyConnectServerImpl, ConnectService},
     TunnelSecurity,
 };
-use authly_db::DbError;
 use authly_domain::ctx::GetInstance;
-use mandate_submission::AuthlyMandateSubmissionServerImpl;
-use tracing::warn;
+use authly_service::proto::{
+    mandate_submission::AuthlyMandateSubmissionServerImpl, service_server::AuthlyServiceServerImpl,
+};
 
 use crate::{tls, AuthlyCtx};
-
-pub mod mandate_submission;
-pub mod service_server;
 
 // gRPC entry point
 pub(crate) fn main_service_grpc_router(ctx: AuthlyCtx) -> anyhow::Result<axum::Router> {
     Ok(tonic::service::Routes::default()
-        .add_service(service_server::AuthlyServiceServerImpl::new_service(
-            ctx.clone(),
-        ))
+        .add_service(AuthlyServiceServerImpl::new_service(ctx.clone()))
         .add_service(AuthlyConnectServer::new(AuthlyConnectServerImpl {
             services: HashMap::from([(
                 TunnelSecurity::Secure,
@@ -38,9 +33,4 @@ pub(crate) fn main_service_grpc_router(ctx: AuthlyCtx) -> anyhow::Result<axum::R
             cancel: ctx.shutdown.clone(),
         }))
         .into_axum_router())
-}
-
-fn grpc_db_err(err: DbError) -> tonic::Status {
-    warn!(?err, "gRPC DbError");
-    tonic::Status::internal("internal error")
 }

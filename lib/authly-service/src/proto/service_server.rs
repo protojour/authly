@@ -19,10 +19,12 @@ use authly_domain::{
     bus::{ServiceMessage, ServiceMessageConnection},
     ctx::{GetBuiltins, GetDb, GetInstance, HostsConfig, ServiceBus},
     id::{BuiltinAttr, BuiltinProp},
+    remote_addr::RemoteAddr,
     repo::{
         entity_repo, policy_repo,
         service_repo::{self, find_service_label_by_eid, PropertyKind},
     },
+    service,
     session::{authenticate_session_cookie, find_session_cookie, Session},
 };
 use futures_util::{stream::BoxStream, StreamExt};
@@ -35,14 +37,14 @@ use tonic::{
 };
 use tracing::{info, warn};
 
-use crate::{proto::grpc_db_err, service, util::remote_addr::RemoteAddr};
+use crate::proto::grpc_db_err;
 
 pub struct AuthlyServiceServerImpl<Ctx> {
     ctx: Ctx,
 }
 
 impl<Ctx> AuthlyServiceServerImpl<Ctx> {
-    pub(crate) fn new_service(ctx: Ctx) -> AuthlyServiceServer<Self> {
+    pub fn new_service(ctx: Ctx) -> AuthlyServiceServer<Self> {
         AuthlyServiceServer::new(Self { ctx })
     }
 }

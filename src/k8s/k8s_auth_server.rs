@@ -9,6 +9,7 @@ use authly_domain::{
     cert::{client_cert, server_cert, Cert, CertificateParamsExt},
     ctx::{GetBuiltins, GetDb, GetInstance},
     instance::AuthlyInstance,
+    remote_addr::{remote_addr_middleware, RemoteAddr},
     repo::service_repo,
 };
 use axum::{body::Bytes, extract::State, response::IntoResponse, routing::post, Extension};
@@ -25,10 +26,7 @@ use rcgen::SubjectPublicKeyInfo;
 use rustls::{pki_types::PrivateKeyDer, ServerConfig};
 use tracing::{error, info};
 
-use crate::{
-    util::remote_addr::{remote_addr_middleware, RemoteAddr},
-    AuthlyCtx, EnvConfig,
-};
+use crate::{AuthlyCtx, EnvConfig};
 
 const K8S_SA_TOKENFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 const K8S_SA_CERTFILE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";

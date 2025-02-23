@@ -5,16 +5,14 @@ use authly_domain::{
     audit::Actor,
     cert::authly_ca,
     ctx::{GetDb, GetInstance},
+    serde_util::UrlSafeBase64,
     tls::{AuthlyCert, AuthlyCertKind},
 };
 use rand::{rngs::OsRng, Rng};
 use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
 
-use crate::{
-    db::authority_mandate_db::{self, AmDbError},
-    util::serde::UrlSafeBase64,
-};
+use crate::repo::authority_mandate_repo::{self, AmDbError};
 
 use super::{Authly, CertifiedMandate, SubmissionClaims, SUBMISSION_CODE_EXPIRATION};
 
@@ -81,7 +79,7 @@ async fn save_new_submission_code(
     let mut code: Vec<u8> = vec![0; 128];
     OsRng.fill(code.as_mut_slice());
 
-    authority_mandate_db::insert_mandate_submission_code(
+    authority_mandate_repo::insert_mandate_submission_code(
         deps.get_db(),
         blake3::hash(&code).as_bytes().to_vec(),
         created_by,
@@ -106,7 +104,7 @@ pub async fn authority_fulfill_submission(
     )?;
     let claims = token_data.claims.authly;
 
-    let code_created_by = authority_mandate_db::verify_then_invalidate_submission_code(
+    let code_created_by = authority_mandate_repo::verify_then_invalidate_submission_code(
         deps.get_db(),
         blake3::hash(&claims.code.0).as_bytes().to_vec(),
     )
@@ -152,7 +150,7 @@ pub async fn authority_fulfill_submission(
             AuthoritySubmissionError::CsrOther(err)
         })?;
 
-    authority_mandate_db::insert_authority_mandate(
+    authority_mandate_repo::insert_authority_mandate(
         deps.get_db(),
         mandate_eid,
         code_created_by,

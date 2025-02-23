@@ -19,7 +19,7 @@ use authly_domain::{
     ctx::{ClusterBus, GetDb, GetDecryptedDeks, GetInstance, SetInstance},
     repo::crypto_repo,
 };
-use axum::body::Bytes;
+use bytes::Bytes;
 use rcgen::{CertificateParams, CertificateSigningRequest, DnType, KeyUsagePurpose};
 use rustls::ClientConfig;
 use tracing::error;

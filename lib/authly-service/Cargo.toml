@@ -1,6 +1,6 @@
 [package]
-name = "authly-test"
-description = "Authly test context and integration tests"
+name = "authly-service"
+description = "Authly network services"
 edition = "2021"
 publish = false
 version.workspace = true
@@ -13,21 +13,32 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
+authly-connect = { path = "../authly-connect" }
 authly-db = { path = "../authly-db" }
 authly-domain = { path = "../authly-domain" }
-authly-service = { path = "../authly-service" }
-authly-sqlite = { path = "../authly-sqlite" }
 authly-common = { workspace = true, features = [
     "access_token",
     "document",
     "mtls_server",
 ] }
-arc-swap = "1.7"
-indexmap = "2.7"
-reqwest.workspace = true
-rust-embed = { version = "8", features = ["debug-embed"] }
-rusqlite = "0.33"
+
+anyhow = "1"
+blake3 = "1.5"
+bytes = "1"
+futures-util = "0.3"
+http = "1"
+indoc = "2"
+jsonwebtoken = "9"
+prost-types = "0.13"
+rcgen.workspace = true
+rand = "0.8"
+rustls = { version = "0.23", default-features = false }
+serde = "1"
+serde_json = "1"
+thiserror = "2"
 time = "0.3"
+tonic = { version = "0.12", default-features = false }
 tokio = { version = "1", features = ["macros"] }
+tokio-stream = "0.1"
 tokio-util = { version = "0.7" }
 tracing = "0.1"

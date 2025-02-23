@@ -16,6 +16,7 @@ use authly_domain::{
     cert::Cert,
     directory::DirectoryError,
     document::{compiled_document::DocumentMeta, doc_compiler::compile_doc, error::DocError},
+    remote_addr::RemoteAddr,
     repo::{
         document_repo::DocumentDbTxnError,
         service_repo::{self, PropertyKind},
@@ -31,8 +32,6 @@ use rustls::{
 use serde_spanned::Spanned;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{info_span, Instrument};
-
-use crate::util::remote_addr::RemoteAddr;
 
 mod end2end;
 mod test_access_control;
