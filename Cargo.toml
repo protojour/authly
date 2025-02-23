@@ -86,7 +86,7 @@ webpki-roots = "0.26"
 
 [workspace]
 members = [
-    "crates/authly-testservice",
+    "bin/authly-testservice",
     "lib/authly-connect",
     "lib/authly-db",
     "lib/authly-domain",
