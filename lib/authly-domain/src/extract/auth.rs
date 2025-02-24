@@ -6,7 +6,7 @@ use axum::{extract::FromRequestParts, response::IntoResponse, Extension, Request
 use http::{
     header::{self, LOCATION},
     request::Parts,
-    HeaderValue, StatusCode,
+    HeaderName, HeaderValue, StatusCode,
 };
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
@@ -135,7 +135,16 @@ async fn redirect_to_login(parts: &mut Parts) -> anyhow::Result<axum::response::
 
     let auth_location = HeaderValue::from_str(&format!("{prefix}/auth?next={next_uri}"))?;
 
-    Ok((StatusCode::FOUND, [(LOCATION, auth_location)]).into_response())
+    if parts.headers.contains_key("hx-request") {
+        // do a HTMX full-page redirect
+        Ok((
+            StatusCode::FOUND,
+            [(HeaderName::from_static("hx-redirect"), auth_location)],
+        )
+            .into_response())
+    } else {
+        Ok((StatusCode::FOUND, [(LOCATION, auth_location)]).into_response())
+    }
 }
 
 fn cookie_jar(headers: &http::HeaderMap) -> cookie::CookieJar {

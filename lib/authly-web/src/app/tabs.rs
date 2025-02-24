@@ -10,7 +10,7 @@ pub fn render_nav_tab_list(tab: Tab, prefix: &str) -> Markup {
         nav {
             ul {
                 li {
-                    a hx-get={(prefix)"/tab/persona"} aria-current=[tab.cur(Tab::Persona)] role="tab" aria-controls="tab-content" {
+                    a href={(prefix)"/tab/persona"} aria-current=[tab.cur(Tab::Persona)] role="tab" aria-controls="tab-content" {
                         "Persona"
                     }
                 }

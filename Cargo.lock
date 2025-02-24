@@ -676,6 +676,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "test-log",
+ "thiserror 2.0.11",
  "time",
  "tokio",
  "tracing",

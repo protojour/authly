@@ -1,21 +1,35 @@
-use authly_domain::extract::{auth::WebAuth, base_uri::ForwardedPrefix};
-use axum::response::IntoResponse;
+use authly_domain::extract::auth::WebAuth;
+use axum::response::{IntoResponse, Response};
+use http::{
+    header::{InvalidHeaderValue, LOCATION},
+    HeaderValue, StatusCode,
+};
 use maud::{html, Markup, DOCTYPE};
+use tracing::warn;
+
+use crate::{htmx::HX_REDIRECT, Htmx};
 
 pub mod persona;
 
 mod tabs;
 
-pub enum AppError {}
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> axum::response::Response {
-        "something went wrong".into_response()
-    }
+/// The "index.html" of the Authly web app
+/// Just redirects to the default tab.
+pub async fn index(
+    Htmx { prefix, hx_request }: Htmx,
+    _auth: WebAuth<()>,
+) -> Result<Response, AppError> {
+    Ok((
+        StatusCode::FOUND,
+        [(
+            if hx_request { HX_REDIRECT } else { LOCATION },
+            HeaderValue::from_str(&format!("{prefix}/tab/persona"))?,
+        )],
+    )
+        .into_response())
 }
 
-/// The "index.html" of the Authly web app
-pub async fn index(_auth: WebAuth<()>, ForwardedPrefix(prefix): ForwardedPrefix) -> Markup {
+fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup) -> Markup {
     html! {
         (DOCTYPE)
         html {
@@ -34,9 +48,23 @@ pub async fn index(_auth: WebAuth<()>, ForwardedPrefix(prefix): ForwardedPrefix)
                 main {
                     img alt="Authly" src={(prefix)"/static/logo.svg"};
 
-                    div id="tabs" hx-get={(prefix)"/tab/persona"} hx-trigger="load delay:100ms" hx-target="#tabs" hx-swap="innerHTML";
+                    (tab)
                 }
             }
         }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum AppError {
+    #[error("invalid header value")]
+    InvalidHeaderValue(#[from] InvalidHeaderValue),
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        warn!(?self, "app error");
+
+        (StatusCode::INTERNAL_SERVER_ERROR, "something went wrong").into_response()
     }
 }
