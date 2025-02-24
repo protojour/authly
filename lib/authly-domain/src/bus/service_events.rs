@@ -6,6 +6,7 @@ use std::{
 
 use authly_common::id::ServiceId;
 use fnv::FnvHashMap;
+use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
@@ -58,10 +59,14 @@ impl ServiceEventDispatcher {
             };
 
             for connection in connections {
-                let result = connection.sender.try_send(msg.clone());
-
-                if result.is_err() {
-                    slow_connections.push(connection.clone());
+                match connection.sender.try_send(msg.clone()) {
+                    Ok(()) => {}
+                    Err(TrySendError::Full(_)) => {
+                        slow_connections.push(connection.clone());
+                    }
+                    Err(TrySendError::Closed(_)) => {
+                        // should get GCed later because of the watcher
+                    }
                 }
             }
         }
@@ -107,8 +112,6 @@ impl ServiceEventDispatcher {
 
     /// Spawn a watcher that calls `gc` when the sender's channel has been closed
     fn spawn_watcher(self, svc_eid: ServiceId, sender: MsgSender) {
-        let sender = sender.clone();
-
         tokio::spawn(async move {
             tokio::select! {
                 _ = sender.closed() => {
