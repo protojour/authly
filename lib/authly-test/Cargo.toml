@@ -29,7 +29,7 @@ indexmap = "2.7"
 indoc = "2"
 rcgen.workspace = true
 reqwest.workspace = true
-rust-embed = { version = "8", features = ["debug-embed"] }
+rust-embed = "8"
 rusqlite = "0.33"
 rustls = { version = "0.23", default-features = false }
 serde_spanned = "0.6"

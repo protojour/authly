@@ -354,6 +354,7 @@ dependencies = [
  "rand",
  "rcgen 0.13.2 (git+https://github.com/rustls/rcgen.git)",
  "reqwest",
+ "rust-embed",
  "rustls",
  "secrecy",
  "serde",

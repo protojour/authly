@@ -47,7 +47,7 @@ postcard = { version = "1", default-features = false, features = ["alloc"] }
 rand = "0.8"
 rcgen.workspace = true
 reqwest.workspace = true
-rust-embed = { version = "8", features = ["debug-embed"] }
+rust-embed = "8"
 rustls = { version = "0.23", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

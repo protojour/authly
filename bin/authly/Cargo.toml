@@ -58,6 +58,9 @@ openraft = { version = "0.9", default-features = false }
 rand = "0.8"
 rcgen.workspace = true
 reqwest.workspace = true
+# For the "authly" crate only, turn on "debug-embed" so that migrations will work in containers with debug builds.
+# I think it's a bug in rust-embed that forcing embed in debug mode can't be done using a macro attribute.
+rust-embed = { version = "8", features = ["debug-embed"] }
 rustls = { version = "0.23", default-features = false }
 secrecy = "0.10"
 serde = "1"
