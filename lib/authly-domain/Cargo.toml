@@ -14,12 +14,48 @@ doctest = false
 
 [dependencies]
 authly-db = { path = "../authly-db" }
-authly-common.workspace = true
+authly-common = { workspace = true, features = [
+    "access_token",
+    "document",
+    "mtls_server",
+] }
+aes-gcm-siv = { version = "0.11", features = ["std"] }
+async-trait = "0.1"
+axum = { version = "0.7", features = ["macros"] }
+axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+anyhow = "1"
+argon2 = "0.5"
+arc-swap = "1.7"
+base64 = "0.22"
+blake3 = "1.5"
+cookie = "0.18"
 fnv = "1"
+hex = { version = "0.4", features = ["serde"] }
 hexhex = "1"
+http = "1"
+humantime = "2"
+indexmap = "2.7"
+indoc = "2"
 int-enum = "1"
+jsonwebtoken = "9"
 itertools = "0.14"
+pem = "3"
+percent-encoding = "2.3"
+pest = "2"
+pest_derive = "2"
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+rand = "0.8"
+rcgen.workspace = true
+reqwest.workspace = true
+rust-embed = "8"
+rustls = { version = "0.23", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_spanned = "0.6"
 thiserror = "2"
 time = "0.3"
 tokio = { version = "1", features = ["macros"] }
+tokio-util = { version = "0.7" }
 tracing = "0.1"
+x509-parser = "0.16"
+zeroize = "1.8"

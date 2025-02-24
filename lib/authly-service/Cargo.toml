@@ -1,0 +1,46 @@
+[package]
+name = "authly-service"
+description = "Authly network services"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+authly-connect = { path = "../authly-connect" }
+authly-db = { path = "../authly-db" }
+authly-domain = { path = "../authly-domain" }
+authly-common = { workspace = true, features = [
+    "access_token",
+    "document",
+    "mtls_server",
+] }
+
+anyhow = "1"
+axum = { version = "0.7", features = ["macros"] }
+axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+blake3 = "1.5"
+bytes = "1"
+futures-util = "0.3"
+http = "1"
+indoc = "2"
+jsonwebtoken = "9"
+prost-types = "0.13"
+rcgen.workspace = true
+rand = "0.8"
+rustls = { version = "0.23", default-features = false }
+serde = "1"
+serde_json = "1"
+thiserror = "2"
+time = { version = "0.3", features = ["serde"] }
+tonic = { version = "0.12", default-features = false }
+tokio = { version = "1", features = ["macros"] }
+tokio-stream = "0.1"
+tokio-util = { version = "0.7" }
+tracing = "0.1"

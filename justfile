@@ -1,7 +1,6 @@
 import 'scripts/k3d-ops/justfile'
 
 authly_uid := "bf78d3c3bf94695c43b56540ffe23beace66ec53e35eee3f5be4c9a5cda70748"
-debug_web_port := "12345"
 
 # default target
 target := "x86_64-unknown-linux-musl"
@@ -17,8 +16,7 @@ rundev: dev-environment generate-testdata
     AUTHLY_ETC_DIR=.local/etc \
     AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
     AUTHLY_BAO_URL=http://localhost:8200 \
-    AUTHLY_DEBUG_WEB_PORT={{ debug_web_port }} \
-        cargo run -p authly --features dev serve
+        cargo run -p authly serve
 
 # run release version on localhost
 runrelease: dev-environment generate-testdata
@@ -31,6 +29,10 @@ runrelease: dev-environment generate-testdata
     AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
     AUTHLY_BAO_URL=http://localhost:8200 \
         cargo run --release -p authly serve
+
+# run "webdev" with bacon
+webdev:
+    bacon webdev
 
 # setup docker dev environment
 dev-environment:
@@ -68,9 +70,13 @@ cleanlocal:
 cleandocs:
     -rm -r docs/book
 
+# run unit tests for all crates that enable them
+test:
+    cargo test --all
+
 # run end2end tests, these are dependent on `rundev` running in the background
 end2end:
-    cargo test -- --include-ignored
+    cargo test --all -- --include-ignored
 
 # build musl binaries
 musl *flags:

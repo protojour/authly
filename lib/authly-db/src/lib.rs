@@ -1,24 +1,16 @@
 use std::{borrow::Cow, fmt::Debug, future::Future, marker::PhantomData};
 
 use authly_common::id::Id128DynamicArrayConv;
-use hiqlite::StmtColumn;
 use itertools::Itertools;
 use thiserror::Error;
 
 pub mod literal;
 pub mod param;
-pub mod sqlite_pool;
-
-mod hql;
-mod sqlite;
 
 #[derive(Error, Debug)]
 pub enum DbError {
-    #[error("db: {0}")]
-    Hiqlite(hiqlite::Error),
-
-    #[error("db: {0}")]
-    Rusqlite(#[from] rusqlite::Error),
+    #[error("sql: {0}")]
+    Sql(Cow<'static, str>),
 
     #[error("too many rows")]
     TooManyRows,
@@ -34,12 +26,9 @@ pub enum DbError {
 
     #[error("binary encoding")]
     BinaryEncoding,
-}
 
-impl From<hiqlite::Error> for DbError {
-    fn from(value: hiqlite::Error) -> Self {
-        Self::Hiqlite(value)
-    }
+    #[error("other")]
+    Other(Cow<'static, str>),
 }
 
 pub type DbResult<T> = Result<T, DbError>;
@@ -47,12 +36,14 @@ pub type DbResult<T> = Result<T, DbError>;
 /// Can be used to represent whether an UPSERT did insert or update
 pub struct DidInsert(pub bool);
 
-/// Db abstraction around SQLite that works with both rusqlite and hiqlite.
+/// Db abstraction around SQLite that works with any SQLite "flavour" (including hiqlite).
 pub trait Db: Send + Sync + 'static {
-    type Param: From<i64>
+    type Param: Clone
+        + From<i64>
+        + From<Option<i64>>
         + From<String>
+        + From<Option<String>>
         + From<Vec<u8>>
-        + From<StmtColumn<usize>>
         + for<'a> From<&'a str>
         + for<'a> From<Option<&'a str>>;
 
@@ -107,6 +98,9 @@ pub trait Db: Send + Sync + 'static {
     where
         T: FromRow + Send + 'static;
 
+    /// Refer to a statement+column index, which is valid inside a transaction.
+    fn stmt_column(stmt_index: usize, column_index: usize) -> Self::Param;
+
     /// Execute multiple statements in a transaction
     fn transact(
         &self,
@@ -152,6 +146,8 @@ pub trait Row {
         }
     }
 }
+
+pub type Params<D> = Vec<<D as Db>::Param>;
 
 pub struct IdsConcatenated<T> {
     iter: std::vec::IntoIter<u8>,

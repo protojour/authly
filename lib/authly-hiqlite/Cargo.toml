@@ -1,0 +1,20 @@
+[package]
+name = "authly-hiqlite"
+description = "authly-db hiqlite integration"
+edition = "2021"
+publish = false
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+authly-db = { path = "../authly-db" }
+bytemuck = { version = "1.21", features = ["extern_crate_alloc"] }
+hiqlite.workspace = true
+tracing = "0.1"

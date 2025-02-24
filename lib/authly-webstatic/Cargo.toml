@@ -8,8 +8,11 @@ repository.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[lib]
+doctest = false
+
 [dependencies]
 axum = { version = "0.7", features = ["macros"] }
 http = "1"
 mime_guess = "2"
-rust-embed = { version = "8", features = ["debug-embed"] }
+rust-embed = "8"

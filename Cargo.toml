@@ -1,135 +1,18 @@
-[package]
-name = "authly"
-edition = "2021"
-publish = false
-version.workspace = true
-authors.workspace = true
-repository.workspace = true
-license.workspace = true
-rust-version.workspace = true
-
-[lib]
-doctest = false
-
-[[bin]]
-name = "authly"
-path = "src/main.rs"
-test = false
-
-[features]
-dev = []
-
-[dependencies]
-authly-common = { workspace = true, features = [
-    "access_token",
-    "document",
-    "mtls_server",
-    "tonic_server",
-] }
-authly-connect = { path = "lib/authly-connect" }
-authly-db = { path = "lib/authly-db" }
-authly-domain = { path = "lib/authly-domain" }
-authly-secrets = { path = "lib/authly-secrets" }
-authly-webstatic = { path = "lib/authly-webstatic" }
-
-aes-gcm-siv = "0.11"
-anyhow = "1"
-argon2 = "0.5"
-arc-swap = "1.7"
-axum = { version = "0.7", features = ["macros"] }
-axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
-base64 = "0.22"
-blake3 = "1.5"
-clap = { version = "4", features = ["derive"] }
-cookie = "0.18"
-figment = { version = "0.10", features = ["env"] }
-futures-util = "0.3"
-fnv = "1"
-hex = { version = "0.4", features = ["serde"] }
-hexhex = "1"
-hiqlite.workspace = true
-http = "1"
-indexmap = "2.7"
-indoc = "2"
-int-enum = "1"
-itertools = "0.14"
-hostname = "0.4"
-humantime = "2"
-hyper = { version = "1", default-features = false }
-hyper-util = { version = "0.1", features = ["tokio", "server", "http2"] }
-jsonwebtoken = "9"
-k8s-openapi = { version = "0.24.0", features = ["latest"] }
-kube = "0.98"
-maud = { version = "0.26", features = ["axum"] }
-mimalloc = "0.1.43"
-num-derive = "0.4"
-num-traits = "0.2"
-openraft = { version = "0.9", default-features = false }
-pem = "3"
-percent-encoding = "2.3"
-pest = "2"
-pest_derive = "2"
-postcard = { version = "1", default-features = false, features = ["alloc"] }
-prost-types = "0.13"
-rand = "0.8"
-rcgen = { git = "https://github.com/rustls/rcgen.git", features = [
-    "x509-parser",
-] }
-reqwest = { version = "0.12", default-features = false, features = [
-    "http2",
-    "json",
-    "rustls-tls",
-] }
-rusqlite = "0.33"
-rust-embed = { version = "8", features = ["debug-embed"] }
-rustls = { version = "0.23", default-features = false }
-rustls-pemfile = "2"
-secrecy = "0.10"
-serde = "1"
-serde_json = "1"
-serde_spanned = "0.6"
-serde_urlencoded = "0.7"
-strum = { version = "0.26", features = ["derive"] }
-thiserror = "2"
-time = { version = "0.3", features = ["serde"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
-tokio-rustls = "0.26"
-tokio-stream = "0.1"
-tokio-util = { version = "0.7", features = ["io"] }
-tonic = { version = "0.12", default-features = false }
-tower = { version = "0.5", features = ["steer"] }
-tower-server = { workspace = true, features = ["signal"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "env-filter",
-    "fmt",
-    "ansi",
-] }
-uuid = "1"
-webpki-roots = "0.26"
-x509-parser = "0.16"
-zeroize = "1.8"
-
-[dev-dependencies]
-authly-client.workspace = true
-authly-test-grpc = { path = "lib/authly-test-grpc" }
-async-stream = "0.3"
-criterion = { version = "0.5", default-features = false }
-test-log = { version = "0.2", features = ["trace"] }
-wiremock = "0.6.2"
-
-[[bench]]
-name = "authly_benches"
-harness = false
-
 [workspace]
 members = [
-    "crates/authly-testservice",
+    "bin/authly",
+    "bin/authly-testservice",
+    "bin/authly-webdev",
     "lib/authly-connect",
     "lib/authly-db",
     "lib/authly-domain",
+    "lib/authly-hiqlite",
     "lib/authly-secrets",
+    "lib/authly-service",
+    "lib/authly-sqlite",
+    "lib/authly-test",
     "lib/authly-test-grpc",
+    "lib/authly-web",
     "lib/authly-webstatic",
 ]
 resolver = "2"
@@ -150,5 +33,13 @@ hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = f
     "auto-heal",
     "listen_notify_local",
     "sqlite",
+] }
+rcgen = { git = "https://github.com/rustls/rcgen.git", features = [
+    "x509-parser",
+] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "http2",
+    "json",
+    "rustls-tls",
 ] }
 tower-server = "0.3.1"
