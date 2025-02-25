@@ -12,7 +12,7 @@ use authly_domain::{
     builtins::Builtins,
     bus::{
         handler::authly_node_handle_incoming_message, service_events::ServiceEventDispatcher,
-        BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection,
+        BusError, ClusterMessage,
     },
     cert::{authly_ca, client_cert, key_pair},
     ctx::{
@@ -305,16 +305,8 @@ impl ClusterBus for TestCtx {
 }
 
 impl ServiceBus for TestCtx {
-    fn service_subscribe(&self, svc_eid: ServiceId, connection: ServiceMessageConnection) {
-        self.svc_event_dispatcher.subscribe(svc_eid, connection);
-    }
-
-    fn service_broadcast(&self, svc_eid: ServiceId, msg: ServiceMessage) {
-        self.svc_event_dispatcher.broadcast(svc_eid, msg);
-    }
-
-    fn service_broadcast_all(&self, msg: ServiceMessage) {
-        self.svc_event_dispatcher.broadcast_all(msg);
+    fn service_event_dispatcher(&self) -> &ServiceEventDispatcher {
+        &self.svc_event_dispatcher
     }
 }
 

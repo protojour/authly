@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 
 use crate::{
     builtins::Builtins,
-    bus::{BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection},
+    bus::{service_events::ServiceEventDispatcher, BusError, ClusterMessage},
     directory::PersonaDirectory,
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
@@ -55,12 +55,7 @@ pub trait ClusterBus {
 }
 
 pub trait ServiceBus {
-    /// Register a subscriber for service messages.
-    fn service_subscribe(&self, svc_id: ServiceId, connection: ServiceMessageConnection);
-
-    fn service_broadcast(&self, svc_id: ServiceId, msg: ServiceMessage);
-
-    fn service_broadcast_all(&self, msg: ServiceMessage);
+    fn service_event_dispatcher(&self) -> &ServiceEventDispatcher;
 }
 
 pub trait GetHttpClient {

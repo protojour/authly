@@ -147,7 +147,7 @@ pub async fn serve() -> anyhow::Result<()> {
             loop {
                 tokio::select! {
                     _ = tokio::time::sleep(Duration::from_secs(60 * 5)) => {
-                        ctx.service_broadcast_all(ServiceMessage::Ping);
+                        ctx.service_event_dispatcher().broadcast_all(ServiceMessage::Ping);
                     }
                     _ = ctx.shutdown.cancelled() => {
                         return;

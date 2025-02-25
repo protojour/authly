@@ -47,13 +47,14 @@ pub async fn authly_node_handle_incoming_message(
                 .context("no such directory")?;
 
             for service in DbDirectoryService::query(deps.get_db(), dir_key).await? {
-                deps.service_broadcast(service.svc_eid, ServiceMessage::ReloadCache);
+                deps.service_event_dispatcher()
+                    .broadcast(service.svc_eid, ServiceMessage::ReloadCache);
             }
         }
         ClusterMessage::ServiceBroadcast(message) => {
             info!(?message, "service broadcast");
 
-            deps.service_broadcast_all(message);
+            deps.service_event_dispatcher().broadcast_all(message);
         }
         ClusterMessage::ClusterPing => {
             info!(?message, "TODO: handle cluster ping");

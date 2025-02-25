@@ -5,7 +5,7 @@ use std::{fs, sync::Arc};
 use authly_common::id::ServiceId;
 use authly_domain::{
     builtins::Builtins,
-    bus::{BusError, ClusterMessage, ServiceMessage, ServiceMessageConnection},
+    bus::{service_events::ServiceEventDispatcher, BusError, ClusterMessage},
     cert::{client_cert, CertificateParamsExt},
     ctx::{
         ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
@@ -88,18 +88,8 @@ impl ClusterBus for AuthlyCtx {
 }
 
 impl ServiceBus for AuthlyCtx {
-    fn service_subscribe(&self, svc_eid: ServiceId, connection: ServiceMessageConnection) {
-        self.state
-            .svc_event_dispatcher
-            .subscribe(svc_eid, connection);
-    }
-
-    fn service_broadcast_all(&self, msg: ServiceMessage) {
-        self.state.svc_event_dispatcher.broadcast_all(msg);
-    }
-
-    fn service_broadcast(&self, svc_eid: ServiceId, msg: ServiceMessage) {
-        self.state.svc_event_dispatcher.broadcast(svc_eid, msg);
+    fn service_event_dispatcher(&self) -> &ServiceEventDispatcher {
+        &self.svc_event_dispatcher
     }
 }
 

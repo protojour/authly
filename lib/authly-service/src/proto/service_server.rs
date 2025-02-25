@@ -366,7 +366,7 @@ where
 
         let (sender, receiver) = tokio::sync::mpsc::channel(8);
 
-        self.ctx.service_subscribe(
+        self.ctx.service_event_dispatcher().subscribe(
             eid,
             ServiceMessageConnection {
                 sender,
