@@ -443,7 +443,6 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "tonic",
- "tower 0.4.13",
  "tower 0.5.2",
  "tower-server",
  "tracing",

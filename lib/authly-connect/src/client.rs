@@ -78,7 +78,7 @@ pub async fn new_authly_connect_grpc_client_service(
     });
 
     Ok(TunneledGrpcClientService {
-        send_request_buffer: tower_04::buffer::Buffer::new(
+        send_request_buffer: tower::buffer::Buffer::new(
             SendTunneledRequestService { send_request },
             1024,
         ),
@@ -89,8 +89,10 @@ pub async fn new_authly_connect_grpc_client_service(
 pub struct TunneledGrpcClientService {
     // FIXME: This can't just have a SendRequest buffer, if the underlying tunnel fails
     // there's no way to recover.
-    send_request_buffer:
-        tower_04::buffer::Buffer<SendTunneledRequestService, http::Request<BoxBody>>,
+    send_request_buffer: tower::buffer::Buffer<
+        http::Request<BoxBody>,
+        <SendTunneledRequestService as Service<http::Request<BoxBody>>>::Future,
+    >,
 
     close_signal: CancellationToken,
 }
@@ -98,7 +100,7 @@ pub struct TunneledGrpcClientService {
 impl Service<http::Request<BoxBody>> for TunneledGrpcClientService {
     type Response = http::Response<BoxBody>;
     type Error = StdError;
-    type Future = tower_04::buffer::future::ResponseFuture<
+    type Future = tower::buffer::future::ResponseFuture<
         <SendTunneledRequestService as Service<http::Request<BoxBody>>>::Future,
     >;
 
