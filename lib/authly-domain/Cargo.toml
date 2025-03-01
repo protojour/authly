@@ -59,3 +59,4 @@ tokio-util = { version = "0.7" }
 tracing = "0.1"
 x509-parser = "0.16"
 zeroize = "1.8"
+webauthn-rs.workspace = true
