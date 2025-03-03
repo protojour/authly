@@ -52,7 +52,7 @@ async fn test_webauthn_happy_path() {
 
     let mut token = new_soft_token();
     // the username can be whatever:
-    register_token(TESTUSER_ID, &mut token, "whatever", &ctx).await;
+    register_token(TESTUSER_ID, &mut token, &ctx).await;
 
     let login_session_id = Uuid::new_v4();
 
@@ -93,7 +93,7 @@ async fn test_webauthn_invalid_username() {
 
     let mut token = new_soft_token();
     // the username can be whatever:
-    register_token(TESTUSER_ID, &mut token, "whatever", &ctx).await;
+    register_token(TESTUSER_ID, &mut token, &ctx).await;
 
     let error = {
         let auth_challenge = webauthn::webauthn_start_authentication(
@@ -125,7 +125,7 @@ async fn test_webauthn_unregistered_token() {
         .unwrap();
 
     let auth_challenge =
-        webauthn::webauthn_start_authentication(&ctx, &&localhost_uri(), Uuid::new_v4(), TESTUSER)
+        webauthn::webauthn_start_authentication(&ctx, &localhost_uri(), Uuid::new_v4(), TESTUSER)
             .await
             .unwrap();
 
@@ -141,16 +141,10 @@ async fn test_webauthn_unregistered_token() {
     );
 }
 
-async fn register_token(
-    persona_id: PersonaId,
-    token: &mut SoftToken,
-    user_name: &str,
-    ctx: &TestCtx,
-) {
-    let reg_challenge =
-        webauthn::webauthn_start_registration(ctx, &localhost_uri(), persona_id, user_name)
-            .await
-            .unwrap();
+async fn register_token(persona_id: PersonaId, token: &mut SoftToken, ctx: &TestCtx) {
+    let reg_challenge = webauthn::webauthn_start_registration(ctx, &localhost_uri(), persona_id)
+        .await
+        .unwrap();
 
     let credential = token
         .perform_register(localhost(), reg_challenge.public_key, TIMEOUT_MS)

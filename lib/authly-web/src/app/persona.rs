@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use authly_domain::{
-    ctx::{GetDb, WebAuthn},
+    ctx::{GetDb, GetDecryptedDeks, WebAuthn},
     extract::{auth::WebAuth, base_uri::ProxiedBaseUri},
     webauthn,
 };
@@ -84,7 +84,7 @@ pub async fn persona(htmx: Htmx, auth: WebAuth<()>) -> Result<Markup, AppError> 
 }
 
 pub async fn webauthn_register_start(
-    State(Authly(ctx)): State<Authly<impl GetDb + WebAuthn>>,
+    State(Authly(ctx)): State<Authly<impl GetDb + WebAuthn + GetDecryptedDeks>>,
     base_uri: ProxiedBaseUri,
     auth: WebAuth<()>,
 ) -> Result<Response, AppError> {
@@ -95,10 +95,9 @@ pub async fn webauthn_register_start(
         .try_into()
         .map_err(|_| AppError::MustBePersona)?;
 
-    let challenge_response =
-        webauthn::webauthn_start_registration(&ctx, &base_uri.0, persona_id, "fixme.username")
-            .await
-            .map_err(|err| AppError::Internal(err.into()))?;
+    let challenge_response = webauthn::webauthn_start_registration(&ctx, &base_uri.0, persona_id)
+        .await
+        .map_err(|err| AppError::Internal(err.into()))?;
     let hx_event = BTreeMap::from_iter([("webauthnRegisterStart", challenge_response)]);
     let hx_event_json =
         serde_json::to_string(&hx_event).map_err(|err| AppError::Internal(err.into()))?;

@@ -13,8 +13,9 @@ pub use webauthn_rs::prelude::{
 
 use crate::{
     ctx::{GetBuiltins, GetDb, GetDecryptedDeks, WebAuthn},
+    encryption::CryptoError,
     id::BuiltinProp,
-    repo::webauthn_repo,
+    repo::{crypto_repo, webauthn_repo},
     session::{init_session, Session},
 };
 
@@ -22,28 +23,41 @@ use crate::{
 pub enum WebauthnError {
     #[error("webauthn not supported")]
     NotSupported,
+    #[error("no session")]
+    NoSession,
+    #[error("no username")]
+    NoUsername,
     #[error("db")]
     Db(#[from] DbError),
     #[error("webauthn")]
     Webauthn(#[from] webauthn_rs::prelude::WebauthnError),
-    #[error("no session")]
-    NoSession,
+    #[error("cryptography")]
+    Crypto(#[from] CryptoError),
 }
 
 pub async fn webauthn_start_registration(
-    deps: &impl WebAuthn,
+    deps: &(impl GetDb + WebAuthn + GetDecryptedDeks),
     public_uri: &Uri,
     persona_id: PersonaId,
-    user_name: &str,
 ) -> Result<CreationChallengeResponse, WebauthnError> {
     let uuid = Uuid::from_bytes(persona_id.to_raw_array());
     let already_registered_credentials = vec![];
 
+    let deks = deps.load_decrypted_deks();
+    let username = crypto_repo::load_decrypt_obj_ident(
+        deps.get_db(),
+        persona_id.upcast(),
+        BuiltinProp::Username.into(),
+        &deks,
+    )
+    .await?
+    .ok_or_else(|| WebauthnError::NoUsername)?;
+
     let (challenge_response, passkey_registration) =
         deps.get_webauthn(public_uri)?.start_passkey_registration(
             uuid,
-            user_name,
-            user_name,
+            &username,
+            &username,
             Some(already_registered_credentials),
         )?;
 
