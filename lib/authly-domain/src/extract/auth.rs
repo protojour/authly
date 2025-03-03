@@ -16,7 +16,7 @@ use crate::{
     ctx::{GetDb, GetInstance},
     dev::IsDev,
     repo::entity_repo,
-    session::authenticate_session_cookie,
+    session::{authenticate_session_cookie, SESSION_COOKIE_NAME},
 };
 
 use super::base_uri::{ForwardedPrefix, ProxiedUri};
@@ -91,7 +91,7 @@ async fn verify<R: VerifyAuthlyRole>(
 
         let jar = cookie_jar(&parts.headers);
         let session_cookie = jar
-            .get("session-cookie")
+            .get(SESSION_COOKIE_NAME)
             .ok_or((StatusCode::UNAUTHORIZED, "no session cookie (dev mode)"))?;
         let session = authenticate_session_cookie(ctx, session_cookie)
             .await

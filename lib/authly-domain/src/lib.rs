@@ -16,6 +16,7 @@ pub mod extract;
 pub mod id;
 pub mod instance;
 pub mod login;
+pub mod login_session;
 pub mod migration;
 pub mod persona_directory;
 pub mod policy;
@@ -26,6 +27,7 @@ pub mod service;
 pub mod session;
 pub mod settings;
 pub mod tls;
+pub mod webauthn;
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct IsLeaderDb(pub bool);

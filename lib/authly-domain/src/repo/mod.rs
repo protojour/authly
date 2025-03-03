@@ -9,6 +9,7 @@ pub mod policy_repo;
 pub mod service_repo;
 pub mod session_repo;
 pub mod settings_repo;
+pub mod webauthn_repo;
 
 #[derive(Debug)]
 pub struct Identified<I, D>(pub I, pub D);

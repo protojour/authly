@@ -1,8 +1,14 @@
 use std::{future::Future, sync::Arc};
 
-use authly_common::id::ServiceId;
+use authly_common::id::{PersonaId, ServiceId};
 use authly_db::Db;
+use http::Uri;
 use indexmap::IndexMap;
+use uuid::Uuid;
+use webauthn_rs::{
+    prelude::{PasskeyAuthentication, PasskeyRegistration},
+    Webauthn,
+};
 
 use crate::{
     builtins::Builtins,
@@ -10,6 +16,7 @@ use crate::{
     directory::PersonaDirectory,
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
+    webauthn::WebauthnError,
 };
 
 /// Trait for getting the "database".
@@ -85,4 +92,35 @@ pub trait HostsConfig {
 
 pub trait KubernetesConfig {
     fn authly_local_k8s_namespace(&self) -> &str;
+}
+
+pub trait WebAuthn {
+    /// Get the Webauthn "site".
+    fn get_webauthn(&self, public_uri: &Uri) -> Result<Arc<Webauthn>, WebauthnError>;
+
+    /// Temporarily store a passkey registration session
+    fn cache_passkey_registration(
+        &self,
+        persona_id: PersonaId,
+        pk: PasskeyRegistration,
+    ) -> impl Future<Output = ()>;
+
+    /// Yank passkey registration state out of the cache
+    fn yank_passkey_registration(
+        &self,
+        persona_id: PersonaId,
+    ) -> impl Future<Output = Option<PasskeyRegistration>>;
+
+    /// Temporarily store passkey authentication state in the cache
+    fn cache_passkey_authentication(
+        &self,
+        login_session_id: Uuid,
+        value: (PersonaId, PasskeyAuthentication),
+    ) -> impl Future<Output = ()>;
+
+    /// Yank passkey authentication state from the cache
+    fn yank_passkey_authentication(
+        &self,
+        login_session_id: Uuid,
+    ) -> impl Future<Output = Option<(PersonaId, PasskeyAuthentication)>>;
 }

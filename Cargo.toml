@@ -43,4 +43,10 @@ reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
 ] }
 tower-server = "0.3.1"
-webauthn-rs = { git = "https://github.com/protojour/webauthn-rs.git", branch = "without-openssl-build-dependency" }
+webauthn-authenticator-rs = { git = "https://github.com/protojour/webauthn-rs.git", branch = "without-openssl-build-dependency", default-features = false, features = [
+    "softtoken",
+] }
+webauthn-rs = { git = "https://github.com/protojour/webauthn-rs.git", branch = "without-openssl-build-dependency", features = [
+    "danger-allow-state-serialisation",
+] }
+webauthn-rs-proto = { git = "https://github.com/protojour/webauthn-rs.git", branch = "without-openssl-build-dependency" }
