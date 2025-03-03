@@ -1,5 +1,5 @@
 use authly_common::{id::ServiceId, mtls_server::PeerServiceEntity};
-use authly_domain::dev::IsDev;
+use authly_domain::{dev::IsDev, webauthn::WebauthnBuilder};
 use authly_test::{test_ctx::TestCtx, util::compile_and_apply_doc_dir};
 use tower_server::Scheme;
 use tracing::{info, level_filters::LevelFilter};
@@ -22,7 +22,16 @@ async fn main() -> anyhow::Result<()> {
         .persistent_db("./.local/webdev/authly.db")
         .await
         .supreme_instance()
-        .await;
+        .await
+        .with_webauthn(
+            WebauthnBuilder::new(
+                "localhost",
+                &format!("http://localhost:{PORT}").parse().unwrap(),
+            )
+            .unwrap()
+            .build()
+            .unwrap(),
+        );
 
     compile_and_apply_doc_dir("examples/demo".into(), &test_ctx)
         .await

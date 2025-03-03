@@ -371,10 +371,7 @@ impl KubernetesConfig for TestCtx {
 }
 
 impl WebAuthn for TestCtx {
-    fn get_webauthn(&self, public_uri: &Uri) -> Result<Arc<Webauthn>, WebauthnError> {
-        if public_uri != "http://localhost/" {
-            panic!("test context should use http://localhost/");
-        }
+    fn get_webauthn(&self, _public_uri: &Uri) -> Result<Arc<Webauthn>, WebauthnError> {
         self.webauthn.clone().ok_or(WebauthnError::NotSupported)
     }
 

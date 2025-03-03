@@ -3,6 +3,7 @@ mkdir -p static/vendor
 curl -O --output-dir ./static/vendor https://unpkg.com/@picocss/pico@2.0.6/css/pico.classless.min.css
 curl -O --output-dir ./static/vendor https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js
 curl -O --output-dir ./static/vendor https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js
+curl -O --output-dir ./static/vendor https://cdn.jsdelivr.net/npm/js-base64@3.7.4/base64.min.js
 curl -O --output-dir ./static/vendor https://unpkg.com/@carbon/icons@11.53.0/svg/32/login.svg
 curl -O --output-dir ./static/vendor https://rsms.me/inter/font-files/InterVariable.woff2
 curl -O --output-dir ./static/vendor https://rsms.me/inter/font-files/InterVariable-Italic.woff2

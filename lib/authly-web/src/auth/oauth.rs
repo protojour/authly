@@ -9,7 +9,7 @@ use authly_domain::{
     session::init_session,
 };
 use axum::{
-    extract::{FromRef, Path, Query, State},
+    extract::{Path, Query, State},
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::CookieJar;
@@ -18,16 +18,7 @@ use rand::{rngs::OsRng, Rng};
 use reqwest::Url;
 use tracing::warn;
 
-pub struct OAuthState<Ctx>(pub Ctx);
-
-impl<Ctx> FromRef<Ctx> for OAuthState<Ctx>
-where
-    Ctx: GetDb + Directories + Clone,
-{
-    fn from_ref(input: &Ctx) -> Self {
-        Self(input.clone())
-    }
-}
+use crate::Authly;
 
 #[derive(Debug)]
 pub enum OAuthError {
@@ -72,9 +63,7 @@ impl IntoResponse for OAuthError {
 }
 
 pub async fn oauth_callback(
-    State(OAuthState(ctx)): State<
-        OAuthState<impl GetDb + Directories + GetHttpClient + GetDecryptedDeks>,
-    >,
+    State(Authly(ctx)): State<Authly<impl GetDb + Directories + GetHttpClient + GetDecryptedDeks>>,
     base_uri: ProxiedBaseUri,
     Path(label): Path<String>,
     query: Query<BTreeMap<String, String>>,

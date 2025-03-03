@@ -1,10 +1,13 @@
 use authly_domain::{
-    ctx::{Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance},
+    ctx::{
+        Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance, WebAuthn,
+    },
     extract::base_uri::ForwardedPrefix,
 };
 use authly_webstatic::static_folder;
 use axum::{
     async_trait,
+    extract::FromRef,
     routing::{get, post},
 };
 use http::request::Parts;
@@ -23,6 +26,7 @@ where
         + GetDecryptedDeks
         + Directories
         + GetHttpClient
+        + WebAuthn
         + Clone
         + Send
         + Sync
@@ -31,6 +35,14 @@ where
     axum::Router::new()
         .route("/", get(app::index))
         .route("/tab/persona", get(app::persona::persona))
+        .route(
+            "/tab/persona/webauthn/register_start",
+            post(app::persona::webauthn_register_start),
+        )
+        .route(
+            "/tab/persona/webauthn/register_finish",
+            post(app::persona::webauthn_register_finish),
+        )
         .route("/auth", get(auth::index))
         .route("/auth/login", post(auth::login::<Ctx>))
         .route(
@@ -40,6 +52,17 @@ where
         .nest_service("/static", static_folder())
 }
 
+pub struct Authly<Ctx>(pub Ctx);
+
+impl<Ctx> FromRef<Ctx> for Authly<Ctx>
+where
+    Ctx: GetDb + Directories + Clone,
+{
+    fn from_ref(input: &Ctx) -> Self {
+        Self(input.clone())
+    }
+}
+
 mod htmx {
     use http::HeaderName;
 
@@ -47,6 +70,8 @@ mod htmx {
 
     #[expect(unused)]
     pub const HX_REQUEST: HeaderName = HeaderName::from_static("hx-request");
+
+    pub const HX_TRIGGER: HeaderName = HeaderName::from_static("hx-trigger");
 }
 
 #[derive(Clone)]

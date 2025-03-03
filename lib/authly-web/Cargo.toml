@@ -23,6 +23,7 @@ fnv = "1"
 hexhex = "1"
 http = "1"
 indexmap = "2.7"
+indoc = "2"
 itertools = "0.14"
 maud = { version = "0.26", features = ["axum"] }
 rand = "0.8"

@@ -674,6 +674,7 @@ dependencies = [
  "hexhex",
  "http",
  "indexmap 2.7.1",
+ "indoc",
  "itertools 0.14.0",
  "maud",
  "rand",

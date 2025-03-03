@@ -103,24 +103,24 @@ pub trait WebAuthn {
         &self,
         persona_id: PersonaId,
         pk: PasskeyRegistration,
-    ) -> impl Future<Output = ()>;
+    ) -> impl Future<Output = ()> + Send;
 
     /// Yank passkey registration state out of the cache
     fn yank_passkey_registration(
         &self,
         persona_id: PersonaId,
-    ) -> impl Future<Output = Option<PasskeyRegistration>>;
+    ) -> impl Future<Output = Option<PasskeyRegistration>> + Send;
 
     /// Temporarily store passkey authentication state in the cache
     fn cache_passkey_authentication(
         &self,
         login_session_id: Uuid,
         value: (PersonaId, PasskeyAuthentication),
-    ) -> impl Future<Output = ()>;
+    ) -> impl Future<Output = ()> + Send;
 
     /// Yank passkey authentication state from the cache
     fn yank_passkey_authentication(
         &self,
         login_session_id: Uuid,
-    ) -> impl Future<Output = Option<(PersonaId, PasskeyAuthentication)>>;
+    ) -> impl Future<Output = Option<(PersonaId, PasskeyAuthentication)>> + Send;
 }

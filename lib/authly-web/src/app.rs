@@ -4,7 +4,7 @@ use http::{
     header::{InvalidHeaderValue, LOCATION},
     HeaderValue, StatusCode,
 };
-use maud::{html, Markup, DOCTYPE};
+use maud::{html, Markup, PreEscaped, DOCTYPE};
 use tracing::warn;
 
 use crate::{htmx::HX_REDIRECT, Htmx};
@@ -29,7 +29,7 @@ pub async fn index(
         .into_response())
 }
 
-fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup) -> Markup {
+fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup, js: Option<String>) -> Markup {
     html! {
         (DOCTYPE)
         html {
@@ -39,6 +39,7 @@ fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup) -> Markup {
                 meta name="color-scheme" content="light dark";
                 title { "Authly" }
                 script src={(prefix)"/static/vendor/htmx.min.js"} {}
+                script src={(prefix)"/static/vendor/base64.min.js"} {}
                 link rel="shortcut icon" href={(prefix)"/static/favicon.svg"} type="image/svg+xml";
                 link rel="stylesheet" href={(prefix)"/static/vendor/pico.classless.min.css"};
                 link rel="stylesheet" href={(prefix)"/static/style.css"};
@@ -51,14 +52,24 @@ fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup) -> Markup {
                     (tab)
                 }
             }
+
+            @if let Some(js) = js {
+                script { (PreEscaped(js)) }
+            }
         }
     }
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum AppError {
+    #[error("must be persona")]
+    MustBePersona,
     #[error("invalid header value")]
     InvalidHeaderValue(#[from] InvalidHeaderValue),
+    #[error("invalid input: {0}")]
+    InvalidInput(anyhow::Error),
+    #[error("internal: {0}")]
+    Internal(anyhow::Error),
 }
 
 impl IntoResponse for AppError {
