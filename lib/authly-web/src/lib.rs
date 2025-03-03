@@ -33,7 +33,7 @@ where
 {
     axum::Router::new()
         .route("/", get(app::index))
-        .route("/tab/persona", get(app::persona::persona))
+        .route("/tab/persona", get(app::persona::persona::<Ctx>))
         .route(
             "/tab/persona/webauthn/register_start",
             post(app::persona::webauthn_register_start::<Ctx>),
@@ -67,6 +67,9 @@ mod htmx {
 
     /// https://htmx.org/headers/hx-trigger/
     pub const HX_TRIGGER: HeaderName = HeaderName::from_static("hx-trigger");
+
+    /// https://htmx.org/reference/#response_headers
+    pub const HX_REFRESH: HeaderName = HeaderName::from_static("hx-refresh");
 }
 
 #[derive(Clone)]

@@ -53,6 +53,7 @@ impl Expr {
         Self::Or(Box::new(lhs), Box::new(rhs))
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn not(expr: Expr) -> Self {
         Self::Not(Box::new(expr))
     }

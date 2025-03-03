@@ -99,6 +99,8 @@ CREATE TABLE ent_passkey (
     eid BLOB NOT NULL,
     cred_id BLOB NOT NULL,
     pk_json BLOB NOT NULL,
+    created_at DATETIME NOT NULL,
+    last_used DATETIME,
 
     PRIMARY KEY (eid, cred_id)
 );

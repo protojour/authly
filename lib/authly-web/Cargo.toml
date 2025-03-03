@@ -31,8 +31,10 @@ reqwest.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
+serde_plain = "1"
 tokio = { version = "1", features = ["macros"] }
 thiserror = "2"
+time = "0.3"
 tracing = "0.1"
 url = "2.5"
 
@@ -40,5 +42,4 @@ url = "2.5"
 authly-db = { path = "../authly-db" }
 authly-test = { path = "../authly-test" }
 test-log = { version = "0.2", features = ["trace"] }
-time = "0.3"
 wiremock = "0.6.2"

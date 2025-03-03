@@ -20,6 +20,10 @@ main {
   justify-content: space-between;
 }
 
+.inputs>input {
+  margin-bottom: 0px;
+}
+
 .card {
   display: grid;
   gap: 16px;
@@ -44,6 +48,7 @@ main {
   display: grid;
   gap: 8px;
 }
+
 
 .card button {
   width: auto;

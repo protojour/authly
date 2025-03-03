@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
+use authly_common::id::PersonaId;
 use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks, WebAuthn},
     extract::{auth::WebAuth, base_uri::ProxiedBaseUri},
+    repo::webauthn_repo,
     webauthn::{self, RegisterPublicKeyCredential},
 };
 use axum::{
@@ -14,19 +16,36 @@ use http::HeaderValue;
 use indoc::formatdoc;
 use maud::{html, Markup};
 use serde::Deserialize;
+use time::format_description::well_known::Rfc3339;
 use tracing::info;
 
 use crate::{
     app::tabs::{render_nav_tab_list, Tab},
-    htmx::HX_TRIGGER,
+    htmx::{HX_REFRESH, HX_TRIGGER},
     Htmx,
 };
 
 use super::{render_app_tab, AppError};
 
-pub async fn persona(htmx: Htmx, auth: WebAuth<()>) -> Result<Markup, AppError> {
+pub async fn persona<Ctx>(
+    State(ctx): State<Ctx>,
+    htmx: Htmx,
+    auth: WebAuth<()>,
+) -> Result<Markup, AppError>
+where
+    Ctx: GetDb,
+{
     let prefix = &htmx.prefix;
     let eid = auth.claims.authly.entity_id;
+
+    let passkeys = if let Ok(persona_id) = PersonaId::try_from(eid) {
+        webauthn_repo::list_passkeys_by_entity_id(ctx.get_db(), persona_id)
+            .await
+            .map(Some)
+            .map_err(|err| AppError::Internal(err.into()))?
+    } else {
+        None
+    };
 
     Ok(render_app_tab(
         &htmx,
@@ -34,13 +53,42 @@ pub async fn persona(htmx: Htmx, auth: WebAuth<()>) -> Result<Markup, AppError> 
             (render_nav_tab_list(Tab::Persona, &prefix))
 
             div id="tab-content" role="tabpanel" class="tab-content" {
-                div {
+                p {
                     "entity ID: " code { (eid) }
                 }
 
-                div id="webauthn" {
-                    button hx-post={(prefix)"/tab/persona/webauthn/register_start"} hx-target="#webauthn" {
-                        "Register WebAuthn token"
+                section {
+                    h4 { "WebAuthn" }
+
+                    @if let Some(passkeys) = passkeys {
+                        table {
+                            thead {
+                                tr {
+                                    th { "ID" }
+                                    th { "Created" }
+                                    th { "Last used" }
+                                }
+                            }
+                            tbody {
+                                @for row in passkeys {
+                                    tr {
+                                        td { code { (serde_plain::to_string(row.passkey.cred_id())?) } }
+                                        td { relative-time datetime=(row.created.format(&Rfc3339)?) {} }
+                                        td {
+                                            @if let Some(last_used) = row.last_used {
+                                                relative-time datetime=(last_used.format(&Rfc3339)?) {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    div id="webauthnreg" {
+                        button hx-post={(prefix)"/tab/persona/webauthn/register_start"} hx-target="#webauthnreg" {
+                            "Register new WebAuthn token"
+                        }
                     }
                 }
             }
@@ -62,7 +110,7 @@ pub async fn persona(htmx: Htmx, auth: WebAuth<()>) -> Result<Markup, AppError> 
                     console.log(credential);
                     htmx.ajax('POST', '{prefix}/tab/persona/webauthn/register_finish',
                         {{
-                            target: '#webauthn',
+                            target: '#webauthnreg',
                             values: {{
                                 json: JSON.stringify({{
                                     id: credential.id,
@@ -106,7 +154,7 @@ where
         serde_json::to_string(&hx_event).map_err(|err| AppError::Internal(err.into()))?;
 
     let html = html! {
-        div id="webauthn" {
+        div id="webauthnreg" {
             "registering.."
         }
     };
@@ -150,10 +198,13 @@ where
 
     info!(?persona_id, "passkey registered");
 
-    Ok(html! {
-        div id="webauthn" {
-            "success!"
-        }
-    }
-    .into_response())
+    Ok((
+        [(HX_REFRESH, HeaderValue::from_static("true"))],
+        html! {
+            div id="webauthnreg" {
+                "success!"
+            }
+        },
+    )
+        .into_response())
 }

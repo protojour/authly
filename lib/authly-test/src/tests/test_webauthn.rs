@@ -1,5 +1,9 @@
 use authly_common::id::PersonaId;
-use authly_domain::webauthn::{self, Webauthn, WebauthnBuilder};
+use authly_domain::{
+    ctx::GetDb,
+    repo::webauthn_repo,
+    webauthn::{self, Webauthn, WebauthnBuilder},
+};
 use hexhex::hex_literal;
 use http::Uri;
 use reqwest::Url;
@@ -82,6 +86,23 @@ async fn test_webauthn_happy_path() {
 
     assert_eq!(persona_id, TESTUSER_ID);
     assert_eq!(session.eid, TESTUSER_ID.upcast());
+
+    // test update_last_used
+    let passkey_row = webauthn_repo::list_passkeys_by_entity_id(ctx.get_db(), persona_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
+
+    webauthn_repo::update_passkey_last_used(
+        ctx.get_db(),
+        persona_id,
+        passkey_row.passkey.cred_id(),
+        time::OffsetDateTime::now_utc(),
+    )
+    .await
+    .unwrap();
 }
 
 #[test_log::test(tokio::test)]

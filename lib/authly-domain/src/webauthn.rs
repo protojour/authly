@@ -81,7 +81,13 @@ pub async fn webauthn_finish_registration(
         .get_webauthn(public_uri)?
         .finish_passkey_registration(&body, &passkey_registration)?;
 
-    webauthn_repo::insert_passkey(deps.get_db(), persona_id, &passkey).await?;
+    webauthn_repo::insert_passkey(
+        deps.get_db(),
+        persona_id,
+        &passkey,
+        time::OffsetDateTime::now_utc(),
+    )
+    .await?;
 
     Ok(())
 }
@@ -140,12 +146,34 @@ pub async fn webauthn_finish_authentication(
         .finish_passkey_authentication(&credential, &passkey_authentication)?;
 
     for mut row in webauthn_repo::list_passkeys_by_entity_id(deps.get_db(), persona_id).await? {
-        if row.passkey.update_credential(&auth_result) == Some(true) {
-            info!(
-                "auth successful, updating passkey {}",
-                Hex::new(row.passkey.cred_id())
-            );
-            webauthn_repo::update_passkey(deps.get_db(), persona_id, &row.passkey).await?;
+        match row.passkey.update_credential(&auth_result) {
+            Some(true) => {
+                info!(
+                    "auth successful, updating passkey {}",
+                    Hex::new(row.passkey.cred_id())
+                );
+                webauthn_repo::update_passkey(
+                    deps.get_db(),
+                    persona_id,
+                    &row.passkey,
+                    time::OffsetDateTime::now_utc(),
+                )
+                .await?;
+            }
+            Some(false) => {
+                info!(
+                    "auth successful, updating passkey last_used {}",
+                    Hex::new(row.passkey.cred_id())
+                );
+                webauthn_repo::update_passkey_last_used(
+                    deps.get_db(),
+                    persona_id,
+                    row.passkey.cred_id(),
+                    time::OffsetDateTime::now_utc(),
+                )
+                .await?;
+            }
+            None => {}
         }
     }
 

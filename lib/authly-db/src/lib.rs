@@ -133,6 +133,16 @@ pub trait Row {
     }
 
     #[track_caller]
+    fn get_opt_datetime(&mut self, idx: &str) -> DbResult<Option<time::OffsetDateTime>> {
+        match self.get_opt_int(idx) {
+            Some(timestamp) => time::OffsetDateTime::from_unix_timestamp(timestamp)
+                .map(Some)
+                .map_err(|_| DbError::Timestamp),
+            None => Ok(None),
+        }
+    }
+
+    #[track_caller]
     fn get_id<T: Id128DynamicArrayConv>(&mut self, idx: &str) -> T {
         T::try_from_array_dynamic(&self.get_blob_array(idx)).unwrap()
     }

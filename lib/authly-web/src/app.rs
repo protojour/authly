@@ -40,6 +40,9 @@ fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup, js: Option<String>) -
                 title { "Authly" }
                 script src={(prefix)"/static/vendor/htmx.min.js"} {}
                 script src={(prefix)"/static/vendor/base64.min.js"} {}
+                // The relative-time Web Component:
+                script type="module" src={(prefix)"/static/vendor/relative-time-element-bundle.js"} {}
+
                 link rel="shortcut icon" href={(prefix)"/static/favicon.svg"} type="image/svg+xml";
                 link rel="stylesheet" href={(prefix)"/static/vendor/pico.classless.min.css"};
                 link rel="stylesheet" href={(prefix)"/static/style.css"};
@@ -70,6 +73,10 @@ pub enum AppError {
     InvalidInput(anyhow::Error),
     #[error("internal: {0}")]
     Internal(anyhow::Error),
+    #[error("date format: {0}")]
+    TimeFormat(#[from] time::error::Format),
+    #[error("plain format: {0}")]
+    SerdePlain(#[from] serde_plain::Error),
 }
 
 impl IntoResponse for AppError {
