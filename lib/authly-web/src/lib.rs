@@ -7,7 +7,6 @@ use authly_domain::{
 use authly_webstatic::static_folder;
 use axum::{
     async_trait,
-    extract::FromRef,
     routing::{get, post},
 };
 use http::request::Parts;
@@ -37,40 +36,36 @@ where
         .route("/tab/persona", get(app::persona::persona))
         .route(
             "/tab/persona/webauthn/register_start",
-            post(app::persona::webauthn_register_start),
+            post(app::persona::webauthn_register_start::<Ctx>),
         )
         .route(
             "/tab/persona/webauthn/register_finish",
-            post(app::persona::webauthn_register_finish),
+            post(app::persona::webauthn_register_finish::<Ctx>),
         )
         .route("/auth", get(auth::index))
         .route("/auth/login", post(auth::login::<Ctx>))
         .route(
+            "/auth/webauthn/finish",
+            post(auth::webauthn_auth_finish::<Ctx>),
+        )
+        .route(
             "/auth/oauth/:label/callback",
-            post(auth::oauth::oauth_callback),
+            post(auth::oauth::oauth_callback::<Ctx>),
         )
         .nest_service("/static", static_folder())
-}
-
-pub struct Authly<Ctx>(pub Ctx);
-
-impl<Ctx> FromRef<Ctx> for Authly<Ctx>
-where
-    Ctx: GetDb + Directories + Clone,
-{
-    fn from_ref(input: &Ctx) -> Self {
-        Self(input.clone())
-    }
 }
 
 mod htmx {
     use http::HeaderName;
 
+    /// https://htmx.org/headers/hx-redirect/
     pub const HX_REDIRECT: HeaderName = HeaderName::from_static("hx-redirect");
 
+    /// https://htmx.org/attributes/hx-request/
     #[expect(unused)]
     pub const HX_REQUEST: HeaderName = HeaderName::from_static("hx-request");
 
+    /// https://htmx.org/headers/hx-trigger/
     pub const HX_TRIGGER: HeaderName = HeaderName::from_static("hx-trigger");
 }
 

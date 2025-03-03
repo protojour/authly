@@ -12,7 +12,7 @@ pub use webauthn_rs::prelude::{
 };
 
 use crate::{
-    ctx::{GetBuiltins, GetDb, GetDecryptedDeks, WebAuthn},
+    ctx::{GetDb, GetDecryptedDeks, WebAuthn},
     encryption::CryptoError,
     id::BuiltinProp,
     repo::{crypto_repo, webauthn_repo},
@@ -124,7 +124,7 @@ pub async fn webauthn_start_authentication(
 }
 
 pub async fn webauthn_finish_authentication(
-    deps: &(impl GetDb + WebAuthn + GetBuiltins),
+    deps: &(impl GetDb + WebAuthn),
     public_uri: &Uri,
     login_session_id: Uuid,
     credential: PublicKeyCredential,

@@ -15,6 +15,11 @@ main {
   gap: 64px;
 }
 
+#login_submit {
+  display: flex;
+  justify-content: space-between;
+}
+
 .card {
   display: grid;
   gap: 16px;

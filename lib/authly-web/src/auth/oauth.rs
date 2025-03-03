@@ -18,8 +18,6 @@ use rand::{rngs::OsRng, Rng};
 use reqwest::Url;
 use tracing::warn;
 
-use crate::Authly;
-
 #[derive(Debug)]
 pub enum OAuthError {
     PersonaDirectoryNotFound,
@@ -62,12 +60,15 @@ impl IntoResponse for OAuthError {
     }
 }
 
-pub async fn oauth_callback(
-    State(Authly(ctx)): State<Authly<impl GetDb + Directories + GetHttpClient + GetDecryptedDeks>>,
+pub async fn oauth_callback<Ctx>(
+    State(ctx): State<Ctx>,
     base_uri: ProxiedBaseUri,
     Path(label): Path<String>,
     query: Query<BTreeMap<String, String>>,
-) -> Result<Response, OAuthError> {
+) -> Result<Response, OAuthError>
+where
+    Ctx: GetDb + Directories + GetHttpClient + GetDecryptedDeks,
+{
     let persona_directories = ctx.load_persona_directories();
     let Some(PersonaDirectory::OAuth(oauth)) = persona_directories.get(&label) else {
         return Err(OAuthError::PersonaDirectoryNotFound);

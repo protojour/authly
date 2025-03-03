@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks, WebAuthn},
     extract::{auth::WebAuth, base_uri::ProxiedBaseUri},
-    webauthn,
+    webauthn::{self, RegisterPublicKeyCredential},
 };
 use axum::{
     extract::State,
@@ -13,13 +13,13 @@ use axum::{
 use http::HeaderValue;
 use indoc::formatdoc;
 use maud::{html, Markup};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::info;
 
 use crate::{
     app::tabs::{render_nav_tab_list, Tab},
     htmx::HX_TRIGGER,
-    Authly, Htmx,
+    Htmx,
 };
 
 use super::{render_app_tab, AppError};
@@ -83,11 +83,14 @@ pub async fn persona(htmx: Htmx, auth: WebAuth<()>) -> Result<Markup, AppError> 
     ))
 }
 
-pub async fn webauthn_register_start(
-    State(Authly(ctx)): State<Authly<impl GetDb + WebAuthn + GetDecryptedDeks>>,
+pub async fn webauthn_register_start<Ctx>(
+    State(ctx): State<Ctx>,
     base_uri: ProxiedBaseUri,
     auth: WebAuth<()>,
-) -> Result<Response, AppError> {
+) -> Result<Response, AppError>
+where
+    Ctx: GetDb + WebAuthn + GetDecryptedDeks,
+{
     let persona_id = auth
         .claims
         .authly
@@ -115,31 +118,37 @@ pub async fn webauthn_register_start(
         .into_response())
 }
 
-#[derive(Serialize, Deserialize)]
+/// This is an urlencoded form, which contains a JSON-encoded `RegisterPublicKeyCredential` inside.
+/// The reason it works this way (now) is that I couldn't figure out how to trigger a POST/json js-triggered Ajax request from htmx.
+#[derive(Deserialize)]
 pub struct RegisterPublicKeyCredentialForm {
+    /// The RegisterPublicKeyCredential JSON string
     json: String,
 }
 
-pub async fn webauthn_register_finish(
-    State(Authly(ctx)): State<Authly<impl GetDb + WebAuthn>>,
+pub async fn webauthn_register_finish<Ctx>(
+    State(ctx): State<Ctx>,
     base_uri: ProxiedBaseUri,
     auth: WebAuth<()>,
     Form(form): Form<RegisterPublicKeyCredentialForm>,
-) -> Result<Response, AppError> {
+) -> Result<Response, AppError>
+where
+    Ctx: GetDb + WebAuthn,
+{
     let persona_id = auth
         .claims
         .authly
         .entity_id
         .try_into()
         .map_err(|_| AppError::MustBePersona)?;
-    let credential =
+    let credential: RegisterPublicKeyCredential =
         serde_json::from_str(&form.json).map_err(|err| AppError::InvalidInput(err.into()))?;
 
     webauthn::webauthn_finish_registration(&ctx, &base_uri.0, persona_id, credential)
         .await
         .map_err(|err| AppError::Internal(err.into()))?;
 
-    info!("passkey registered for {persona_id}");
+    info!(?persona_id, "passkey registered");
 
     Ok(html! {
         div id="webauthn" {
