@@ -1,9 +1,6 @@
 use authly_domain::extract::auth::WebAuth;
 use axum::response::{IntoResponse, Response};
-use http::{
-    header::{InvalidHeaderValue, LOCATION},
-    HeaderValue, StatusCode,
-};
+use http::{header::LOCATION, StatusCode};
 use maud::{html, Markup, PreEscaped, DOCTYPE};
 use tracing::warn;
 
@@ -23,7 +20,7 @@ pub async fn index(
         StatusCode::FOUND,
         [(
             if hx_request { HX_REDIRECT } else { LOCATION },
-            HeaderValue::from_str(&format!("{prefix}/tab/persona"))?,
+            format!("{prefix}/tab/persona"),
         )],
     )
         .into_response())
@@ -68,8 +65,6 @@ pub enum AppError {
     #[error("must be persona")]
     MustBePersona,
     #[error("invalid header value")]
-    InvalidHeaderValue(#[from] InvalidHeaderValue),
-    #[error("invalid input: {0}")]
     InvalidInput(anyhow::Error),
     #[error("internal: {0}")]
     Internal(anyhow::Error),

@@ -12,7 +12,6 @@ use axum::{
     response::{IntoResponse, Response},
     Form,
 };
-use http::HeaderValue;
 use indoc::formatdoc;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -85,9 +84,9 @@ where
                         }
                     }
 
-                    div id="webauthnreg" {
-                        button hx-post={(prefix)"/tab/persona/webauthn/register_start"} hx-target="#webauthnreg" {
-                            "Register new WebAuthn token"
+                    div id="passkeyreg" {
+                        button hx-post={(prefix)"/tab/persona/webauthn/register_start"} hx-target="#passkeyreg" {
+                            "Register new Passkey"
                         }
                     }
                 }
@@ -110,7 +109,7 @@ where
                     console.log(credential);
                     htmx.ajax('POST', '{prefix}/tab/persona/webauthn/register_finish',
                         {{
-                            target: '#webauthnreg',
+                            target: '#passkeyreg',
                             values: {{
                                 json: JSON.stringify({{
                                     id: credential.id,
@@ -154,16 +153,12 @@ where
         serde_json::to_string(&hx_event).map_err(|err| AppError::Internal(err.into()))?;
 
     let html = html! {
-        div id="webauthnreg" {
+        div id="passkeyreg" {
             "registering.."
         }
     };
 
-    Ok((
-        [(HX_TRIGGER, HeaderValue::from_str(&hx_event_json).unwrap())],
-        html,
-    )
-        .into_response())
+    Ok(([(HX_TRIGGER, hx_event_json)], html).into_response())
 }
 
 /// This is an urlencoded form, which contains a JSON-encoded `RegisterPublicKeyCredential` inside.
@@ -199,9 +194,9 @@ where
     info!(?persona_id, "passkey registered");
 
     Ok((
-        [(HX_REFRESH, HeaderValue::from_static("true"))],
+        [(HX_REFRESH, "true")],
         html! {
-            div id="webauthnreg" {
+            div id="passkeyreg" {
                 "success!"
             }
         },

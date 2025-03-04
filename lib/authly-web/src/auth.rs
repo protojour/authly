@@ -15,7 +15,7 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Form,
 };
-use http::{HeaderValue, StatusCode, Uri};
+use http::{StatusCode, Uri};
 use indoc::formatdoc;
 use maud::{html, Markup, PreEscaped, DOCTYPE};
 use serde::{Deserialize, Serialize};
@@ -36,12 +36,49 @@ pub async fn index(
     login_session: LoginSession,
     Query(params): Query<QueryParams>,
 ) -> Response {
+    (
+        axum_extra::extract::CookieJar::new().add(login_session.to_cookie()),
+        html! {
+            (DOCTYPE)
+            html {
+                head {
+                    meta charset="utf-8";
+                    meta name="viewport" content="device-width, intial-scale=1";
+                    meta name="color-scheme" content="light dark";
+                    title { "Authly sign in" }
+                    script src={(prefix)"/static/vendor/htmx.min.js"} {}
+                    script src={(prefix)"/static/vendor/base64.min.js"} {}
+                    link rel="shortcut icon" href={(prefix)"/static/favicon.svg"} type="image/svg+xml";
+                    link rel="stylesheet" href={(prefix)"/static/vendor/pico.classless.min.css"};
+                    link rel="stylesheet" href={(prefix)"/static/style.css"};
+                    link rel="stylesheet" href={(prefix)"/static/auth.css"};
+                }
+                body {
+                    div id="root" {
+                        main {
+                            img alt="Authly" src={(prefix)"/static/logo.svg"};
+                            div class="card" {
+                                h2 { "Sign in" }
+                                (login_form(&prefix, &params, None))
+                            }
+                        }
+                    }
+                }
+
+                script { (PreEscaped(render_script(&prefix, &params))) }
+            }
+        }
+    )
+    .into_response()
+}
+
+fn render_script(prefix: &str, params: &QueryParams) -> String {
     let webauthn_finish_url = format!(
         "{prefix}/auth/webauthn/finish?{}",
-        &serde_urlencoded::to_string(&params).unwrap()
+        &serde_urlencoded::to_string(params).unwrap()
     );
 
-    let js = formatdoc! {
+    formatdoc! {
         r#"
         document.body.addEventListener('webauthnAuthStart', function(evt) {{
             const detail = evt.detail;
@@ -73,42 +110,7 @@ pub async fn index(
             }});
         }});
         "#
-    };
-
-    (
-        axum_extra::extract::CookieJar::new().add(login_session.to_cookie()),
-        html! {
-            (DOCTYPE)
-            html {
-                head {
-                    meta charset="utf-8";
-                    meta name="viewport" content="device-width, intial-scale=1";
-                    meta name="color-scheme" content="light dark";
-                    title { "Authly sign in" }
-                    script src={(prefix)"/static/vendor/htmx.min.js"} {}
-                    script src={(prefix)"/static/vendor/base64.min.js"} {}
-                    link rel="shortcut icon" href={(prefix)"/static/favicon.svg"} type="image/svg+xml";
-                    link rel="stylesheet" href={(prefix)"/static/vendor/pico.classless.min.css"};
-                    link rel="stylesheet" href={(prefix)"/static/style.css"};
-                    link rel="stylesheet" href={(prefix)"/static/auth.css"};
-                }
-                body {
-                    div id="root" {
-                        main {
-                            img alt="Authly" src={(prefix)"/static/logo.svg"};
-                            div class="card" {
-                                h2 { "Sign in" }
-                                (login_form(&prefix, &params, None))
-                            }
-                        }
-                    }
-                }
-
-                script { (PreEscaped(js)) }
-            }
-        }
-    )
-    .into_response()
+    }
 }
 
 /// A login form with an optional error message
@@ -176,19 +178,19 @@ where
     Ctx: GetDb + GetBuiltins + GetDecryptedDeks + WebAuthn,
 {
     /// Produce a "hx-trigger" header value that starts webauthn auth flow
-    async fn webauthn_start_event(
+    async fn webauthn_start_event_header_value(
         ctx: &(impl WebAuthn + GetDb + GetDecryptedDeks),
         base_uri: &Uri,
         login_session: LoginSession,
         username: &str,
-    ) -> anyhow::Result<HeaderValue> {
+    ) -> anyhow::Result<String> {
         let challenge_response =
             webauthn::webauthn_start_authentication(ctx, base_uri, login_session.0, username)
                 .await?;
         let hx_event = BTreeMap::from_iter([("webauthnAuthStart", challenge_response)]);
         let hx_event_json = serde_json::to_string(&hx_event)?;
 
-        Ok(HeaderValue::from_str(&hx_event_json)?)
+        Ok(hx_event_json)
     }
 
     match action.as_str() {
@@ -212,7 +214,9 @@ where
             }
         }
         "webauthn" => {
-            match webauthn_start_event(&ctx, &base_uri.0, login_session, &username).await {
+            match webauthn_start_event_header_value(&ctx, &base_uri.0, login_session, &username)
+                .await
+            {
                 Ok(trigger_event_value) => (
                     [(HX_TRIGGER, trigger_event_value)],
                     login_form(&prefix, &params, None),
@@ -232,17 +236,7 @@ where
 fn login_success_redirect(session: Session, params: &QueryParams) -> Response {
     (
         axum_extra::extract::CookieJar::new().add(session.to_cookie()),
-        [(
-            HX_REDIRECT,
-            HeaderValue::from_str(&params.next).unwrap_or_else(|err| {
-                warn!(
-                    ?err,
-                    ?params,
-                    "client tried to fool us with a misformatted redirect url"
-                );
-                HeaderValue::from_static("")
-            }),
-        )],
+        [(HX_REDIRECT, &params.next)],
     )
         .into_response()
 }
