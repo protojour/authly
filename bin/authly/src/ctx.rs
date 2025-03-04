@@ -23,6 +23,7 @@ use authly_hiqlite::HiqliteClient;
 use http::Uri;
 use indexmap::IndexMap;
 use reqwest::Url;
+use serde::{de::DeserializeOwned, Serialize};
 use tracing::error;
 use uuid::Uuid;
 
@@ -143,6 +144,9 @@ impl KubernetesConfig for AuthlyCtx {
 /// Each webauthn session is cached for 10 minutes
 const WEBAUTHN_TTL_SECS: i64 = 10 * 60;
 
+/// WebAuthn caching uses the CBOR serialization format,
+/// because it's known to work well and supported upstream (webauthn-rs).
+/// postcard/bincode does not work.
 impl WebAuthn for AuthlyCtx {
     /// Here we just store a new Webauthn for every public URL.
     /// That might not be a sufficient strategy if subdomains are part of the picture.
@@ -189,27 +193,29 @@ impl WebAuthn for AuthlyCtx {
         persona_id: authly_common::id::PersonaId,
         pk: PasskeyRegistration,
     ) {
-        self.hql
-            .put(
-                CacheEntry::WebAuthnRegistration,
-                format!("{persona_id}"),
-                &pk,
-                Some(WEBAUTHN_TTL_SECS),
-            )
-            .await
-            .map_err(|err| {
-                error!(?err, "put passkey reg");
-            })
-            .ok();
+        if let Some(cbor) = to_cbor(&pk) {
+            self.hql
+                .put_bytes(
+                    CacheEntry::WebAuthnRegistration,
+                    format!("{persona_id}"),
+                    cbor,
+                    Some(WEBAUTHN_TTL_SECS),
+                )
+                .await
+                .map_err(|err| {
+                    error!(?err, "put passkey reg");
+                })
+                .ok();
+        }
     }
 
     async fn yank_passkey_registration(
         &self,
         persona_id: authly_common::id::PersonaId,
     ) -> Option<PasskeyRegistration> {
-        let value = self
+        let cbor = self
             .hql
-            .get(CacheEntry::WebAuthnRegistration, format!("{persona_id}"))
+            .get_bytes(CacheEntry::WebAuthnRegistration, format!("{persona_id}"))
             .await
             .map_err(|err| {
                 error!(?err, "get passkey reg");
@@ -224,7 +230,7 @@ impl WebAuthn for AuthlyCtx {
             })
             .ok()?;
 
-        Some(value)
+        from_cbor(&cbor)
     }
 
     async fn cache_passkey_authentication(
@@ -232,27 +238,29 @@ impl WebAuthn for AuthlyCtx {
         login_session_id: Uuid,
         value: (PersonaId, PasskeyAuthentication),
     ) {
-        self.hql
-            .put(
-                CacheEntry::WebAuthnAuth,
-                format!("{login_session_id}"),
-                &value,
-                Some(WEBAUTHN_TTL_SECS),
-            )
-            .await
-            .map_err(|err| {
-                error!(?err, "put passkey auth");
-            })
-            .ok();
+        if let Some(cbor) = to_cbor(&value) {
+            self.hql
+                .put_bytes(
+                    CacheEntry::WebAuthnAuth,
+                    format!("{login_session_id}"),
+                    cbor,
+                    Some(WEBAUTHN_TTL_SECS),
+                )
+                .await
+                .map_err(|err| {
+                    error!(?err, "put passkey auth");
+                })
+                .ok();
+        }
     }
 
     async fn yank_passkey_authentication(
         &self,
         login_session_id: uuid::Uuid,
     ) -> Option<(PersonaId, PasskeyAuthentication)> {
-        let value = self
+        let cbor = self
             .hql
-            .get(CacheEntry::WebAuthnAuth, format!("{login_session_id}"))
+            .get_bytes(CacheEntry::WebAuthnAuth, format!("{login_session_id}"))
             .await
             .map_err(|err| {
                 error!(?err, "get passkey auth");
@@ -267,7 +275,7 @@ impl WebAuthn for AuthlyCtx {
             })
             .ok()?;
 
-        Some(value)
+        from_cbor(&cbor)
     }
 }
 
@@ -285,4 +293,24 @@ fn export_service_identity(svc_eid: ServiceId, ctx: &AuthlyCtx) -> anyhow::Resul
     std::fs::write(path, pem)?;
 
     Ok(())
+}
+
+fn to_cbor<T: Serialize>(value: &T) -> Option<Vec<u8>> {
+    match serde_cbor_2::to_vec(value) {
+        Ok(buf) => Some(buf),
+        Err(err) => {
+            error!(?err, "cbor serialization failed");
+            None
+        }
+    }
+}
+
+fn from_cbor<T: DeserializeOwned>(buf: &[u8]) -> Option<T> {
+    match serde_cbor_2::from_slice(buf) {
+        Ok(value) => Some(value),
+        Err(err) => {
+            error!(?err, "cbor deserialization failed");
+            None
+        }
+    }
 }

@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     collections::HashMap,
     fs,
     future::Future,
@@ -35,6 +34,7 @@ use authly_sqlite::{SqlitePool, Storage};
 use http::Uri;
 use indexmap::IndexMap;
 use indoc::indoc;
+use serde::{de::DeserializeOwned, Serialize};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
 use uuid::Uuid;
@@ -51,7 +51,7 @@ pub struct TestCtx {
     persona_directories: IndexMap<String, PersonaDirectory>,
     webauthn: Option<Arc<Webauthn>>,
 
-    cache: Arc<Mutex<HashMap<String, Box<dyn Any + Send>>>>,
+    cache: Arc<Mutex<HashMap<String, Vec<u8>>>>,
     cluster_message_log: Arc<Mutex<Vec<ClusterMessage>>>,
 
     /// When all TestCtx clones go out of scope,
@@ -232,22 +232,24 @@ impl TestCtx {
         self.instance.as_ref().expect("TestCtx has no instance")
     }
 
-    fn cache_insert<T: Any + Send>(&self, key: String, value: T) {
+    fn cache_insert_cbor<T: Serialize>(&self, key: String, value: T) {
+        let cbor = serde_cbor_2::to_vec(&value).unwrap();
+
         let mut cache = self.cache.lock().unwrap();
-        cache.insert(key, Box::new(value));
+        cache.insert(key, cbor);
     }
 
     #[expect(unused)]
-    fn cache_get<T: Any + Clone>(&self, key: &str) -> Option<T> {
+    fn cache_get_cbor<T: DeserializeOwned>(&self, key: &str) -> Option<T> {
         let mut cache = self.cache.lock().unwrap();
-        let value = cache.get(key)?;
-        Some(value.downcast_ref::<T>().unwrap().clone())
+        let cbor = cache.get(key)?;
+        Some(serde_cbor_2::from_slice(cbor).unwrap())
     }
 
-    fn cache_yank<T: Any + Clone>(&self, key: &str) -> Option<T> {
+    fn cache_yank_cbor<T: DeserializeOwned>(&self, key: &str) -> Option<T> {
         let mut cache = self.cache.lock().unwrap();
-        let value = cache.remove(key)?;
-        Some(value.downcast_ref::<T>().unwrap().clone())
+        let cbor = cache.remove(key)?;
+        Some(serde_cbor_2::from_slice(&cbor).unwrap())
     }
 }
 
@@ -380,14 +382,14 @@ impl WebAuthn for TestCtx {
         persona_id: authly_common::id::PersonaId,
         pk: PasskeyRegistration,
     ) {
-        self.cache_insert(format!("pk-reg-{persona_id}"), pk);
+        self.cache_insert_cbor(format!("pk-reg-{persona_id}"), pk);
     }
 
     async fn yank_passkey_registration(
         &self,
         persona_id: authly_common::id::PersonaId,
     ) -> Option<PasskeyRegistration> {
-        self.cache_yank(&format!("pk-reg-{persona_id}"))
+        self.cache_yank_cbor(&format!("pk-reg-{persona_id}"))
     }
 
     async fn cache_passkey_authentication(
@@ -395,14 +397,14 @@ impl WebAuthn for TestCtx {
         login_session_id: Uuid,
         value: (PersonaId, PasskeyAuthentication),
     ) {
-        self.cache_insert(format!("pk-auth-{login_session_id}"), value);
+        self.cache_insert_cbor(format!("pk-auth-{login_session_id}"), value);
     }
 
     async fn yank_passkey_authentication(
         &self,
         login_session_id: uuid::Uuid,
     ) -> Option<(PersonaId, PasskeyAuthentication)> {
-        self.cache_yank(&format!("pk-auth-{login_session_id}"))
+        self.cache_yank_cbor(&format!("pk-auth-{login_session_id}"))
     }
 }
 

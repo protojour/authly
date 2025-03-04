@@ -43,6 +43,7 @@ where
             post(app::persona::webauthn_register_finish::<Ctx>),
         )
         .route("/auth", get(auth::index))
+        .route("/auth/", get(auth::index))
         .route("/auth/login", post(auth::login::<Ctx>))
         .route(
             "/auth/webauthn/finish",

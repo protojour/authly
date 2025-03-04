@@ -49,7 +49,7 @@ generate-testdata:
         AUTHLY_K8S=true \
         AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
         AUTHLY_BAO_URL=http://localhost:8200 \
-            cargo run -p authly --features dev issue-cluster-key
+            cargo run -p authly issue-cluster-key
 
         AUTHLY_UID={{ authly_uid }} \
         AUTHLY_LOG=info \
@@ -59,7 +59,7 @@ generate-testdata:
         AUTHLY_EXPORT_TLS_TO_ETC=true \
         AUTHLY_BAO_TOKEN=theenigmaticbaobunofancientsecrets \
         AUTHLY_BAO_URL=http://localhost:8200 \
-            cargo run -p authly --features dev configure
+            cargo run -p authly configure
     fi
 
 # clean up data files used for local run
