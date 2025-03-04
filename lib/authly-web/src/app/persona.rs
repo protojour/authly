@@ -5,7 +5,7 @@ use authly_domain::{
     ctx::{GetDb, GetDecryptedDeks, WebAuthn},
     extract::{auth::WebAuth, base_uri::ProxiedBaseUri},
     repo::webauthn_repo,
-    webauthn::{self, RegisterPublicKeyCredential},
+    webauthn::{self, RegisterPublicKeyCredential, WebauthnError},
 };
 use axum::{
     extract::State,
@@ -84,11 +84,7 @@ where
                         }
                     }
 
-                    div id="passkeyreg" {
-                        button hx-post={(prefix)"/tab/persona/webauthn/register_start"} hx-target="#passkeyreg" {
-                            "Register new Passkey"
-                        }
-                    }
+                    (render_passkeyreg(&htmx, false, None))
                 }
             }
         },
@@ -132,6 +128,7 @@ where
 
 pub async fn webauthn_register_start<Ctx>(
     State(ctx): State<Ctx>,
+    htmx: Htmx,
     base_uri: ProxiedBaseUri,
     auth: WebAuth<()>,
 ) -> Result<Response, AppError>
@@ -152,11 +149,7 @@ where
     let hx_event_json =
         serde_json::to_string(&hx_event).map_err(|err| AppError::Internal(err.into()))?;
 
-    let html = html! {
-        div id="passkeyreg" {
-            "registering.."
-        }
-    };
+    let html = render_passkeyreg(&htmx, true, None);
 
     Ok(([(HX_TRIGGER, hx_event_json)], html).into_response())
 }
@@ -172,6 +165,7 @@ pub struct RegisterPublicKeyCredentialForm {
 pub async fn webauthn_register_finish<Ctx>(
     State(ctx): State<Ctx>,
     base_uri: ProxiedBaseUri,
+    htmx: Htmx,
     auth: WebAuth<()>,
     Form(form): Form<RegisterPublicKeyCredentialForm>,
 ) -> Result<Response, AppError>
@@ -187,19 +181,47 @@ where
     let credential: RegisterPublicKeyCredential =
         serde_json::from_str(&form.json).map_err(|err| AppError::InvalidInput(err.into()))?;
 
-    webauthn::webauthn_finish_registration(&ctx, &base_uri.0, persona_id, credential)
-        .await
-        .map_err(|err| AppError::Internal(err.into()))?;
+    match webauthn::webauthn_finish_registration(&ctx, &base_uri.0, persona_id, credential).await {
+        Ok(_) => {
+            info!(?persona_id, "passkey registered");
+            Ok((
+                [(HX_REFRESH, "true")],
+                html! {
+                    div id="passkeyreg" {
+                        "success!"
+                    }
+                },
+            )
+                .into_response())
+        }
+        Err(WebauthnError::Webauthn(error)) => {
+            Ok(render_passkeyreg(&htmx, false, Some(format!("{error:?}"))).into_response())
+        }
+        Err(err) => Err(AppError::Internal(err.into())),
+    }
+}
 
-    info!(?persona_id, "passkey registered");
+/// Render the "passkeyreg" div
+fn render_passkeyreg(htmx: &Htmx, registering: bool, error: Option<String>) -> Markup {
+    let prefix = &htmx.prefix;
 
-    Ok((
-        [(HX_REFRESH, "true")],
-        html! {
-            div id="passkeyreg" {
-                "success!"
+    html! {
+        div id="passkeyreg" {
+            @if let Some(error) = error {
+                article {
+                    "Passkey registration error: " code { (error) }
+                }
             }
-        },
-    )
-        .into_response())
+
+            @if registering {
+                button aria-busy="true" {
+                    "Registering.."
+                }
+            } @else {
+                button hx-post={(prefix)"/tab/persona/webauthn/register_start"} hx-target="#passkeyreg" {
+                    "Register new Passkey"
+                }
+            }
+        }
+    }
 }
