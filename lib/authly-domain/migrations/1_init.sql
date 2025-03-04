@@ -95,6 +95,16 @@ CREATE TABLE ent_attr (
     PRIMARY KEY (eid, attr_key)
 );
 
+CREATE TABLE ent_passkey (
+    eid BLOB NOT NULL,
+    cred_id BLOB NOT NULL,
+    pk_json BLOB NOT NULL,
+    created_at DATETIME NOT NULL,
+    last_used DATETIME,
+
+    PRIMARY KEY (eid, cred_id)
+);
+
 CREATE TABLE ent_rel (
     dir_key INTEGER NOT NULL REFERENCES directory(key) DEFERRABLE INITIALLY DEFERRED,
     prop_key INTEGER NOT NULL REFERENCES prop(key) DEFERRABLE INITIALLY DEFERRED,

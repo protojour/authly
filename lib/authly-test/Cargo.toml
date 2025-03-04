@@ -25,6 +25,7 @@ authly-common = { workspace = true, features = [
 anyhow = "1"
 arc-swap = "1.7"
 axum = { version = "0.7", features = ["macros"] }
+http = "1"
 indexmap = "2.7"
 indoc = "2"
 rcgen.workspace = true
@@ -39,6 +40,7 @@ tokio-util = { version = "0.7" }
 tonic = { version = "0.12", default-features = false }
 tower-server.workspace = true
 tracing = "0.1"
+uuid = "1"
 
 [dev-dependencies]
 authly-service = { path = "../authly-service" }
@@ -50,12 +52,13 @@ criterion = { version = "0.5", default-features = false }
 fnv = "1"
 futures-util = "0.3"
 hexhex = "1"
-http = "1"
 hyper-util = { version = "0.1", features = ["tokio", "server", "http2"] }
 itertools = "0.14"
 serde_json = "1"
 test-log = { version = "0.2", features = ["trace"] }
 tokio-rustls = "0.26"
+webauthn-authenticator-rs.workspace = true
+webauthn-rs-proto.workspace = true
 wiremock = "0.6.2"
 
 [[bench]]

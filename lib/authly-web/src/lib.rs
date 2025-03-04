@@ -1,5 +1,7 @@
 use authly_domain::{
-    ctx::{Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance},
+    ctx::{
+        Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance, WebAuthn,
+    },
     extract::base_uri::ForwardedPrefix,
 };
 use authly_webstatic::static_folder;
@@ -23,6 +25,7 @@ where
         + GetDecryptedDeks
         + Directories
         + GetHttpClient
+        + WebAuthn
         + Clone
         + Send
         + Sync
@@ -30,12 +33,24 @@ where
 {
     axum::Router::new()
         .route("/", get(app::index))
-        .route("/tab/persona", get(app::persona::persona))
+        .route("/tab/persona", get(app::persona::persona::<Ctx>))
+        .route(
+            "/tab/persona/webauthn/register_start",
+            post(app::persona::webauthn_register_start::<Ctx>),
+        )
+        .route(
+            "/tab/persona/webauthn/register_finish",
+            post(app::persona::webauthn_register_finish::<Ctx>),
+        )
         .route("/auth", get(auth::index))
         .route("/auth/login", post(auth::login::<Ctx>))
         .route(
+            "/auth/webauthn/finish",
+            post(auth::webauthn_auth_finish::<Ctx>),
+        )
+        .route(
             "/auth/oauth/:label/callback",
-            post(auth::oauth::oauth_callback),
+            post(auth::oauth::oauth_callback::<Ctx>),
         )
         .nest_service("/static", static_folder())
 }
@@ -43,10 +58,18 @@ where
 mod htmx {
     use http::HeaderName;
 
+    /// https://htmx.org/headers/hx-redirect/
     pub const HX_REDIRECT: HeaderName = HeaderName::from_static("hx-redirect");
 
+    /// https://htmx.org/attributes/hx-request/
     #[expect(unused)]
     pub const HX_REQUEST: HeaderName = HeaderName::from_static("hx-request");
+
+    /// https://htmx.org/headers/hx-trigger/
+    pub const HX_TRIGGER: HeaderName = HeaderName::from_static("hx-trigger");
+
+    /// https://htmx.org/reference/#response_headers
+    pub const HX_REFRESH: HeaderName = HeaderName::from_static("hx-refresh");
 }
 
 #[derive(Clone)]

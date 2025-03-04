@@ -2,7 +2,7 @@
 
 use std::{fs, sync::Arc};
 
-use authly_common::id::ServiceId;
+use authly_common::id::{PersonaId, ServiceId};
 use authly_domain::{
     builtins::Builtins,
     bus::{service_events::ServiceEventDispatcher, BusError, ClusterMessage},
@@ -10,17 +10,23 @@ use authly_domain::{
     ctx::{
         ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
         HostsConfig, KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus,
-        SetInstance,
+        SetInstance, WebAuthn,
     },
     directory::PersonaDirectory,
     encryption::DecryptedDeks,
     instance::AuthlyInstance,
+    webauthn::{
+        PasskeyAuthentication, PasskeyRegistration, Webauthn, WebauthnBuilder, WebauthnError,
+    },
 };
 use authly_hiqlite::HiqliteClient;
+use http::Uri;
 use indexmap::IndexMap;
+use reqwest::Url;
 use tracing::error;
+use uuid::Uuid;
 
-use crate::{platform::CertificateDistributionPlatform, AuthlyCtx};
+use crate::{platform::CertificateDistributionPlatform, AuthlyCtx, CacheEntry};
 
 impl GetDb for AuthlyCtx {
     type Db = HiqliteClient;
@@ -131,6 +137,137 @@ impl HostsConfig for AuthlyCtx {
 impl KubernetesConfig for AuthlyCtx {
     fn authly_local_k8s_namespace(&self) -> &str {
         &self.state.k8s_local_namespace
+    }
+}
+
+/// Each webauthn session is cached for 10 minutes
+const WEBAUTHN_TTL_SECS: i64 = 10 * 60;
+
+impl WebAuthn for AuthlyCtx {
+    /// Here we just store a new Webauthn for every public URL.
+    /// That might not be a sufficient strategy if subdomains are part of the picture.
+    /// In that case the "relying party" should be the common domain of all the supported subdomains.
+    fn get_webauthn(&self, public_uri: &Uri) -> Result<Arc<Webauthn>, WebauthnError> {
+        let mut map = self.webauthn_per_uri.lock().unwrap();
+        if let Some(webauthn) = map.get(public_uri) {
+            return Ok(webauthn.clone());
+        }
+
+        let Some(authority) = public_uri.authority() else {
+            error!("can't create webauthn: public uri has no authority");
+            return Err(WebauthnError::NotSupported);
+        };
+
+        // This is where we should possibly not use the whole hostname:
+        let relying_party_id = authority.host();
+
+        let mut rp_origin = String::new();
+        if let Some(scheme) = public_uri.scheme_str() {
+            rp_origin.push_str(&format!("{scheme}://"));
+        }
+
+        rp_origin.push_str(authority.host());
+
+        if let Some(port) = authority.port() {
+            rp_origin.push(':');
+            rp_origin.push_str(&format!("{port}"));
+        }
+
+        let rp_origin = Url::parse(&rp_origin).map_err(|err| {
+            error!(?err, "unable to parse webauthn Url");
+            WebauthnError::NotSupported
+        })?;
+
+        let webauthn = Arc::new(WebauthnBuilder::new(relying_party_id, &rp_origin)?.build()?);
+        map.insert(public_uri.clone(), webauthn.clone());
+
+        Ok(webauthn)
+    }
+
+    async fn cache_passkey_registration(
+        &self,
+        persona_id: authly_common::id::PersonaId,
+        pk: PasskeyRegistration,
+    ) {
+        self.hql
+            .put(
+                CacheEntry::WebAuthnRegistration,
+                format!("{persona_id}"),
+                &pk,
+                Some(WEBAUTHN_TTL_SECS),
+            )
+            .await
+            .map_err(|err| {
+                error!(?err, "put passkey reg");
+            })
+            .ok();
+    }
+
+    async fn yank_passkey_registration(
+        &self,
+        persona_id: authly_common::id::PersonaId,
+    ) -> Option<PasskeyRegistration> {
+        let value = self
+            .hql
+            .get(CacheEntry::WebAuthnRegistration, format!("{persona_id}"))
+            .await
+            .map_err(|err| {
+                error!(?err, "get passkey reg");
+            })
+            .ok()??;
+
+        self.hql
+            .delete(CacheEntry::WebAuthnRegistration, format!("{persona_id}"))
+            .await
+            .map_err(|err| {
+                error!(?err, "delete passkey reg");
+            })
+            .ok()?;
+
+        Some(value)
+    }
+
+    async fn cache_passkey_authentication(
+        &self,
+        login_session_id: Uuid,
+        value: (PersonaId, PasskeyAuthentication),
+    ) {
+        self.hql
+            .put(
+                CacheEntry::WebAuthnAuth,
+                format!("{login_session_id}"),
+                &value,
+                Some(WEBAUTHN_TTL_SECS),
+            )
+            .await
+            .map_err(|err| {
+                error!(?err, "put passkey auth");
+            })
+            .ok();
+    }
+
+    async fn yank_passkey_authentication(
+        &self,
+        login_session_id: uuid::Uuid,
+    ) -> Option<(PersonaId, PasskeyAuthentication)> {
+        let value = self
+            .hql
+            .get(CacheEntry::WebAuthnAuth, format!("{login_session_id}"))
+            .await
+            .map_err(|err| {
+                error!(?err, "get passkey auth");
+            })
+            .ok()??;
+
+        self.hql
+            .delete(CacheEntry::WebAuthnAuth, format!("{login_session_id}"))
+            .await
+            .map_err(|err| {
+                error!(?err, "delete passkey auth");
+            })
+            .ok()?;
+
+        Some(value)
     }
 }
 

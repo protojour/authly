@@ -20,7 +20,6 @@ authly-test = { path = "../../lib/authly-test" }
 authly-web = { path = "../../lib/authly-web" }
 
 anyhow = "1"
-rusqlite = { version = "0.33", features = ["bundled"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tower-server = { workspace = true, features = ["signal"] }
 tracing = "0.1"

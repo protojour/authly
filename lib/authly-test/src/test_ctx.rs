@@ -1,4 +1,6 @@
 use std::{
+    any::Any,
+    collections::HashMap,
     fs,
     future::Future,
     path::PathBuf,
@@ -6,7 +8,7 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use authly_common::id::ServiceId;
+use authly_common::id::{PersonaId, ServiceId};
 use authly_db::{params, Db, FromRow};
 use authly_domain::{
     builtins::Builtins,
@@ -18,7 +20,7 @@ use authly_domain::{
     ctx::{
         ClusterBus, Directories, GetBuiltins, GetDb, GetDecryptedDeks, GetHttpClient, GetInstance,
         HostsConfig, KubernetesConfig, LoadInstance, RedistributeCertificates, ServiceBus,
-        SetInstance,
+        SetInstance, WebAuthn,
     },
     directory::PersonaDirectory,
     encryption::{gen_prop_deks, DecryptedDeks, DecryptedMaster},
@@ -26,13 +28,16 @@ use authly_domain::{
     migration::Migrations,
     repo::{crypto_repo, init_repo},
     tls::{AuthlyCert, AuthlyCertKind},
+    webauthn::{PasskeyAuthentication, PasskeyRegistration, Webauthn, WebauthnError},
     IsLeaderDb,
 };
 use authly_sqlite::{SqlitePool, Storage};
+use http::Uri;
 use indexmap::IndexMap;
 use indoc::indoc;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
+use uuid::Uuid;
 
 /// The TestCtx allows writing tests that don't require the whole app running.
 /// E.g. it supports an in-memory database.
@@ -44,7 +49,9 @@ pub struct TestCtx {
     deks: Arc<ArcSwap<DecryptedDeks>>,
     svc_event_dispatcher: ServiceEventDispatcher,
     persona_directories: IndexMap<String, PersonaDirectory>,
+    webauthn: Option<Arc<Webauthn>>,
 
+    cache: Arc<Mutex<HashMap<String, Box<dyn Any + Send>>>>,
     cluster_message_log: Arc<Mutex<Vec<ClusterMessage>>>,
 
     /// When all TestCtx clones go out of scope,
@@ -65,6 +72,8 @@ impl TestCtx {
             deks: Default::default(),
             svc_event_dispatcher: ServiceEventDispatcher::new(cancel.clone()),
             persona_directories: Default::default(),
+            cache: Arc::new(Mutex::new(HashMap::new())),
+            webauthn: None,
             cluster_message_log: Default::default(),
             cancel_guard: Arc::new(cancel.drop_guard()),
         }
@@ -205,6 +214,11 @@ impl TestCtx {
         self
     }
 
+    pub fn with_webauthn(mut self, webauthn: Webauthn) -> Self {
+        self.webauthn = Some(Arc::new(webauthn));
+        self
+    }
+
     pub fn get_decrypted_deks(&self) -> Arc<DecryptedDeks> {
         self.deks.as_ref().load_full()
     }
@@ -216,6 +230,24 @@ impl TestCtx {
     #[track_caller]
     fn instance(&self) -> &ArcSwap<AuthlyInstance> {
         self.instance.as_ref().expect("TestCtx has no instance")
+    }
+
+    fn cache_insert<T: Any + Send>(&self, key: String, value: T) {
+        let mut cache = self.cache.lock().unwrap();
+        cache.insert(key, Box::new(value));
+    }
+
+    #[expect(unused)]
+    fn cache_get<T: Any + Clone>(&self, key: &str) -> Option<T> {
+        let mut cache = self.cache.lock().unwrap();
+        let value = cache.get(key)?;
+        Some(value.downcast_ref::<T>().unwrap().clone())
+    }
+
+    fn cache_yank<T: Any + Clone>(&self, key: &str) -> Option<T> {
+        let mut cache = self.cache.lock().unwrap();
+        let value = cache.remove(key)?;
+        Some(value.downcast_ref::<T>().unwrap().clone())
     }
 }
 
@@ -335,6 +367,42 @@ impl HostsConfig for TestCtx {
 impl KubernetesConfig for TestCtx {
     fn authly_local_k8s_namespace(&self) -> &str {
         "default"
+    }
+}
+
+impl WebAuthn for TestCtx {
+    fn get_webauthn(&self, _public_uri: &Uri) -> Result<Arc<Webauthn>, WebauthnError> {
+        self.webauthn.clone().ok_or(WebauthnError::NotSupported)
+    }
+
+    async fn cache_passkey_registration(
+        &self,
+        persona_id: authly_common::id::PersonaId,
+        pk: PasskeyRegistration,
+    ) {
+        self.cache_insert(format!("pk-reg-{persona_id}"), pk);
+    }
+
+    async fn yank_passkey_registration(
+        &self,
+        persona_id: authly_common::id::PersonaId,
+    ) -> Option<PasskeyRegistration> {
+        self.cache_yank(&format!("pk-reg-{persona_id}"))
+    }
+
+    async fn cache_passkey_authentication(
+        &self,
+        login_session_id: Uuid,
+        value: (PersonaId, PasskeyAuthentication),
+    ) {
+        self.cache_insert(format!("pk-auth-{login_session_id}"), value);
+    }
+
+    async fn yank_passkey_authentication(
+        &self,
+        login_session_id: uuid::Uuid,
+    ) -> Option<(PersonaId, PasskeyAuthentication)> {
+        self.cache_yank(&format!("pk-auth-{login_session_id}"))
     }
 }
 

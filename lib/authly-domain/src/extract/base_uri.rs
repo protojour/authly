@@ -1,10 +1,13 @@
 use std::{fmt::Display, str::FromStr};
 
+use axum::RequestPartsExt;
 use http::{
     request::Parts,
     uri::{self, Authority, PathAndQuery, Scheme},
     HeaderMap, Uri,
 };
+
+use crate::dev::IsDev;
 
 /// An extractor that tries to guess the public Uri based on proxy headers
 #[derive(Default)]
@@ -49,8 +52,18 @@ impl<S> axum::extract::FromRequestParts<S> for ProxiedBaseUri {
         // since the _base_ URI is what's desired, clear the path:
         uri_parts.path_and_query = None;
 
-        adjust_uri_proxy_parts(&mut uri_parts, &parts.headers)?;
-        Ok(Self(Uri::from_parts(uri_parts).map_err(|_| ())?))
+        if parts.extract::<IsDev>().await.unwrap_or(IsDev(false)).0 {
+            // dev mode
+            uri_parts.scheme = Some(Scheme::HTTP);
+            uri_parts.authority = Some(Authority::from_maybe_shared("localhost:12345").unwrap());
+            uri_parts.path_and_query = Some("/".parse().unwrap());
+        } else {
+            adjust_uri_proxy_parts(&mut uri_parts, &parts.headers)?;
+        }
+
+        Ok(Self(Uri::from_parts(uri_parts).map_err(|err| {
+            tracing::error!(?err, "proxied base uri")
+        })?))
     }
 }
 

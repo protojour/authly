@@ -57,5 +57,7 @@ time = "0.3"
 tokio = { version = "1", features = ["macros"] }
 tokio-util = { version = "0.7" }
 tracing = "0.1"
+uuid = "1"
 x509-parser = "0.16"
 zeroize = "1.8"
+webauthn-rs.workspace = true

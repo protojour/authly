@@ -9,6 +9,7 @@ mod test_document;
 mod test_metadata;
 mod test_tls;
 mod test_ultradb;
+mod test_webauthn;
 
 #[test]
 fn directory_changed_serde() {

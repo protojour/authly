@@ -1,10 +1,7 @@
 use authly_domain::extract::auth::WebAuth;
 use axum::response::{IntoResponse, Response};
-use http::{
-    header::{InvalidHeaderValue, LOCATION},
-    HeaderValue, StatusCode,
-};
-use maud::{html, Markup, DOCTYPE};
+use http::{header::LOCATION, StatusCode};
+use maud::{html, Markup, PreEscaped, DOCTYPE};
 use tracing::warn;
 
 use crate::{htmx::HX_REDIRECT, Htmx};
@@ -23,13 +20,13 @@ pub async fn index(
         StatusCode::FOUND,
         [(
             if hx_request { HX_REDIRECT } else { LOCATION },
-            HeaderValue::from_str(&format!("{prefix}/tab/persona"))?,
+            format!("{prefix}/tab/persona"),
         )],
     )
         .into_response())
 }
 
-fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup) -> Markup {
+fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup, js: Option<String>) -> Markup {
     html! {
         (DOCTYPE)
         html {
@@ -39,6 +36,10 @@ fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup) -> Markup {
                 meta name="color-scheme" content="light dark";
                 title { "Authly" }
                 script src={(prefix)"/static/vendor/htmx.min.js"} {}
+                script src={(prefix)"/static/vendor/base64.min.js"} {}
+                // The relative-time Web Component:
+                script type="module" src={(prefix)"/static/vendor/relative-time-element-bundle.js"} {}
+
                 link rel="shortcut icon" href={(prefix)"/static/favicon.svg"} type="image/svg+xml";
                 link rel="stylesheet" href={(prefix)"/static/vendor/pico.classless.min.css"};
                 link rel="stylesheet" href={(prefix)"/static/style.css"};
@@ -51,14 +52,26 @@ fn render_app_tab(Htmx { prefix, .. }: &Htmx, tab: Markup) -> Markup {
                     (tab)
                 }
             }
+
+            @if let Some(js) = js {
+                script { (PreEscaped(js)) }
+            }
         }
     }
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum AppError {
+    #[error("must be persona")]
+    MustBePersona,
     #[error("invalid header value")]
-    InvalidHeaderValue(#[from] InvalidHeaderValue),
+    InvalidInput(anyhow::Error),
+    #[error("internal: {0}")]
+    Internal(anyhow::Error),
+    #[error("date format: {0}")]
+    TimeFormat(#[from] time::error::Format),
+    #[error("plain format: {0}")]
+    SerdePlain(#[from] serde_plain::Error),
 }
 
 impl IntoResponse for AppError {

@@ -109,6 +109,8 @@ skip = [
     "hashbrown",
     # FIXME: hexhex:
     "fallible-iterator",
+    # webauthn-rs git dependency:
+    "base64urlsafedata",
     # transitive/outdated:
     "base64",
     "getrandom",
@@ -137,6 +139,7 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [
+    "git+https://github.com/protojour/webauthn-rs.git?branch=without-openssl-build-dependency",
     "git+https://github.com/protojour/authly-lib.git",
     "git+https://github.com/sebadob/hiqlite.git",
     "git+https://github.com/rustls/rcgen.git",

@@ -9,7 +9,7 @@ use authly_domain::{
     session::init_session,
 };
 use axum::{
-    extract::{FromRef, Path, Query, State},
+    extract::{Path, Query, State},
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::CookieJar;
@@ -17,17 +17,6 @@ use http::StatusCode;
 use rand::{rngs::OsRng, Rng};
 use reqwest::Url;
 use tracing::warn;
-
-pub struct OAuthState<Ctx>(pub Ctx);
-
-impl<Ctx> FromRef<Ctx> for OAuthState<Ctx>
-where
-    Ctx: GetDb + Directories + Clone,
-{
-    fn from_ref(input: &Ctx) -> Self {
-        Self(input.clone())
-    }
-}
 
 #[derive(Debug)]
 pub enum OAuthError {
@@ -71,14 +60,15 @@ impl IntoResponse for OAuthError {
     }
 }
 
-pub async fn oauth_callback(
-    State(OAuthState(ctx)): State<
-        OAuthState<impl GetDb + Directories + GetHttpClient + GetDecryptedDeks>,
-    >,
+pub async fn oauth_callback<Ctx>(
+    State(ctx): State<Ctx>,
     base_uri: ProxiedBaseUri,
     Path(label): Path<String>,
     query: Query<BTreeMap<String, String>>,
-) -> Result<Response, OAuthError> {
+) -> Result<Response, OAuthError>
+where
+    Ctx: GetDb + Directories + GetHttpClient + GetDecryptedDeks,
+{
     let persona_directories = ctx.load_persona_directories();
     let Some(PersonaDirectory::OAuth(oauth)) = persona_directories.get(&label) else {
         return Err(OAuthError::PersonaDirectoryNotFound);

@@ -9,11 +9,13 @@
   --pico-outline-width: 1px;
   --pico-form-element-spacing-vertical: 8px;
   --pico-form-element-spacing-horizontal: 8px;
-  --pico-spacing: 0;
 }
 
 :root:not([data-theme="dark"]) {
+  /*
+  Didn't understand why this was here, it made text unreadable on dark mode
   --pico-color: rgb(48, 48, 48);
+  */
   --pico-primary: rgb(48, 48, 48);
   --pico-primary-background: rgb(16, 16, 16);
   --pico-primary-border: rgb(48, 48, 48);

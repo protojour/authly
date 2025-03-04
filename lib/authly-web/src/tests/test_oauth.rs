@@ -25,8 +25,6 @@ use wiremock::{
     Mock, ResponseTemplate,
 };
 
-use crate::auth::oauth::OAuthState;
-
 fn random_oauth(dir_id: DirectoryId, dir_key: DirKey) -> OAuthDirectory {
     fn rnd() -> String {
         let mut bytes = [0; 8];
@@ -330,7 +328,7 @@ async fn test_callback_github_like() {
         .await;
 
     let _result = crate::auth::oauth::oauth_callback(
-        State(OAuthState(ctx)),
+        State(ctx),
         ProxiedBaseUri("http://localhost".parse().unwrap()),
         Path("buksehub".to_string()),
         Query([("code".to_string(), code.to_string())].into()),

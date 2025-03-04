@@ -55,6 +55,8 @@ mimalloc = "0.1.43"
 num-derive = "0.4"
 num-traits = "0.2"
 openraft = { version = "0.9", default-features = false }
+# webauthn-rs on musl needs openssl/vendored:
+openssl = { version = "0.10", features = ["vendored"] }
 rand = "0.8"
 rcgen.workspace = true
 reqwest.workspace = true
@@ -79,3 +81,4 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
     "fmt",
     "ansi",
 ] }
+uuid = "1"

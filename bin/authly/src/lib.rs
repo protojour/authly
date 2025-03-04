@@ -1,10 +1,11 @@
 #![deny(unsafe_code)]
 
 use std::{
+    collections::HashMap,
     net::{Ipv4Addr, SocketAddr},
     ops::Deref,
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -21,11 +22,13 @@ use authly_domain::{
     remote_addr::remote_addr_middleware,
     repo::{crypto_repo, init_repo, settings_repo},
     settings::Settings,
+    webauthn::Webauthn,
     IsLeaderDb,
 };
 use authly_hiqlite::HiqliteClient;
 use axum::{response::IntoResponse, Json};
 pub use env_config::EnvConfig;
+use http::Uri;
 use indexmap::IndexMap;
 use load_docs::load_cfg_documents;
 use openraft::RaftMetrics;
@@ -88,6 +91,7 @@ struct AuthlyState {
     deks: ArcSwap<DecryptedDeks>,
     persona_directories: ArcSwap<IndexMap<String, PersonaDirectory>>,
     internet_http_client: reqwest::Client,
+    webauthn_per_uri: Mutex<HashMap<Uri, Arc<Webauthn>>>,
     /// Signal triggered when the app is shutting down:
     shutdown: CancellationToken,
     cert_distribution_platform: CertificateDistributionPlatform,
@@ -191,7 +195,8 @@ pub async fn configure() -> anyhow::Result<()> {
 
 #[derive(Debug, Serialize, Deserialize, strum::EnumIter, num_derive::ToPrimitive)]
 enum CacheEntry {
-    DummyForNow,
+    WebAuthnRegistration,
+    WebAuthnAuth,
 }
 
 async fn initialize() -> anyhow::Result<Init> {
@@ -251,6 +256,7 @@ async fn initialize() -> anyhow::Result<Init> {
             deks: ArcSwap::new(Arc::new(deks)),
             persona_directories: ArcSwap::new(Arc::new(persona_directories)),
             internet_http_client: reqwest::Client::new(),
+            webauthn_per_uri: Default::default(),
             cert_distribution_platform,
             svc_event_dispatcher: ServiceEventDispatcher::new(shutdown.clone()),
             shutdown,
