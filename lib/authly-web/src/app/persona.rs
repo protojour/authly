@@ -16,7 +16,7 @@ use indoc::formatdoc;
 use maud::{html, Markup};
 use serde::Deserialize;
 use time::format_description::well_known::Rfc3339;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{
     app::tabs::{render_nav_tab_list, Tab},
@@ -194,10 +194,19 @@ where
             )
                 .into_response())
         }
-        Err(WebauthnError::Webauthn(error)) => {
-            Ok(render_passkeyreg(&htmx, false, Some(format!("{error:?}"))).into_response())
+        Err(err) => {
+            warn!(?err, "WebAuthn registration error");
+
+            let msg = match err {
+                WebauthnError::NotSupported => "Not supported".to_string(),
+                WebauthnError::NoSession => "No WebAuthn server session was found".to_string(),
+                WebauthnError::Webauthn(err) => format!("WebAuthn error: {err:?}"),
+                // Don't expose other internal errors
+                _err => "Internal error".to_string(),
+            };
+
+            Ok(render_passkeyreg(&htmx, false, Some(msg)).into_response())
         }
-        Err(err) => Err(AppError::Internal(err.into())),
     }
 }
 

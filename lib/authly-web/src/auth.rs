@@ -150,13 +150,22 @@ fn login_form(prefix: &str, params: &QueryParams, message: Option<&str>) -> Mark
     )
 }
 
-// NOTE: This is currently sent "unencrypted" and can be MITMed by whoever terminates SSL outside Authly's control,
-// when the web auth routes are exposed on the internet.
+/// NOTE: This is currently sent "unencrypted" and can be MITMed by whoever terminates SSL outside Authly's control,
+/// when the web auth routes are exposed on the internet.
 #[derive(Deserialize)]
 pub struct LoginBody {
-    action: String,
+    /// The login action is encoded within the form from the UI side
+    action: LoginAction,
     username: String,
     password: String,
+}
+
+#[derive(Deserialize)]
+enum LoginAction {
+    #[serde(rename = "login")]
+    Login,
+    #[serde(rename = "webauthn")]
+    WebAuthn,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -193,8 +202,8 @@ where
         Ok(hx_event_json)
     }
 
-    match action.as_str() {
-        "login" => {
+    match action {
+        LoginAction::Login => {
             let login_options = LoginOptions::default().dev(is_dev);
 
             match try_username_password_login(&ctx, peer_svc, username, password, login_options)
@@ -213,7 +222,7 @@ where
                 }
             }
         }
-        "webauthn" => {
+        LoginAction::WebAuthn => {
             match webauthn_start_event_header_value(&ctx, &base_uri.0, login_session, &username)
                 .await
             {
@@ -223,13 +232,13 @@ where
                 )
                     .into_response(),
                 Err(err) => {
-                    tracing::error!(?err, "webauthn auth");
+                    tracing::warn!(?err, "webauthn auth");
 
-                    login_form(&prefix, &params, Some("Webauthn error")).into_response()
+                    // Error message exposed to users to not expose internal details:
+                    login_form(&prefix, &params, Some("WebAuthn error")).into_response()
                 }
             }
         }
-        _ => login_form(&prefix, &params, Some("Invalid login action")).into_response(),
     }
 }
 
@@ -267,8 +276,9 @@ where
     {
         Ok((_persona_id, session)) => Ok(login_success_redirect(session, &params)),
         Err(err) => {
-            info!(?err, "webauthn auth finish error");
-            Ok(login_form(&prefix, &params, Some("webauthn auth error")).into_response())
+            info!(?err, "WebAuthn auth finish error");
+
+            Ok(login_form(&prefix, &params, Some("WebAuthn authentication error")).into_response())
         }
     }
 }

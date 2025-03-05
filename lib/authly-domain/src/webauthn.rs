@@ -21,12 +21,13 @@ use crate::{
 
 #[derive(Error, Debug)]
 pub enum WebauthnError {
-    #[error("webauthn not supported")]
+    #[error("Webauthn not supported")]
     NotSupported,
-    #[error("no session")]
+    #[error("NoSession")]
     NoSession,
-    #[error("no username")]
-    NoUsername,
+    /// NB: This should not be directly exposed in the Auth UI
+    #[error("Username not found")]
+    UsernameNotFound,
     #[error("db")]
     Db(#[from] DbError),
     #[error("webauthn")]
@@ -51,7 +52,7 @@ pub async fn webauthn_start_registration(
         &deks,
     )
     .await?
-    .ok_or_else(|| WebauthnError::NoUsername)?;
+    .ok_or_else(|| WebauthnError::UsernameNotFound)?;
 
     let (challenge_response, passkey_registration) =
         deps.get_webauthn(public_uri)?.start_passkey_registration(
