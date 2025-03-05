@@ -35,6 +35,7 @@ use http::Uri;
 use indexmap::IndexMap;
 use indoc::indoc;
 use serde::{de::DeserializeOwned, Serialize};
+use time::Duration;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::info;
 use uuid::Uuid;
@@ -381,8 +382,11 @@ impl WebAuthn for TestCtx {
         &self,
         persona_id: authly_common::id::PersonaId,
         pk: PasskeyRegistration,
+        ttl: Duration,
     ) {
-        self.cache_insert_cbor(format!("pk-reg-{persona_id}"), pk);
+        if ttl.whole_seconds() > 0 {
+            self.cache_insert_cbor(format!("pk-reg-{persona_id}"), pk);
+        }
     }
 
     async fn yank_passkey_registration(
@@ -396,8 +400,11 @@ impl WebAuthn for TestCtx {
         &self,
         login_session_id: Uuid,
         value: (PersonaId, PasskeyAuthentication),
+        ttl: Duration,
     ) {
-        self.cache_insert_cbor(format!("pk-auth-{login_session_id}"), value);
+        if ttl.whole_seconds() > 0 {
+            self.cache_insert_cbor(format!("pk-auth-{login_session_id}"), value);
+        }
     }
 
     async fn yank_passkey_authentication(

@@ -3,6 +3,7 @@ use authly_db::DbError;
 use hexhex::Hex;
 use http::Uri;
 use thiserror::Error;
+use time::Duration;
 use tracing::info;
 use uuid::Uuid;
 pub use webauthn_rs::prelude::{
@@ -40,6 +41,7 @@ pub async fn webauthn_start_registration(
     deps: &(impl GetDb + WebAuthn + GetDecryptedDeks),
     public_uri: &Uri,
     persona_id: PersonaId,
+    session_ttl: Duration,
 ) -> Result<CreationChallengeResponse, WebauthnError> {
     let uuid = Uuid::from_bytes(persona_id.to_raw_array());
     let already_registered_credentials = vec![];
@@ -62,7 +64,7 @@ pub async fn webauthn_start_registration(
             Some(already_registered_credentials),
         )?;
 
-    deps.cache_passkey_registration(persona_id, passkey_registration)
+    deps.cache_passkey_registration(persona_id, passkey_registration, session_ttl)
         .await;
 
     Ok(challenge_response)
@@ -98,6 +100,7 @@ pub async fn webauthn_start_authentication(
     public_uri: &Uri,
     login_session_id: Uuid,
     username: &str,
+    session_ttl: Duration,
 ) -> Result<RequestChallengeResponse, WebauthnError> {
     let ident_fingerprint = {
         let deks = deps.get_decrypted_deks();
@@ -123,8 +126,12 @@ pub async fn webauthn_start_authentication(
     // If there were any passkeys for the user, store the authentication session in the cache.
     // This helps concealing internal state when the username is not associated with any passkeys..
     if let Some(persona_id) = eid {
-        deps.cache_passkey_authentication(login_session_id, (persona_id, passkey_authentication))
-            .await;
+        deps.cache_passkey_authentication(
+            login_session_id,
+            (persona_id, passkey_authentication),
+            session_ttl,
+        )
+        .await;
     }
 
     Ok(challenge_response)

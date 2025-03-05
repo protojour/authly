@@ -7,6 +7,7 @@ use authly_domain::{
 use hexhex::hex_literal;
 use http::Uri;
 use reqwest::Url;
+use time::Duration;
 use uuid::Uuid;
 use webauthn_authenticator_rs::{softtoken::SoftToken, AuthenticatorBackend};
 
@@ -66,6 +67,7 @@ async fn test_webauthn_happy_path() {
             &localhost_uri(),
             login_session_id,
             TESTUSER,
+            Duration::seconds(1),
         )
         .await
         .unwrap();
@@ -122,6 +124,7 @@ async fn test_webauthn_invalid_username() {
             &localhost_uri(),
             Uuid::new_v4(),
             "username.incorrect",
+            Duration::seconds(1),
         )
         .await
         .unwrap();
@@ -145,10 +148,15 @@ async fn test_webauthn_unregistered_token() {
         .await
         .unwrap();
 
-    let auth_challenge =
-        webauthn::webauthn_start_authentication(&ctx, &localhost_uri(), Uuid::new_v4(), TESTUSER)
-            .await
-            .unwrap();
+    let auth_challenge = webauthn::webauthn_start_authentication(
+        &ctx,
+        &localhost_uri(),
+        Uuid::new_v4(),
+        TESTUSER,
+        Duration::seconds(1),
+    )
+    .await
+    .unwrap();
 
     let mut token = new_soft_token();
     let error = token
@@ -163,9 +171,14 @@ async fn test_webauthn_unregistered_token() {
 }
 
 async fn register_token(persona_id: PersonaId, token: &mut SoftToken, ctx: &TestCtx) {
-    let reg_challenge = webauthn::webauthn_start_registration(ctx, &localhost_uri(), persona_id)
-        .await
-        .unwrap();
+    let reg_challenge = webauthn::webauthn_start_registration(
+        ctx,
+        &localhost_uri(),
+        persona_id,
+        Duration::seconds(1),
+    )
+    .await
+    .unwrap();
 
     let credential = token
         .perform_register(localhost(), reg_challenge.public_key, TIMEOUT_MS)

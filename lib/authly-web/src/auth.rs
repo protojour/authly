@@ -19,11 +19,17 @@ use http::{StatusCode, Uri};
 use indoc::formatdoc;
 use maud::{html, Markup, PreEscaped, DOCTYPE};
 use serde::{Deserialize, Serialize};
+use time::Duration;
 use tracing::{info, warn};
 
 use crate::htmx::{HX_REDIRECT, HX_TRIGGER};
 
 pub mod oauth;
+
+/// How long a WebAuthn authentication session lasts on the server side.
+///
+/// IMPORTANT: The server needs to be rate limited to mitigate DoS attacks.
+const WEBAUTHN_AUTH_SESSION_TTL: Duration = Duration::minutes(2);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryParams {
@@ -193,9 +199,14 @@ where
         login_session: LoginSession,
         username: &str,
     ) -> anyhow::Result<String> {
-        let challenge_response =
-            webauthn::webauthn_start_authentication(ctx, base_uri, login_session.0, username)
-                .await?;
+        let challenge_response = webauthn::webauthn_start_authentication(
+            ctx,
+            base_uri,
+            login_session.0,
+            username,
+            WEBAUTHN_AUTH_SESSION_TTL,
+        )
+        .await?;
         let hx_event = BTreeMap::from_iter([("webauthnAuthStart", challenge_response)]);
         let hx_event_json = serde_json::to_string(&hx_event)?;
 

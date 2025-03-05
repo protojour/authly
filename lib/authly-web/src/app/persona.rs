@@ -15,7 +15,7 @@ use axum::{
 use indoc::formatdoc;
 use maud::{html, Markup};
 use serde::Deserialize;
-use time::format_description::well_known::Rfc3339;
+use time::{format_description::well_known::Rfc3339, Duration};
 use tracing::{info, warn};
 
 use crate::{
@@ -25,6 +25,8 @@ use crate::{
 };
 
 use super::{render_app_tab, AppError};
+
+const WEBAUTHN_REGISTRATION_SESSION_TTL: Duration = Duration::minutes(10);
 
 pub async fn persona<Ctx>(
     State(ctx): State<Ctx>,
@@ -142,9 +144,14 @@ where
         .try_into()
         .map_err(|_| AppError::MustBePersona)?;
 
-    let challenge_response = webauthn::webauthn_start_registration(&ctx, &base_uri.0, persona_id)
-        .await
-        .map_err(|err| AppError::Internal(err.into()))?;
+    let challenge_response = webauthn::webauthn_start_registration(
+        &ctx,
+        &base_uri.0,
+        persona_id,
+        WEBAUTHN_REGISTRATION_SESSION_TTL,
+    )
+    .await
+    .map_err(|err| AppError::Internal(err.into()))?;
     let hx_event = BTreeMap::from_iter([("webauthnRegisterStart", challenge_response)]);
     let hx_event_json =
         serde_json::to_string(&hx_event).map_err(|err| AppError::Internal(err.into()))?;

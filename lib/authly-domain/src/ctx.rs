@@ -4,6 +4,7 @@ use authly_common::id::{PersonaId, ServiceId};
 use authly_db::Db;
 use http::Uri;
 use indexmap::IndexMap;
+use time::Duration;
 use uuid::Uuid;
 use webauthn_rs::{
     prelude::{PasskeyAuthentication, PasskeyRegistration},
@@ -103,6 +104,7 @@ pub trait WebAuthn {
         &self,
         persona_id: PersonaId,
         pk: PasskeyRegistration,
+        ttl: Duration,
     ) -> impl Future<Output = ()> + Send;
 
     /// Yank passkey registration state out of the cache
@@ -116,6 +118,7 @@ pub trait WebAuthn {
         &self,
         login_session_id: Uuid,
         value: (PersonaId, PasskeyAuthentication),
+        ttl: Duration,
     ) -> impl Future<Output = ()> + Send;
 
     /// Yank passkey authentication state from the cache

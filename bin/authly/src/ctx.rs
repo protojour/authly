@@ -24,6 +24,7 @@ use http::Uri;
 use indexmap::IndexMap;
 use reqwest::Url;
 use serde::{de::DeserializeOwned, Serialize};
+use time::Duration;
 use tracing::error;
 use uuid::Uuid;
 
@@ -141,9 +142,6 @@ impl KubernetesConfig for AuthlyCtx {
     }
 }
 
-/// Each webauthn session is cached for 10 minutes
-const WEBAUTHN_TTL_SECS: i64 = 10 * 60;
-
 /// WebAuthn caching uses the CBOR serialization format,
 /// because it's known to work well and supported upstream (webauthn-rs).
 /// postcard/bincode does not work.
@@ -192,6 +190,7 @@ impl WebAuthn for AuthlyCtx {
         &self,
         persona_id: authly_common::id::PersonaId,
         pk: PasskeyRegistration,
+        ttl: Duration,
     ) {
         if let Some(cbor) = to_cbor(&pk) {
             self.hql
@@ -199,7 +198,7 @@ impl WebAuthn for AuthlyCtx {
                     CacheEntry::WebAuthnRegistration,
                     format!("{persona_id}"),
                     cbor,
-                    Some(WEBAUTHN_TTL_SECS),
+                    Some(ttl.whole_seconds()),
                 )
                 .await
                 .map_err(|err| {
@@ -237,6 +236,7 @@ impl WebAuthn for AuthlyCtx {
         &self,
         login_session_id: Uuid,
         value: (PersonaId, PasskeyAuthentication),
+        ttl: Duration,
     ) {
         if let Some(cbor) = to_cbor(&value) {
             self.hql
@@ -244,7 +244,7 @@ impl WebAuthn for AuthlyCtx {
                     CacheEntry::WebAuthnAuth,
                     format!("{login_session_id}"),
                     cbor,
-                    Some(WEBAUTHN_TTL_SECS),
+                    Some(ttl.whole_seconds()),
                 )
                 .await
                 .map_err(|err| {
