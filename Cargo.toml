@@ -23,7 +23,7 @@ authors = ["Protojour dev team <devs@protojour.com>"]
 edition = "2024"
 license = "AGPL-3.0"
 repository = "https://github.com/protojour/authly"
-rust-version = "1.83"
+rust-version = "1.85"
 publish = false
 
 [workspace.dependencies]
