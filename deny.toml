@@ -30,6 +30,8 @@ feature-depth = 1
 ignore = [
     # FIXME: proc-macro-error (fixed on `maud` upgrade):
     "RUSTSEC-2024-0370",
+    # FIXME: "paste" is unmaintained:
+    "RUSTSEC-2024-0436",
 ]
 
 
@@ -103,25 +105,51 @@ skip = [
     "axum",
     "axum-core",
     "matchit",
+    # because crypto libraries require older "rand", authly still uses rand 0.8:
+    "rand",
+    "rand_chacha",
+    "rand_core",
     # FIXME (tower 0.4):
     "tower",
     "indexmap",
     "hashbrown",
     # FIXME: hexhex:
     "fallible-iterator",
+    # FIXME: hiqlite/cryptr:
+    "bincode",
+    # FIXME: webauthn-rs duplicate dependencies
+    "asn1-rs",
+    "asn1-rs-derive",
+    "der-parser",
+    "oid-registry",
+    "x509-parser",
     # webauthn-rs git dependency:
     "base64urlsafedata",
     # transitive/outdated:
+    "bindgen",
     "base64",
     "getrandom",
+    "rustc-hash",
     "thiserror",
     "thiserror-impl",
     # tracing:
     "regex-syntax",
     "regex-automata",
+    # bindgen:
+    "rustix",
+    "linux-raw-sys",
     # probably can't help themselves:
     "itertools",
     "windows-sys",
+    "windows-targets",
+    "windows_aarch64_gnullvm",
+    "windows_aarch64_msvc",
+    "windows_i686_gnu",
+    "windows_i686_gnullvm",
+    "windows_i686_msvc",
+    "windows_x86_64_gnu",
+    "windows_x86_64_gnullvm",
+    "windows_x86_64_msvc",
     "wasi",
 ]
 

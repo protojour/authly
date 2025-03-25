@@ -16,7 +16,7 @@ jobs:
       - uses: taiki-e/install-action@cargo-deny
       - uses: taiki-e/install-action@protoc
       - run: cargo fmt --all -- --check
-      - run: cargo deny check all
+      - run: cargo deny check all --deny unnecessary-skip
       - run: cargo clippy --all-targets
 
   authly-test:

@@ -157,7 +157,7 @@ async fn test_tls_invalid_host_cert() {
     let error_source = error.source();
 
     assert_eq!(
-        "Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(NotValidForName) } }))",
+        r#"Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(NotValidForNameContext { expected: DnsName("localhost"), presented: ["DnsName(\"gooofy\")"] }) } }))"#,
         format!("{error_source:?}"),
     );
 }
