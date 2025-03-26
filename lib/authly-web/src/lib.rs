@@ -5,10 +5,7 @@ use authly_domain::{
     extract::base_uri::ForwardedPrefix,
 };
 use authly_webstatic::static_folder;
-use axum::{
-    async_trait,
-    routing::{get, post},
-};
+use axum::routing::{get, post};
 use http::request::Parts;
 
 pub mod app;
@@ -50,7 +47,7 @@ where
             post(auth::webauthn_auth_finish::<Ctx>),
         )
         .route(
-            "/auth/oauth/:label/callback",
+            "/auth/oauth/{label}/callback",
             post(auth::oauth::oauth_callback::<Ctx>),
         )
         .nest_service("/static", static_folder())
@@ -79,7 +76,6 @@ pub struct Htmx {
     prefix: String,
 }
 
-#[async_trait]
 impl<S: Sync> axum::extract::FromRequestParts<S> for Htmx {
     type Rejection = ();
 

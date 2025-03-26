@@ -28,8 +28,6 @@ feature-depth = 1
 # https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
 [advisories]
 ignore = [
-    # FIXME: proc-macro-error (fixed on `maud` upgrade):
-    "RUSTSEC-2024-0370",
     # FIXME: "paste" is unmaintained:
     "RUSTSEC-2024-0436",
 ]
@@ -101,18 +99,10 @@ deny = []
 skip = [
     # because of (temporary) git dependency:
     "rcgen",
-    # because of (temporary) outdated axum:
-    "axum",
-    "axum-core",
-    "matchit",
     # because crypto libraries require older "rand", authly still uses rand 0.8:
     "rand",
     "rand_chacha",
     "rand_core",
-    # FIXME (tower 0.4):
-    "tower",
-    "indexmap",
-    "hashbrown",
     # FIXME: hexhex:
     "fallible-iterator",
     # FIXME: hiqlite/cryptr:

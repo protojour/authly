@@ -82,8 +82,7 @@ pub struct VerifiedAccessToken {
     pub claims: AuthlyAccessTokenClaims,
 }
 
-#[axum::async_trait]
-impl<Ctx> axum::extract::FromRequestParts<Ctx> for VerifiedAccessToken
+impl<Ctx: Sync> axum::extract::FromRequestParts<Ctx> for VerifiedAccessToken
 where
     Ctx: GetInstance + Send + Sync,
 {

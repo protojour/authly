@@ -20,7 +20,6 @@ impl LoginSession {
     }
 }
 
-#[axum::async_trait]
 impl<S: Send + Sync> axum::extract::FromRequestParts<S> for LoginSession {
     type Rejection = ();
 

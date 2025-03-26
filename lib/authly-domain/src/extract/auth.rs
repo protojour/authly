@@ -35,7 +35,6 @@ pub struct WebAuth<R: VerifyAuthlyRole> {
     _phantom: PhantomData<R>,
 }
 
-#[axum::async_trait]
 impl<Ctx, R: VerifyAuthlyRole> axum::extract::FromRequestParts<Ctx> for ApiAuth<R>
 where
     Ctx: GetDb + GetInstance + Send + Sync,
@@ -50,7 +49,6 @@ where
     }
 }
 
-#[axum::async_trait]
 impl<Ctx, R: VerifyAuthlyRole> axum::extract::FromRequestParts<Ctx> for WebAuth<R>
 where
     Ctx: GetDb + GetInstance + Send + Sync,

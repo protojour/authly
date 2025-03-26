@@ -23,8 +23,8 @@ authly-common = { workspace = true, features = [
 ] }
 
 anyhow = "1"
-axum = { version = "0.7", features = ["macros"] }
-axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.10", features = ["cookie", "typed-header"] }
 blake3 = "1.5"
 bytes = "1"
 futures-util = "0.3"
@@ -39,7 +39,7 @@ serde = "1"
 serde_json = "1"
 thiserror = "2"
 time = { version = "0.3", features = ["serde"] }
-tonic = { version = "0.12", default-features = false }
+tonic = { version = "0.13", default-features = false }
 tokio = { version = "1", features = ["macros"] }
 tokio-stream = "0.1"
 tokio-util = { version = "0.7" }

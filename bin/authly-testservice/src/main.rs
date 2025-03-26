@@ -394,7 +394,6 @@ struct HtmlCtx {
     prefix: String,
 }
 
-#[axum::async_trait]
 impl axum::extract::FromRequestParts<Ctx> for HtmlCtx {
     type Rejection = Error;
 
