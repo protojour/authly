@@ -19,8 +19,7 @@ impl Display for ProxiedUri {
     }
 }
 
-#[axum::async_trait]
-impl<S> axum::extract::FromRequestParts<S> for ProxiedUri {
+impl<S: Sync> axum::extract::FromRequestParts<S> for ProxiedUri {
     type Rejection = ();
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
@@ -42,8 +41,7 @@ impl Display for ProxiedBaseUri {
     }
 }
 
-#[axum::async_trait]
-impl<S> axum::extract::FromRequestParts<S> for ProxiedBaseUri {
+impl<S: Sync> axum::extract::FromRequestParts<S> for ProxiedBaseUri {
     type Rejection = ();
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
@@ -70,8 +68,7 @@ impl<S> axum::extract::FromRequestParts<S> for ProxiedBaseUri {
 #[derive(Default)]
 pub struct ForwardedPrefix(pub String);
 
-#[axum::async_trait]
-impl<S> axum::extract::FromRequestParts<S> for ForwardedPrefix {
+impl<S: Sync> axum::extract::FromRequestParts<S> for ForwardedPrefix {
     type Rejection = ();
 
     /// Perform the extraction.

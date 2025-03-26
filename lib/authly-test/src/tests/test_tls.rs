@@ -26,7 +26,7 @@ async fn test_tls_localhost_cert_ok() {
     );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::No).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -57,7 +57,7 @@ async fn test_tls_localhost_intermediate_cert_ok() {
 
     let rustls_config_factory =
         rustls_server_config_no_client_auth(&[&server_cert, &intermediate_ca]).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::No).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&root_ca).into())
@@ -86,7 +86,7 @@ async fn test_tls_missing_client_ca_results_in_unknown_issuer() {
     );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::No).await;
 
     let error = reqwest::ClientBuilder::new()
         .build()
@@ -114,7 +114,7 @@ async fn test_tls_incorrect_trusted_ca_results_in_bad_signature() {
     );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::No).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&authly_ca().with_new_key_pair().self_signed()).into())
@@ -143,7 +143,7 @@ async fn test_tls_invalid_host_cert() {
     );
 
     let rustls_config_factory = rustls_server_config_no_client_auth(&[&server_cert]).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::No).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -175,7 +175,7 @@ async fn test_mtls_verified() {
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::Yes).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -232,7 +232,7 @@ async fn test_mtls_server_cert_through_csr() {
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::Yes).await;
 
     let text_response = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -266,7 +266,7 @@ async fn test_mtls_missing_client_identity() {
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
-    let (server_port, _drop) = spawn_server(rustls_config_factory).await;
+    let (server_port, _drop) = spawn_server(rustls_config_factory, Mtls::Yes).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -300,7 +300,7 @@ async fn test_mtls_invalid_issuer() {
     );
 
     let rustls_config_factory = rustls_server_config_mtls(&[&server_cert], &ca.der).unwrap();
-    let (server_port, _cancel) = spawn_server(rustls_config_factory).await;
+    let (server_port, _cancel) = spawn_server(rustls_config_factory, Mtls::Yes).await;
 
     let error = reqwest::ClientBuilder::new()
         .add_root_certificate((&ca).into())
@@ -320,7 +320,12 @@ async fn test_mtls_invalid_issuer() {
     );
 }
 
-async fn spawn_server(rustls_config: Arc<ServerConfig>) -> (u16, DropGuard) {
+enum Mtls {
+    No,
+    Yes,
+}
+
+async fn spawn_server(rustls_config: Arc<ServerConfig>, mtls: Mtls) -> (u16, DropGuard) {
     let cancel = CancellationToken::new();
     let server = tower_server::Builder::new("0.0.0.0:0".parse().unwrap())
         .with_scheme(tower_server::Scheme::Https)
@@ -332,19 +337,25 @@ async fn spawn_server(rustls_config: Arc<ServerConfig>) -> (u16, DropGuard) {
         .unwrap();
 
     let server_port = server.local_addr().unwrap().port();
-    let app = axum::Router::new().route("/test", axum::routing::get(test_handler));
+    let app = axum::Router::new().route(
+        "/test",
+        match mtls {
+            Mtls::Yes => axum::routing::get(test_handler_mtls),
+            Mtls::No => axum::routing::get(test_handler_no_mtls),
+        },
+    );
 
     tokio::spawn(server.serve(app));
 
     (server_port, cancel.drop_guard())
 }
 
-async fn test_handler(
-    peer_service_eid: Option<Extension<PeerServiceEntity>>,
+async fn test_handler_mtls(
+    Extension(PeerServiceEntity(eid)): Extension<PeerServiceEntity>,
 ) -> axum::response::Response {
-    if let Some(Extension(PeerServiceEntity(eid))) = peer_service_eid {
-        format!("it works: peer_service_eid={}", eid).into_response()
-    } else {
-        "it works: no client auth".into_response()
-    }
+    format!("it works: peer_service_eid={}", eid).into_response()
+}
+
+async fn test_handler_no_mtls() -> axum::response::Response {
+    "it works: no client auth".into_response()
 }

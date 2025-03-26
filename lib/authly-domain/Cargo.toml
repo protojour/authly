@@ -21,8 +21,8 @@ authly-common = { workspace = true, features = [
 ] }
 aes-gcm-siv = { version = "0.11", features = ["std"] }
 async-trait = "0.1"
-axum = { version = "0.7", features = ["macros"] }
-axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.10", features = ["cookie", "typed-header"] }
 anyhow = "1"
 argon2 = "0.5"
 arc-swap = "1.7"

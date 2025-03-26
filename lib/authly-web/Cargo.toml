@@ -16,8 +16,8 @@ doctest = false
 authly-domain = { path = "../authly-domain" }
 authly-webstatic = { path = "../authly-webstatic" }
 authly-common.workspace = true
-axum = { version = "0.7", features = ["macros"] }
-axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.10", features = ["cookie", "typed-header"] }
 anyhow = "1"
 fnv = "1"
 hexhex = "1"
@@ -25,7 +25,7 @@ http = "1"
 indexmap = "2.7"
 indoc = "2"
 itertools = "0.14"
-maud = { version = "0.26", features = ["axum"] }
+maud = { version = "0.27", features = ["axum"] }
 rand = "0.8"
 reqwest.workspace = true
 serde = { version = "1", features = ["derive"] }

@@ -20,7 +20,7 @@ use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
 use rustls::{pki_types::ServerName, ClientConfig};
 use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
-use tonic::body::BoxBody;
+use tonic::body::Body;
 use tower::Service;
 use tracing::{info, trace};
 
@@ -58,7 +58,7 @@ pub async fn new_authly_connect_grpc_client_service(
         .clone();
 
     let (send_request, connection) = http2_builder
-        .handshake::<_, BoxBody>(TokioIo::new(tls_tunnel))
+        .handshake::<_, Body>(TokioIo::new(tls_tunnel))
         .await?;
 
     tokio::spawn({
@@ -90,25 +90,25 @@ pub struct TunneledGrpcClientService {
     // FIXME: This can't just have a SendRequest buffer, if the underlying tunnel fails
     // there's no way to recover.
     send_request_buffer: tower::buffer::Buffer<
-        http::Request<BoxBody>,
-        <SendTunneledRequestService as Service<http::Request<BoxBody>>>::Future,
+        http::Request<Body>,
+        <SendTunneledRequestService as Service<http::Request<Body>>>::Future,
     >,
 
     close_signal: CancellationToken,
 }
 
-impl Service<http::Request<BoxBody>> for TunneledGrpcClientService {
-    type Response = http::Response<BoxBody>;
+impl Service<http::Request<Body>> for TunneledGrpcClientService {
+    type Response = http::Response<Body>;
     type Error = StdError;
     type Future = tower::buffer::future::ResponseFuture<
-        <SendTunneledRequestService as Service<http::Request<BoxBody>>>::Future,
+        <SendTunneledRequestService as Service<http::Request<Body>>>::Future,
     >;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Service::poll_ready(&mut self.send_request_buffer, cx)
     }
 
-    fn call(&mut self, req: http::Request<BoxBody>) -> Self::Future {
+    fn call(&mut self, req: http::Request<Body>) -> Self::Future {
         self.send_request_buffer.call(req)
     }
 }
@@ -121,11 +121,11 @@ impl Drop for TunneledGrpcClientService {
 }
 
 pub struct SendTunneledRequestService {
-    send_request: SendRequest<BoxBody>,
+    send_request: SendRequest<Body>,
 }
 
-impl Service<http::Request<BoxBody>> for SendTunneledRequestService {
-    type Response = http::Response<BoxBody>;
+impl Service<http::Request<Body>> for SendTunneledRequestService {
+    type Response = http::Response<Body>;
     type Error = StdError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -134,7 +134,7 @@ impl Service<http::Request<BoxBody>> for SendTunneledRequestService {
         self.send_request.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, mut req: http::Request<BoxBody>) -> Self::Future {
+    fn call(&mut self, mut req: http::Request<Body>) -> Self::Future {
         trace!(?req, "SendTunneledRequestService::call");
 
         // manipulate the request URI to inject scheme and authority
@@ -151,7 +151,7 @@ impl Service<http::Request<BoxBody>> for SendTunneledRequestService {
         Box::pin(async move {
             fut.await
                 .map_err(Into::into)
-                .map(|res| res.map(tonic::body::boxed))
+                .map(|res| res.map(tonic::body::Body::new))
         })
     }
 }

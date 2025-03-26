@@ -64,7 +64,7 @@ pub async fn authly_connect_client_tunnel<T>(
     close_signal: CancellationToken,
 ) -> tonic::Result<ClientSideTunnel>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<StdError>,
     T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
     <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,

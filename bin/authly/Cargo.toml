@@ -34,8 +34,8 @@ authly-web = { path = "../../lib/authly-web" }
 aes-gcm-siv = "0.11"
 anyhow = "1"
 arc-swap = "1.7"
-axum = { version = "0.7", features = ["macros"] }
-axum-extra = { version = "0.9", features = ["typed-header"] }
+axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
 blake3 = "1.5"
 clap = { version = "4", features = ["derive"] }
 figment = { version = "0.10", features = ["env"] }
@@ -73,7 +73,7 @@ time = { version = "0.3", features = ["serde"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-rustls = "0.26"
 tokio-util = { version = "0.7", features = ["io"] }
-tonic = { version = "0.12", default-features = false }
+tonic = { version = "0.13", default-features = false, features = ["router"] }
 tower = { version = "0.5", features = ["steer"] }
 tower-server = { workspace = true, features = ["signal"] }
 tracing = "0.1"

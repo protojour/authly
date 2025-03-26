@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use axum::extract::FromRequestParts;
 use http::request::Parts;
 
@@ -6,8 +5,7 @@ use http::request::Parts;
 #[derive(Clone, Copy)]
 pub struct IsDev(pub bool);
 
-#[async_trait]
-impl<S> FromRequestParts<S> for IsDev {
+impl<S: Sync> FromRequestParts<S> for IsDev {
     type Rejection = ();
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
