@@ -4,7 +4,7 @@ use authly_common::id::ServiceId;
 use pem::{EncodeConfig, Pem};
 use rcgen::{
     BasicConstraints, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, KeyPair,
-    KeyUsagePurpose, PublicKeyData,
+    KeyUsagePurpose, PublicKeyData, SigningKey,
 };
 use rustls::pki_types::CertificateDer;
 use time::{Duration, OffsetDateTime};
@@ -31,6 +31,26 @@ impl<K> Deref for Key<'_, K> {
     }
 }
 
+impl<K: PublicKeyData> PublicKeyData for Key<'_, K> {
+    fn algorithm(&self) -> &'static rcgen::SignatureAlgorithm {
+        self.deref().algorithm()
+    }
+
+    fn der_bytes(&self) -> &[u8] {
+        self.deref().der_bytes()
+    }
+
+    fn subject_public_key_info(&self) -> Vec<u8> {
+        self.deref().subject_public_key_info()
+    }
+}
+
+impl<K: SigningKey> SigningKey for Key<'_, K> {
+    fn sign(&self, msg: &[u8]) -> Result<Vec<u8>, rcgen::Error> {
+        self.deref().sign(msg)
+    }
+}
+
 impl Cert<'_, KeyPair> {
     pub fn sign<'a, K: PublicKeyData>(&self, request: SigningRequest<'a, K>) -> Cert<'a, K> {
         let cert = request
@@ -39,7 +59,7 @@ impl Cert<'_, KeyPair> {
             .unwrap();
 
         Cert {
-            params: cert.params().clone(),
+            params: CertificateParams::from_ca_cert_der(cert.der()).unwrap(),
             der: cert.der().clone(),
             key: request.key,
         }
@@ -71,7 +91,7 @@ impl<'a> SigningRequest<'a, KeyPair> {
         let cert = self.params.self_signed(&self.key).unwrap();
 
         Cert {
-            params: cert.params().clone(),
+            params: CertificateParams::from_ca_cert_der(cert.der()).unwrap(),
             der: cert.der().clone(),
             key: self.key,
         }

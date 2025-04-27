@@ -9,7 +9,7 @@ use authly_domain::{
     tls::{AuthlyCert, AuthlyCertKind},
 };
 use rand::{rngs::OsRng, Rng};
-use rcgen::{CertificateSigningRequestParams, DnValue, PublicKeyData};
+use rcgen::{CertificateParams, CertificateSigningRequestParams, DnValue, PublicKeyData};
 use tracing::warn;
 
 use crate::repo::authority_mandate_repo::{self, AmDbError};
@@ -165,14 +165,16 @@ pub async fn authority_fulfill_submission(
             kind: AuthlyCertKind::Identity,
             certifies: mandate_eid,
             signed_by: instance.authly_eid(),
-            params: mandate_identity.params().clone(),
+            params: CertificateParams::from_ca_cert_der(mandate_identity.der())
+                .map_err(AuthoritySubmissionError::CsrOther)?,
             der: mandate_identity.der().clone(),
         },
         mandate_local_ca: AuthlyCert {
             kind: AuthlyCertKind::Ca,
             certifies: mandate_eid,
             signed_by: instance.authly_eid(),
-            params: mandate_local_ca.params().clone(),
+            params: CertificateParams::from_ca_cert_der(mandate_local_ca.der())
+                .map_err(AuthoritySubmissionError::CsrOther)?,
             der: mandate_local_ca.der().clone(),
         },
     })

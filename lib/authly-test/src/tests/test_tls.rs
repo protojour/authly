@@ -5,7 +5,7 @@ use authly_domain::cert::{
     authly_ca, client_cert, server_cert, server_cert_csr, Cert, CertificateParamsExt,
 };
 use axum::{response::IntoResponse, Extension};
-use rcgen::CertificateSigningRequestParams;
+use rcgen::{CertificateParams, CertificateSigningRequestParams};
 use rustls::{pki_types::CertificateSigningRequestDer, ServerConfig};
 use time::Duration;
 use tokio_util::sync::{CancellationToken, DropGuard};
@@ -220,7 +220,7 @@ async fn test_mtls_server_cert_through_csr() {
         let signed_cert = csr_params.signed_by(&ca.params, &ca.key).unwrap();
 
         Cert {
-            params: signed_cert.params().clone(),
+            params: CertificateParams::from_ca_cert_der(signed_cert.der()).unwrap(),
             der: signed_cert.der().clone(),
             key: req.key,
         }

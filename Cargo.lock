@@ -381,7 +381,7 @@ dependencies = [
  "openraft",
  "openssl",
  "rand 0.8.5",
- "rcgen 0.13.3",
+ "rcgen 0.14.0",
  "reqwest",
  "rust-embed",
  "rustls",
@@ -524,7 +524,7 @@ dependencies = [
  "pest_derive",
  "postcard",
  "rand 0.8.5",
- "rcgen 0.13.3",
+ "rcgen 0.14.0",
  "reqwest",
  "rust-embed",
  "rustls",
@@ -589,7 +589,7 @@ dependencies = [
  "jsonwebtoken",
  "prost-types",
  "rand 0.8.5",
- "rcgen 0.13.3",
+ "rcgen 0.14.0",
  "rustls",
  "serde",
  "serde_json",
@@ -639,7 +639,7 @@ dependencies = [
  "indexmap",
  "indoc",
  "itertools 0.14.0",
- "rcgen 0.13.3",
+ "rcgen 0.14.0",
  "reqwest",
  "rusqlite",
  "rust-embed",
@@ -3692,8 +3692,8 @@ dependencies = [
 
 [[package]]
 name = "rcgen"
-version = "0.13.3"
-source = "git+https://github.com/rustls/rcgen.git#9025af3c1bb011847524957f0fa750a17f75432e"
+version = "0.14.0"
+source = "git+https://github.com/rustls/rcgen.git#32c4cdc4da8e6bddc8eaf672176d3d11edcf9e8f"
 dependencies = [
  "pem",
  "ring",

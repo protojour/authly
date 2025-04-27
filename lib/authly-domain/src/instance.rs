@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use authly_common::id::ServiceId;
-use rcgen::{KeyPair, PublicKeyData};
+use rcgen::{CertificateParams, KeyPair, PublicKeyData};
 
 use crate::{
     cert::{Cert, SigningRequest},
@@ -109,7 +109,7 @@ impl AuthlyInstance {
             .unwrap();
 
         Cert {
-            params: certificate.params().clone(),
+            params: CertificateParams::from_ca_cert_der(certificate.der()).unwrap(),
             der: certificate.der().clone(),
             key: request.key,
         }
