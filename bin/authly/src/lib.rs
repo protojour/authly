@@ -28,12 +28,12 @@ use authly_domain::{
 use authly_hiqlite::HiqliteClient;
 use axum::{response::IntoResponse, Json};
 pub use env_config::EnvConfig;
+use hiqlite::cache_idx::CacheIndex;
 use http::Uri;
 use indexmap::IndexMap;
 use load_docs::load_cfg_documents;
 use openraft::RaftMetrics;
 use platform::CertificateDistributionPlatform;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 use tower_server::Scheme;
@@ -193,10 +193,16 @@ pub async fn configure() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Serialize, Deserialize, strum::EnumIter, num_derive::ToPrimitive)]
+#[derive(Debug, strum::EnumIter, num_derive::ToPrimitive)]
 enum CacheEntry {
     WebAuthnRegistration,
     WebAuthnAuth,
+}
+
+impl CacheIndex for CacheEntry {
+    fn to_usize(self) -> usize {
+        self as usize
+    }
 }
 
 async fn initialize() -> anyhow::Result<Init> {
@@ -399,5 +405,6 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
         tls_api: Some(cluster_tls_config),
         secret_raft: env_config.cluster_raft_secret.clone(),
         secret_api: env_config.cluster_api_secret.clone(),
+        shutdown_delay_millis: 5000,
     }
 }

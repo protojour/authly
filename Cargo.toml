@@ -23,13 +23,13 @@ authors = ["Protojour dev team <devs@protojour.com>"]
 edition = "2024"
 license = "AGPL-3.0"
 repository = "https://github.com/protojour/authly"
-rust-version = "1.85"
+rust-version = "1.85.1"
 publish = false
 
 [workspace.dependencies]
 authly-common = { git = "https://github.com/protojour/authly-lib.git" }
 authly-client = { git = "https://github.com/protojour/authly-lib.git" }
-hiqlite = { git = "https://github.com/sebadob/hiqlite.git", default-features = false, features = [
+hiqlite = { version = "0.6", default-features = false, features = [
     "auto-heal",
     "listen_notify_local",
     "sqlite",

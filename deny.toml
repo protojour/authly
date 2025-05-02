@@ -105,8 +105,6 @@ skip = [
     "rand_core",
     # FIXME: hexhex:
     "fallible-iterator",
-    # FIXME: hiqlite/cryptr:
-    "bincode",
     # FIXME: webauthn-rs duplicate dependencies
     "asn1-rs",
     "asn1-rs-derive",
@@ -116,10 +114,8 @@ skip = [
     # webauthn-rs git dependency:
     "base64urlsafedata",
     # transitive/outdated:
-    "bindgen",
     "base64",
     "getrandom",
-    "rustc-hash",
     "thiserror",
     "thiserror-impl",
     # tracing:
@@ -159,6 +155,5 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [
     "git+https://github.com/protojour/webauthn-rs.git?branch=without-openssl-build-dependency",
     "git+https://github.com/protojour/authly-lib.git",
-    "git+https://github.com/sebadob/hiqlite.git",
     "git+https://github.com/rustls/rcgen.git",
 ]
