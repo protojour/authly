@@ -43,6 +43,7 @@ allow = [
     "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
     "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
     "EUPL-1.2",
     "ISC",
     "MIT",
@@ -127,6 +128,7 @@ skip = [
     # probably can't help themselves:
     "itertools",
     "windows-sys",
+    "windows-strings",
     "windows-targets",
     "windows_aarch64_gnullvm",
     "windows_aarch64_msvc",
