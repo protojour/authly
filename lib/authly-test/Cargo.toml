@@ -50,7 +50,7 @@ authly-test-grpc = { path = "../authly-test-grpc" }
 authly-client.workspace = true
 async-stream = "0.3"
 cookie = "0.18"
-criterion = { version = "0.5", default-features = false }
+criterion = { version = "0.6", default-features = false }
 fnv = "1"
 futures-util = "0.3"
 hexhex = "1"
