@@ -379,7 +379,6 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
         log_statements: false,
         prepared_statement_cache_capacity: 1024,
         read_pool_size: 4,
-        sync_immediate: false,
         raft_config: {
             let logs_until_snapshot = 10_000;
             hiqlite::RaftConfig {
@@ -406,5 +405,6 @@ fn hiqlite_node_config(env_config: &EnvConfig) -> hiqlite::NodeConfig {
         secret_raft: env_config.cluster_raft_secret.clone(),
         secret_api: env_config.cluster_api_secret.clone(),
         shutdown_delay_millis: 5000,
+        ..Default::default()
     }
 }
