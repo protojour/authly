@@ -27,10 +27,7 @@ feature-depth = 1
 # More documentation for the advisories section can be found here:
 # https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
 [advisories]
-ignore = [
-    # FIXME: "paste" is unmaintained:
-    "RUSTSEC-2024-0436",
-]
+ignore = []
 
 
 # This section is considered when running `cargo deny check licenses`
@@ -112,8 +109,6 @@ skip = [
     "der-parser",
     "oid-registry",
     "x509-parser",
-    # webauthn-rs git dependency:
-    "base64urlsafedata",
     # transitive/outdated:
     "base64",
     "getrandom",
