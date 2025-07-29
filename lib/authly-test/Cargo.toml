@@ -39,7 +39,7 @@ serde_spanned = "1"
 time = "0.3"
 tokio = { version = "1", features = ["macros"] }
 tokio-util = { version = "0.7" }
-tonic = { version = "0.13", default-features = false, features = ["router"] }
+tonic = { version = "0.14", default-features = false, features = ["router"] }
 tower-server.workspace = true
 tracing = "0.1"
 uuid = "1"
@@ -50,7 +50,7 @@ authly-test-grpc = { path = "../authly-test-grpc" }
 authly-client.workspace = true
 async-stream = "0.3"
 cookie = "0.18"
-criterion = { version = "0.6", default-features = false }
+criterion = { version = "0.7", default-features = false }
 fnv = "1"
 futures-util = "0.3"
 hexhex = "1"
