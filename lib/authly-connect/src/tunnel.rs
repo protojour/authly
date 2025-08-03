@@ -28,12 +28,10 @@ pub fn grpc_serverside_tunnel(
 ) {
     let incoming_stream_reader = {
         let mapped = incoming.map(|result| {
-            result
-                .map(|frame| Bytes::from(frame.payload))
-                .map_err(|status| {
-                    info!(?status, "input stream error");
-                    std::io::Error::new(ErrorKind::BrokenPipe, "broken pipe")
-                })
+            result.map(|frame| frame.payload).map_err(|status| {
+                info!(?status, "input stream error");
+                std::io::Error::new(ErrorKind::BrokenPipe, "broken pipe")
+            })
         });
         StreamReader::new(mapped)
     };
@@ -44,9 +42,7 @@ pub fn grpc_serverside_tunnel(
         tokio::io::join(incoming_stream_reader, outgoing_write_half),
         ReaderStream::new(outgoing_read_half)
             .map(|result| match result {
-                Ok(bytes) => Ok(proto::Frame {
-                    payload: bytes.to_vec(),
-                }),
+                Ok(payload) => Ok(proto::Frame { payload }),
                 Err(err) => {
                     info!(?err, "tunnel outgoing error");
                     Err(tonic::Status::cancelled("closed"))
@@ -77,9 +73,7 @@ where
             (),
             |_, result| async {
                 match result {
-                    Ok(bytes) => Some(proto::Frame {
-                        payload: bytes.to_vec(),
-                    }),
+                    Ok(payload) => Some(proto::Frame { payload }),
                     Err(err) => {
                         info!(?err, "tunnel outgoing error");
                         None
@@ -95,12 +89,10 @@ where
     };
 
     let mut incoming_reader = StreamReader::new(response.into_inner().map(|result| {
-        result
-            .map(|frame| Bytes::from(frame.payload))
-            .map_err(|status| {
-                info!(?status, "input stream error");
-                std::io::Error::new(ErrorKind::BrokenPipe, "broken pipe")
-            })
+        result.map(|frame| frame.payload).map_err(|status| {
+            info!(?status, "input stream error");
+            std::io::Error::new(ErrorKind::BrokenPipe, "broken pipe")
+        })
     }));
 
     // copy incoming bytes into the tunnel

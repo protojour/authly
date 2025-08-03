@@ -91,7 +91,7 @@ pub async fn mandate_execute_submission(
     let response = submission_grpc_client
         .submit(proto::SubmissionRequest {
             token,
-            identity_csr_der: identity_csr.der().to_vec(),
+            identity_csr_der: identity_csr.der().to_vec().into(),
         })
         .await
         .map_err(MandateSubmissionError::Protocol)?

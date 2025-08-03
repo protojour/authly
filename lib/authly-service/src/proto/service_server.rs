@@ -87,7 +87,7 @@ where
                                 .into_iter()
                                 .map(|(label, attr_id)| proto::AttributeMapping {
                                     label,
-                                    obj_id: attr_id.to_array_dynamic().to_vec(),
+                                    obj_id: attr_id.to_array_dynamic().to_vec().into(),
                                 })
                                 .collect(),
                         })
@@ -121,7 +121,7 @@ where
         .map_err(grpc_db_err)?;
 
         Ok(Response::new(proto::ServiceMetadata {
-            entity_id: peer_svc.eid.to_array_dynamic().to_vec(),
+            entity_id: peer_svc.eid.to_array_dynamic().to_vec().into(),
             label,
             namespaces: metadata::namespaces_with_metadata_to_proto(namespaces),
         }))
@@ -159,7 +159,7 @@ where
 
                 Result::<_, tonic::Status>::Ok(proto::AccessToken {
                     token,
-                    entity_id: session.eid.to_array_dynamic().to_vec(),
+                    entity_id: session.eid.to_array_dynamic().to_vec().into(),
                 })
             },
         );
@@ -199,7 +199,7 @@ where
                                 .into_iter()
                                 .map(|(label, attr_id)| proto::AttributeMapping {
                                     label,
-                                    obj_id: attr_id.to_array_dynamic().to_vec(),
+                                    obj_id: attr_id.to_array_dynamic().to_vec().into(),
                                 })
                                 .collect(),
                         })
@@ -294,7 +294,7 @@ where
         let peer_svc_eid = svc_mtls_auth_trivial(request.extensions())?;
 
         let csr_params = CertificateSigningRequestParams::from_der(
-            &CertificateSigningRequestDer::from(request.into_inner().der),
+            &CertificateSigningRequestDer::from(request.into_inner().der.as_ref()),
         )
         .map_err(|_err| tonic::Status::invalid_argument("invalid Certificate Signing Request"))?;
 
@@ -351,7 +351,7 @@ where
             })?;
 
         Ok(Response::new(proto::Certificate {
-            der: certificate.der().to_vec(),
+            der: certificate.der().to_vec().into(),
         }))
     }
 
@@ -510,7 +510,7 @@ mod metadata {
         input
             .into_iter()
             .map(|ns| proto::NamespaceMetadata {
-                namespace_id: ns.id.to_array_dynamic().to_vec(),
+                namespace_id: ns.id.to_array_dynamic().to_vec().into(),
                 label: ns.label,
                 metadata: ns.metadata.map(json_object_to_proto),
             })

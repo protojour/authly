@@ -38,7 +38,7 @@ where
         let req = request.into_inner();
 
         let csr_params = CertificateSigningRequestParams::from_der(
-            &CertificateSigningRequestDer::from(req.identity_csr_der),
+            &CertificateSigningRequestDer::from(req.identity_csr_der.as_ref()),
         )
         .map_err(|_err| tonic::Status::invalid_argument("invalid Certificate Signing Request"))?;
 
@@ -54,26 +54,38 @@ where
 
         // cert chain, start with Mandate's new local CA
         let mut ca_chain = vec![proto::AuthlyCertificate {
-            certifies_entity_id: certified_mandate.mandate_eid.to_array_dynamic().to_vec(),
-            signed_by_entity_id: instance.authly_eid().to_array_dynamic().to_vec(),
-            der: certified_mandate.mandate_local_ca.der.to_vec(),
+            certifies_entity_id: certified_mandate
+                .mandate_eid
+                .to_array_dynamic()
+                .to_vec()
+                .into(),
+            signed_by_entity_id: instance.authly_eid().to_array_dynamic().to_vec().into(),
+            der: certified_mandate.mandate_local_ca.der.to_vec().into(),
         }];
 
         // pass authority's local CA chain to the mandate
         for authly_cert in instance.ca_chain() {
             ca_chain.push(proto::AuthlyCertificate {
-                certifies_entity_id: authly_cert.certifies.to_array_dynamic().to_vec(),
-                signed_by_entity_id: authly_cert.signed_by.to_array_dynamic().to_vec(),
-                der: authly_cert.der.to_vec(),
+                certifies_entity_id: authly_cert.certifies.to_array_dynamic().to_vec().into(),
+                signed_by_entity_id: authly_cert.signed_by.to_array_dynamic().to_vec().into(),
+                der: authly_cert.der.to_vec().into(),
             });
         }
 
         Ok(tonic::Response::new(proto::SubmissionResponse {
-            mandate_entity_id: certified_mandate.mandate_eid.to_array_dynamic().to_vec(),
+            mandate_entity_id: certified_mandate
+                .mandate_eid
+                .to_array_dynamic()
+                .to_vec()
+                .into(),
             mandate_identity_cert: Some(proto::AuthlyCertificate {
-                certifies_entity_id: certified_mandate.mandate_eid.to_array_dynamic().to_vec(),
-                signed_by_entity_id: instance.authly_eid().to_array_dynamic().to_vec(),
-                der: certified_mandate.mandate_identity.der.to_vec(),
+                certifies_entity_id: certified_mandate
+                    .mandate_eid
+                    .to_array_dynamic()
+                    .to_vec()
+                    .into(),
+                signed_by_entity_id: instance.authly_eid().to_array_dynamic().to_vec().into(),
+                der: certified_mandate.mandate_identity.der.to_vec().into(),
             }),
             ca_chain,
         }))

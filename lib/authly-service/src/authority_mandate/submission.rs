@@ -82,7 +82,7 @@ fn cert_from_proto(
     proto: proto::AuthlyCertificate,
     kind: AuthlyCertKind,
 ) -> anyhow::Result<AuthlyCert> {
-    let der = CertificateDer::from(proto.der);
+    let der = CertificateDer::from(proto.der.to_vec());
     let params = CertificateParams::from_ca_cert_der(&der)?;
 
     Ok(AuthlyCert {
