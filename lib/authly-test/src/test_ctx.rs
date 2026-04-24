@@ -34,7 +34,6 @@ use authly_sqlite::{SqlitePool, Storage};
 use http::Uri;
 use indexmap::IndexMap;
 use indoc::indoc;
-use rcgen::CertificateParams;
 use serde::{de::DeserializeOwned, Serialize};
 use time::Duration;
 use tokio_util::sync::{CancellationToken, DropGuard};
@@ -148,7 +147,7 @@ impl TestCtx {
                     kind: AuthlyCertKind::Ca,
                     certifies: authly_id.eid,
                     signed_by: authly_id.eid,
-                    params: CertificateParams::from_ca_cert_der(certificate.der()).unwrap(),
+                    params: authly_ca(), // Use original CA params
                     der: certificate.der().clone(),
                 }
             },
@@ -161,7 +160,7 @@ impl TestCtx {
                     kind: AuthlyCertKind::Identity,
                     certifies: authly_id.eid,
                     signed_by: authly_id.eid,
-                    params: CertificateParams::from_ca_cert_der(certificate.der()).unwrap(),
+                    params: client_cert("authly", authly_id.eid, time::Duration::days(365 * 100)),
                     der: certificate.der().clone(),
                 }
             },

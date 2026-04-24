@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use authly_common::id::ServiceId;
-use rcgen::{CertificateParams, KeyPair, PublicKeyData};
+use rcgen::{Issuer, KeyPair, PublicKeyData};
 
 use crate::{
     cert::{Cert, SigningRequest},
@@ -102,14 +102,15 @@ impl AuthlyInstance {
         request: SigningRequest<'a, K>,
     ) -> Cert<'a, K> {
         let local_ca = self.local_ca();
+        let issuer = Issuer::new(local_ca.params.clone(), self.private_key());
 
         let certificate = request
             .params
-            .signed_by(request.key.deref(), &local_ca.params, self.private_key())
+            .signed_by(request.key.deref(), &issuer)
             .unwrap();
 
         Cert {
-            params: CertificateParams::from_ca_cert_der(certificate.der()).unwrap(),
+            params: request.params.clone(),
             der: certificate.der().clone(),
             key: request.key,
         }

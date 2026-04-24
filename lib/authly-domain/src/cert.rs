@@ -3,7 +3,7 @@ use std::ops::Deref;
 use authly_common::id::ServiceId;
 use pem::{EncodeConfig, Pem};
 use rcgen::{
-    BasicConstraints, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, KeyPair,
+    BasicConstraints, CertificateParams, DnType, DnValue, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
     KeyUsagePurpose, PublicKeyData, SigningKey,
 };
 use rustls::pki_types::CertificateDer;
@@ -53,13 +53,14 @@ impl<K: SigningKey> SigningKey for Key<'_, K> {
 
 impl Cert<'_, KeyPair> {
     pub fn sign<'a, K: PublicKeyData>(&self, request: SigningRequest<'a, K>) -> Cert<'a, K> {
+        let issuer = Issuer::new(self.params.clone(), &self.key);
         let cert = request
             .params
-            .signed_by(request.key.deref(), &self.params, &self.key)
+            .signed_by(request.key.deref(), &issuer)
             .unwrap();
 
         Cert {
-            params: CertificateParams::from_ca_cert_der(cert.der()).unwrap(),
+            params: request.params.clone(),
             der: cert.der().clone(),
             key: request.key,
         }
@@ -91,7 +92,7 @@ impl<'a> SigningRequest<'a, KeyPair> {
         let cert = self.params.self_signed(&self.key).unwrap();
 
         Cert {
-            params: CertificateParams::from_ca_cert_der(cert.der()).unwrap(),
+            params: self.params.clone(),
             der: cert.der().clone(),
             key: self.key,
         }

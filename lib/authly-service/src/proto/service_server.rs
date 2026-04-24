@@ -29,7 +29,7 @@ use authly_domain::{
 };
 use futures_util::{stream::BoxStream, StreamExt};
 use http::header::{AUTHORIZATION, COOKIE};
-use rcgen::{CertificateSigningRequestParams, DnType, SanType};
+use rcgen::{CertificateSigningRequestParams, DnType, Issuer, SanType};
 use rustls::pki_types::CertificateSigningRequestDer;
 use tonic::{
     metadata::{Ascii, MetadataMap},
@@ -343,8 +343,9 @@ where
 
         let instance = self.ctx.get_instance();
 
+        let issuer = Issuer::new(instance.local_ca().params.clone(), instance.private_key());
         let certificate = csr_params
-            .signed_by(&instance.local_ca().params, instance.private_key())
+            .signed_by(&issuer)
             .map_err(|err| {
                 warn!(?err, "unable to sign service certificate");
                 tonic::Status::invalid_argument("Certificate signing problem")

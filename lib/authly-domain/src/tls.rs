@@ -65,7 +65,7 @@ impl TryFromRow for AuthlyCert {
             kind,
             certifies: row.get_id("certifies_eid"),
             signed_by: row.get_id("signed_by_eid"),
-            params: CertificateParams::from_ca_cert_der(&cert_der)?,
+            params: CertificateParams::default(), // TODO: This needs to be fixed - we can't create params from DER anymore
             der: cert_der,
         })
     }

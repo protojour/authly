@@ -12,10 +12,10 @@ mod policy_tests {
         Parser,
     };
 
-    use super::super::parser::PolicyParser;
+    use super::{super::parser::PolicyParser, Rule};
 
-    fn parse_policy_ok(input: &str) -> Pair<super::Rule> {
-        PolicyParser::parse(super::Rule::policy, input)
+    fn parse_policy_ok(input: &str) -> Pair<'_, Rule> {
+        PolicyParser::parse(Rule::policy, input.into())
             .unwrap()
             .next()
             .unwrap()
@@ -73,7 +73,7 @@ mod policy_tests {
 
         let p = foo.into_inner();
 
-        fn print_rec(pairs: Pairs<super::Rule>, level: usize) {
+        fn print_rec(pairs: Pairs<Rule>, level: usize) {
             for child in pairs {
                 for _ in 0..level {
                     print!("  ");

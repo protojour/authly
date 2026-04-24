@@ -77,7 +77,7 @@ impl<'a> PolicyCompiler<'a> {
     }
 }
 
-fn pest_parse_policy_as_expr(input: &str) -> Result<Pair<Rule>, Vec<PolicyCompileError>> {
+fn pest_parse_policy_as_expr(input: &str) -> Result<Pair<'_, Rule>, Vec<PolicyCompileError>> {
     let mut ast_root = match PolicyParser::parse(Rule::policy, input) {
         Ok(pairs) => pairs,
         Err(error) => return Err(vec![parse_error(error)]),

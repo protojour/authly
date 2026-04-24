@@ -9,7 +9,7 @@ use authly_domain::{
     tls::{AuthlyCert, AuthlyCertKind},
 };
 use rand::{rngs::OsRng, Rng};
-use rcgen::{CertificateParams, CertificateSigningRequestParams, DnValue, PublicKeyData};
+use rcgen::{CertificateSigningRequestParams, DnValue, Issuer, PublicKeyData};
 use tracing::warn;
 
 use crate::repo::authority_mandate_repo::{self, AmDbError};
@@ -130,12 +130,9 @@ pub async fn authority_fulfill_submission(
         }
     };
 
+    let issuer = Issuer::new(instance.local_ca().params.clone(), instance.private_key());
     let mandate_local_ca = authly_ca()
-        .signed_by(
-            &csr_params.public_key,
-            &instance.local_ca().params,
-            instance.private_key(),
-        )
+        .signed_by(&csr_params.public_key, &issuer)
         .map_err(|err| {
             warn!(?err, "unable to sign mandate CA");
             AuthoritySubmissionError::CsrOther(err)
@@ -144,7 +141,7 @@ pub async fn authority_fulfill_submission(
     let mandate_public_key = csr_params.public_key.der_bytes().to_vec();
 
     let mandate_identity = csr_params
-        .signed_by(&instance.local_ca().params, instance.private_key())
+        .signed_by(&issuer)
         .map_err(|err| {
             warn!(?err, "unable to sign mandate identity");
             AuthoritySubmissionError::CsrOther(err)
@@ -165,16 +162,14 @@ pub async fn authority_fulfill_submission(
             kind: AuthlyCertKind::Identity,
             certifies: mandate_eid,
             signed_by: instance.authly_eid(),
-            params: CertificateParams::from_ca_cert_der(mandate_identity.der())
-                .map_err(AuthoritySubmissionError::CsrOther)?,
+            params: csr_params.params.clone(), // Use original CSR params
             der: mandate_identity.der().clone(),
         },
         mandate_local_ca: AuthlyCert {
             kind: AuthlyCertKind::Ca,
             certifies: mandate_eid,
             signed_by: instance.authly_eid(),
-            params: CertificateParams::from_ca_cert_der(mandate_local_ca.der())
-                .map_err(AuthoritySubmissionError::CsrOther)?,
+            params: authly_ca(), // Use original CA params
             der: mandate_local_ca.der().clone(),
         },
     })

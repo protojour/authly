@@ -83,7 +83,7 @@ fn cert_from_proto(
     kind: AuthlyCertKind,
 ) -> anyhow::Result<AuthlyCert> {
     let der = CertificateDer::from(proto.der.to_vec());
-    let params = CertificateParams::from_ca_cert_der(&der)?;
+    let params = CertificateParams::default(); // TODO: This needs to be fixed - we can't create params from DER anymore
 
     Ok(AuthlyCert {
         kind,

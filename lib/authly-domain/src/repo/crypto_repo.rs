@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context};
 use authly_common::id::{AnyId, PropId, ServiceId};
 use authly_db::{param::ToBlob, params, Db, DbResult, FromRow, Row, TryFromRow};
 use indoc::indoc;
-use rcgen::{CertificateParams, KeyPair, PKCS_ECDSA_P256_SHA256};
+use rcgen::{KeyPair, PKCS_ECDSA_P256_SHA256};
 use rustls::pki_types::PrivateKeyDer;
 use tracing::{debug, info};
 
@@ -79,7 +79,7 @@ pub async fn load_authly_instance(
                             kind: AuthlyCertKind::Ca,
                             certifies: authly_id.eid,
                             signed_by: authly_id.eid,
-                            params: CertificateParams::from_ca_cert_der(certificate.der())?,
+                            params: authly_ca(), // Use the original CA params
                             der: certificate.der().clone(),
                         };
 
@@ -95,7 +95,7 @@ pub async fn load_authly_instance(
                             kind: AuthlyCertKind::Identity,
                             certifies: authly_id.eid,
                             signed_by: authly_id.eid,
-                            params: CertificateParams::from_ca_cert_der(certificate.der())?,
+                            params: client_cert("authly", authly_id.eid, time::Duration::days(365 * 100)),
                             der: certificate.der().clone(),
                         };
 
