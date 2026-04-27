@@ -13,40 +13,52 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
 
 
-        <!-- Provide site root to javascript -->
+        <!-- Provide site root and default themes to javascript -->
         <script>
-            var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-ac8788d2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc.js"></script>
+        <script src="toc-602ca015.js"></script>
     </head>
     <body>
-    <div id="body-container">
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
-                var theme = localStorage.getItem('mdbook-theme');
-                var sidebar = localStorage.getItem('mdbook-sidebar');
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
 
                 if (theme.startsWith('"') && theme.endsWith('"')) {
                     localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
@@ -60,7 +72,8 @@
 
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script>
-            var theme;
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
             const html = document.documentElement;
@@ -69,55 +82,59 @@
             html.classList.add("js");
         </script>
 
-        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var sidebar = null;
-            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
+                sidebar_toggle.checked = false;
             }
-            sidebar_toggle.checked = sidebar === 'visible';
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
         </script>
 
-        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
                 <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
             </noscript>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <div id="page-wrapper" class="page-wrapper">
+        <div id="mdbook-page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
                         </label>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
                         </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
                         </button>
                     </div>
 
@@ -125,43 +142,49 @@
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
 
                     </div>
                 </div>
 
-                <div id="search-wrapper" class="hidden">
-                    <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
                     </form>
-                    <div id="searchresults-outer" class="searchresults-outer hidden">
-                        <div id="searchresults-header" class="searchresults-header"></div>
-                        <ul id="searchresults">
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
                         </ul>
                     </div>
                 </div>
 
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
                 <script>
-                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
-                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
                     });
                 </script>
 
-                <div id="content" class="content">
+                <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
 <p>Authly is a flexible Attribute-based Access Control (ABAC) Identity and Access Management (IAM) solution with minimalist Service Mesh control plane and data plane capabilitites.</p>
 <p>The Authly server can be run standalone for its IAM features, but relies on mTLS for service client authentication, and can provision such services with client certificates from a mesh-local Certificate Authority (CA), either manually, through a native Rust client (<a href="https://crates.io/crates/authly-client"><code>authly-client</code></a>) through its language bindings (TBA), or the minimalist sidecar proxy <a href="https://github.com/protojour/proxly">proxly</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
-<p>Authly's security model depends on a few core principles:</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
+<p>Authly’s security model depends on a few core principles:</p>
 <ul>
 <li>Authly should not run directly exposed to the internet, as it expects mTLS for all connections. External clients should reach it through a gateway, which is provisioned by Authly.</li>
 <li>Other service clients are provisioned the same way, they are registered with Authly, and the client certificate is used as authentication.</li>
-<li>Authly's embedded database uses encryption-at-rest, and the master encryption key needs to be stored externally (and safely) in order to decrypt its data.</li>
+<li>Authly’s embedded database uses encryption-at-rest, and the master encryption key needs to be stored externally (and safely) in order to decrypt its data.</li>
 </ul>
 <p>As a result, Authly requires a minimum set of key components to run:</p>
 <ul>
@@ -171,8 +194,9 @@
 </ul>
 <p>Our <a href="https://github.com/protojour/authly/tree/main/testfiles/k8s">example Kubernetes setup</a> features Authly itself, Arx, OpenBao and <a href="https://github.com/protojour/authly/tree/main/crates/authly-testservice">an example service</a>. A similar example is available for <a href="https://github.com/protojour/authly/tree/main/testfiles/docker/docker-compose.yml">docker compose</a>.</p>
 <p>For Kubernetes installation, use our <a href="https://github.com/protojour/authly/tree/main/pkg/helm/">Helm chart</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="authly-configuration-documents"><a class="header" href="#authly-configuration-documents">Authly configuration documents</a></h1>
-<p>Authly's attribute-based identity and access control model is configured through sequentially applied, declarative TOML documents. Any number of these documents can be included from the configuration setting <a href="configuration.html"><code>AUTHLY_DOCUMENT_PATH</code></a>, and any definition can depend on a previous defintion. To give them some sort of order, they are usually prefixed with a number to ensure they are processed correctly in lexicographical order, e.g.:</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="authly-configuration-documents"><a class="header" href="#authly-configuration-documents">Authly configuration documents</a></h1>
+<p>Authly’s attribute-based identity and access control model is configured through sequentially applied, declarative TOML documents. Any number of these documents can be included from the configuration setting <a href="#authly-environment-variables"><code>AUTHLY_DOCUMENT_PATH</code></a>, and any definition can depend on a previous defintion. To give them some sort of order, they are usually prefixed with a number to ensure they are processed correctly in lexicographical order, e.g.:</p>
 <pre><code>0_core.toml
 1_services.toml
 2_users.toml
@@ -182,14 +206,14 @@
 <pre><code class="language-toml">[authly-document]
 id = "18d70399-0e89-46b8-81ce-a6a16e5db7cc"
 </code></pre>
-<p>The document requires an <a href="documents.html#authly-document"><code>authly-document</code></a> clause at the top, with a UUID <code>id</code> value.</p>
+<p>The document requires an <a href="#authly-document"><code>authly-document</code></a> clause at the top, with a UUID <code>id</code> value.</p>
 <pre><code class="language-toml">[[service-entity]]
 eid = "s.3c2f40b3f47a4d9b9129b1e7c15fbc04"
 label = "arx"
 attributes = ["authly:role:authenticate", "authly:role:get_access_token"]
 kubernetes-account = { name = "arx" }
 </code></pre>
-<p>This defines the <a href="https://github.com/protojour/arx"><code>"arx"</code> gateway</a> as a kubernetes <a href="documents.html#service-entity">service-entity</a>. The gateway is responsible for opening up the public aspects of Authly to the world outside the cluster.</p>
+<p>This defines the <a href="https://github.com/protojour/arx"><code>"arx"</code> gateway</a> as a kubernetes <a href="#service-entity">service-entity</a>. The gateway is responsible for opening up the public aspects of Authly to the world outside the cluster.</p>
 <p>Service entity ids are prefixed by <code>s.</code>.</p>
 <p>The built-in <em>attribute triplets</em> <code>"authly:role:authenticate"</code> and <code>"authly:role:get_access_token"</code> allows anyone to authenticate and get access tokens through the gateway. An attribute triplet is a colon-separated <code>namespace:label:attribute</code> string.</p>
 <p>The <code>kubernetes-account</code> is used by Authly to provision the service with an mTLS client certificate, used for (service) authentication.
@@ -200,19 +224,19 @@ label = "ultradb"
 hosts = ["ultradb"]
 kubernetes-account = { name = "ultradb" }
 </code></pre>
-<p>This defines the <code>"ultradb"</code> <a href="documents.html#service-entity">service-entity</a>, hosted as a kubernetes service behind the <code>"arx"</code>. Service-enitity labels are exposed as <em>namespaces</em> in the Authly model.</p>
+<p>This defines the <code>"ultradb"</code> <a href="#service-entity">service-entity</a>, hosted as a kubernetes service behind the <code>"arx"</code>. Service-enitity labels are exposed as <em>namespaces</em> in the Authly model.</p>
 <pre><code class="language-toml">[[service-entity]]
 eid = "s.a1c6134658dd4120823fdc42bb2f42ad"
 label = "ultradb_gui"
 hosts = ["ultradb-gui"]
 </code></pre>
-<p>This defines the <code>"ultradb_gui"</code> (<em>client</em>) <a href="documents.html#service-entity">service-entity</a>, hosted by <code>"ultradb"</code>.</p>
+<p>This defines the <code>"ultradb_gui"</code> (<em>client</em>) <a href="#service-entity">service-entity</a>, hosted by <code>"ultradb"</code>.</p>
 <pre><code class="language-toml">[[entity-property]]
 namespace = "ultradb_gui"
 label = "role"
 attributes = ["user", "admin"]
 </code></pre>
-<p>This defines the <a href="documents.html#entity-property">entity-property</a> <code>"role"</code> for the <code>"ultradb_gui"</code> client.</p>
+<p>This defines the <a href="#entity-property">entity-property</a> <code>"role"</code> for the <code>"ultradb_gui"</code> client.</p>
 <p>Its attributes are <code>"user"</code> and <code>"admin"</code>.</p>
 <p>In other words, we make the client responsible for the concept of a (persona) entity role, since users access the service through the client.</p>
 <pre><code class="language-toml">[[resource-property]]
@@ -220,59 +244,59 @@ namespace = "ultradb"
 label = "action"
 attributes = ["read", "write"]
 </code></pre>
-<p>This defines the <a href="documents.html#resource-property">resource-property</a> <code>"action"</code> for the <code>"ultradb"</code> service.</p>
+<p>This defines the <a href="#resource-property">resource-property</a> <code>"action"</code> for the <code>"ultradb"</code> service.</p>
 <p>Its attributes are <code>"read"</code> and <code>"write"</code>.</p>
-<p>In other words, we make the service is responsible for its own resources, since users access resources (data) via the service's API.</p>
+<p>In other words, we make the service is responsible for its own resources, since users access resources (data) via the service’s API.</p>
 <pre><code class="language-toml">[[policy]]
 label = "allow for GUI user"
 allow = "Subject.ultradb_gui:role contains ultradb_gui:role:user"
 </code></pre>
-<p>This defines a <a href="documents.html#policy">policy</a> called <code>"allow for GUI user"</code>.</p>
+<p>This defines a <a href="#policy">policy</a> called <code>"allow for GUI user"</code>.</p>
 <p>The policy must either define an <code>allow</code> or a <code>deny</code> expression. This policy will resolve to <code>allow</code> if the expression resolves to <code>true</code>.</p>
 <p><code>Subject</code> is the one being access-controlled. <code>ultradb_gui:role</code> is a namespaced entity property, and <code>ultradb_gui:role:user</code> is an attribute assigned to an entity (see below).</p>
-<p>Referencing the entity-properties above, this should read as <em>"allow if the Subject has the ultradb_gui role user".</em></p>
+<p>Referencing the entity-properties above, this should read as <em>“allow if the Subject has the ultradb_gui role user”.</em></p>
 <pre><code class="language-toml">[[policy]]
 label = "allow for GUI admin"
 allow = "Subject.ultradb_gui:role contains ultradb_gui:role:admin"
 </code></pre>
-<p>This defines a <a href="documents.html#policy">policy</a> called <code>"allow for GUI admin"</code>, similar to the one above.</p>
-<p>Referencing the entity-properties above, this should read as <em>"allow if the Subject has the ultradb_gui role admin".</em></p>
+<p>This defines a <a href="#policy">policy</a> called <code>"allow for GUI admin"</code>, similar to the one above.</p>
+<p>Referencing the entity-properties above, this should read as <em>“allow if the Subject has the ultradb_gui role admin”.</em></p>
 <pre><code class="language-toml">[[policy-binding]]
 attributes = ["ultradb:action:read"]
 policies = ["allow for GUI user", "allow for GUI admin"]
 </code></pre>
-<p>This defines a <a href="documents.html#policy-binding">policy-binding</a>, from a list of policies to a list of colon-separated attribute triplets (<code>namespace:label:attribute</code>).</p>
-<p>Referencing the resource-properties and policies, this should read as <em>"GUI users and GUI admins are allowed the ultradb action read"</em>.</p>
+<p>This defines a <a href="#policy-binding">policy-binding</a>, from a list of policies to a list of colon-separated attribute triplets (<code>namespace:label:attribute</code>).</p>
+<p>Referencing the resource-properties and policies, this should read as <em>“GUI users and GUI admins are allowed the ultradb action read”</em>.</p>
 <pre><code class="language-toml">[[policy-binding]]
 attributes = ["ultradb:action:write"]
 policies = ["allow for GUI admin"]
 </code></pre>
-<p>This defines a <a href="documents.html#policy-binding">policy-binding</a>, from a list of policies to a list of colon-separated attribute triplets (<code>namespace:label:attribute</code>).</p>
-<p>Referencing the resource-properties and policies, this should read as <em>"GUI admins are allowed the ultradb action write"</em>.</p>
+<p>This defines a <a href="#policy-binding">policy-binding</a>, from a list of policies to a list of colon-separated attribute triplets (<code>namespace:label:attribute</code>).</p>
+<p>Referencing the resource-properties and policies, this should read as <em>“GUI admins are allowed the ultradb action write”</em>.</p>
 <pre><code class="language-toml">[[entity]]
 eid = "p.96bf83f88cbf455fa356553f7fca1b9e"
 label = "Mr. User"
 </code></pre>
-<p>This defines a (persona) <a href="documents.html#entity">entity</a>, <code>"Mr. User"</code>. For now, they don't have any access credentials.</p>
+<p>This defines a (persona) <a href="#entity">entity</a>, <code>"Mr. User"</code>. For now, they don’t have any access credentials.</p>
 <p>Persona entity ids are prefixed by <code>p.</code>.</p>
 <pre><code class="language-toml">[[entity]]
 eid = "p.81dc1da0fa644142bad35043a9c3b025"
 label = "Ms. Admin"
 </code></pre>
-<p>This defines a (persona) <a href="documents.html#entity">entity</a>, <code>"Ms. Admin"</code>. For now, they don't have any access credentials.</p>
+<p>This defines a (persona) <a href="#entity">entity</a>, <code>"Ms. Admin"</code>. For now, they don’t have any access credentials.</p>
 <pre><code class="language-toml">[[entity-attribute-assignment]]
 entity = "Mr. User"
 attributes = ["ultradb_gui:role:user"]
 </code></pre>
-<p>This defines an <a href="documents.html#entity-attribute-assignment">entity-attribute-assignment</a>.</p>
-<p>Referencing the entities and entity-properties above, this should read as <em>"Mr. User has the ultradb_gui role user"</em>.</p>
+<p>This defines an <a href="#entity-attribute-assignment">entity-attribute-assignment</a>.</p>
+<p>Referencing the entities and entity-properties above, this should read as <em>“Mr. User has the ultradb_gui role user”</em>.</p>
 <pre><code class="language-toml">[[entity-attribute-assignment]]
 entity = "Ms. Admin"
 attributes = ["ultradb_gui:role:admin"]
 </code></pre>
-<p>This defines an <a href="documents.html#entity-attribute-assignment">entity-attribute-assignment</a>.</p>
-<p>Referencing the entities and entity-properties above, this should read as <em>"Ms. Admin has the ultradb_gui role admin"</em>.</p>
-<p>To summarize, this document defines three <a href="documents.html#service-entity">service-entities</a>, and allows anyone to authenticate and resolve an authentication token through the service "arx" (if they had credentials). We define some <a href="documents.html#entity-property">entity-properties</a> and <a href="documents.html#resource-property">resource-properties</a> to describe our access control model, and <a href="documents.html#policy">policies</a> are bound to the resource-properties through <a href="documents.html#policy-binding">policy-bindings</a>. Finally, a pair of <a href="documents.html#entity">entities</a> are defined, and are assigned entity attributes through <a href="documents.html#entity-attribute-assignment">entity-attribute-assignments</a>.</p>
+<p>This defines an <a href="#entity-attribute-assignment">entity-attribute-assignment</a>.</p>
+<p>Referencing the entities and entity-properties above, this should read as <em>“Ms. Admin has the ultradb_gui role admin”</em>.</p>
+<p>To summarize, this document defines three <a href="#service-entity">service-entities</a>, and allows anyone to authenticate and resolve an authentication token through the service “arx” (if they had credentials). We define some <a href="#entity-property">entity-properties</a> and <a href="#resource-property">resource-properties</a> to describe our access control model, and <a href="#policy">policies</a> are bound to the resource-properties through <a href="#policy-binding">policy-bindings</a>. Finally, a pair of <a href="#entity">entities</a> are defined, and are assigned entity attributes through <a href="#entity-attribute-assignment">entity-attribute-assignments</a>.</p>
 <h2 id="clauses"><a class="header" href="#clauses">Clauses</a></h2>
 <h3 id="authly-document"><a class="header" href="#authly-document"><code>[authly-document]</code></a></h3>
 <p><em>Required</em>. Metadata about the document. Every document must have one of these clauses the top.</p>
@@ -290,7 +314,7 @@ id = "3ef3430a-6499-497c-b8eb-00516a22f326"
 <ul>
 <li><code>eid</code>: <em>Required</em>. The entity id. Persona entity ids are prefixed by <code>p.</code>, while group entity ids are prefixed by <code>g.</code>. The value is a hex-encoded 128-bit value.</li>
 <li><code>label</code>: A label for the entity visible in the document namespace.</li>
-<li><code>attributes</code>: Attributes bound to the entity. See <a href="documents.html#entity-attribute-assignment">entity-attribute-assignment</a>.</li>
+<li><code>attributes</code>: Attributes bound to the entity. See <a href="#entity-attribute-assignment">entity-attribute-assignment</a>.</li>
 <li><code>username</code>: A list of usernames.</li>
 <li><code>email</code>: A list of email addresses.</li>
 <li><code>password-hash</code>: A list of password hashes.</li>
@@ -311,7 +335,7 @@ password-hash = [
 <ul>
 <li><code>eid</code>: <em>Required</em>. The entity id. Service entity ids are prefixed by <code>s.</code>.</li>
 <li><code>label</code>: A label for the entity visible in the document namespace.</li>
-<li><code>attributes</code>: Attributes bound to the entity. See <a href="documents.html#entity-attribute-assignment">entity-attribute-assignment</a>.</li>
+<li><code>attributes</code>: Attributes bound to the entity. See <a href="#entity-attribute-assignment">entity-attribute-assignment</a>.</li>
 <li><code>metadata</code>: Metadata about this entity. The metadata is not used by authly itself, but can be used by services which have read access to the entity.</li>
 <li><code>hosts</code>: List of service hostnames.</li>
 <li><code>kubernetes-account</code>: An optional Kubernetes account definition.</li>
@@ -325,7 +349,7 @@ kubernetes-account = { name = "service", namespace = "myspace" }
 </code></pre>
 <h3 id="email"><a class="header" href="#email"><code>[[email]]</code></a></h3>
 <p>An email address assignment.</p>
-<p>Can also be given as part of an <code>email</code> property list of an <a href="documents.html#entity"><code>[[entity]]</code></a> clause.</p>
+<p>Can also be given as part of an <code>email</code> property list of an <a href="#entity"><code>[[entity]]</code></a> clause.</p>
 <p><strong>Properties:</strong></p>
 <ul>
 <li><code>entity</code>: The label of the entity that is assigned this address.</li>
@@ -338,7 +362,7 @@ value = "me@mail.com"
 </code></pre>
 <h3 id="password-hash"><a class="header" href="#password-hash"><code>[[password-hash]]</code></a></h3>
 <p>A password hash assignment.</p>
-<p>Can also be given as part of a <code>password-hash</code> property list of an <a href="documents.html#entity"><code>[[entity]]</code></a> clause.</p>
+<p>Can also be given as part of a <code>password-hash</code> property list of an <a href="#entity"><code>[[entity]]</code></a> clause.</p>
 <p><strong>Properties:</strong></p>
 <ul>
 <li><code>entity</code>: The label of the entity that is assigned this password.</li>
@@ -402,7 +426,7 @@ attributes = ["user", "admin"]
 </code></pre>
 <h3 id="entity-attribute-assignment"><a class="header" href="#entity-attribute-assignment"><code>[[entity-attribute-assignment]]</code></a></h3>
 <p>An entity attribute binding, which assigns attributes to entities.</p>
-<p>Can also be given as part of a <code>attributes</code> property list on an <a href="documents.html#entity"><code>[[entity]]</code></a> or <a href="documents.html#service-entity"><code>[[service-entity]]</code></a>.</p>
+<p>Can also be given as part of a <code>attributes</code> property list on an <a href="#entity"><code>[[entity]]</code></a> or <a href="#service-entity"><code>[[service-entity]]</code></a>.</p>
 <p><strong>Properties:</strong></p>
 <ul>
 <li><code>entity</code>: <em>Required</em>. An Entity ID or label identifying the entity to assign to.</li>
@@ -444,7 +468,7 @@ allow = "Subject.authly:entity == service"
 </code></pre>
 <h3 id="policy-binding"><a class="header" href="#policy-binding"><code>[[policy-binding]]</code></a></h3>
 <p>A policy binding.</p>
-<p>A policy binding makes policies <em>applicable</em> in the context of the binding's attribute matcher.</p>
+<p>A policy binding makes policies <em>applicable</em> in the context of the binding’s attribute matcher.</p>
 <p><strong>Properties:</strong></p>
 <ul>
 <li><code>attributes</code>: <em>Required</em>. A set of attribute triples that must be matched for the selected policies to apply.</li>
@@ -455,7 +479,8 @@ allow = "Subject.authly:entity == service"
 attributes = ["service:action:read"]
 policies = ["allow for service"]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="authly-environment-variables"><a class="header" href="#authly-environment-variables">Authly environment variables</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="authly-environment-variables"><a class="header" href="#authly-environment-variables">Authly environment variables</a></h1>
 <p>Configuration values are always read from the environment.</p>
 <p>These values are closely tied to the platform Authly runs on,
 and are not runtime-configurable.</p>
@@ -526,6 +551,11 @@ and are not runtime-configurable.</p>
 
         </div>
 
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
 
 
 
@@ -534,13 +564,13 @@ and are not runtime-configurable.</p>
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
 
@@ -549,6 +579,7 @@ and are not runtime-configurable.</p>
             window.setTimeout(window.print, 100);
         });
         </script>
+
 
     </div>
     </body>
